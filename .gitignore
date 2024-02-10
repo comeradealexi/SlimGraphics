@@ -1,0 +1,13 @@
+CrossPlatformGFX/.vs/
+CrossPlatformGFX/x64/
+CrossPlatformGFX/Debug/
+D3D11/D3D11/Debug/
+D3D11/D3D11/x64/
+SimpleConsoleProject/Debug/
+SimpleConsoleProject/x64/
+LocalIgnore/
+*.cso
+*.suo
+*.VB.db
+*.ipch
+CustomBuildTool/.vs/

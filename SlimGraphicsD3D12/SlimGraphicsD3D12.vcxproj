@@ -144,6 +144,7 @@
     <ClInclude Include="sgD3D12Device.h" />
     <ClInclude Include="sgD3D12Include.h" />
     <ClInclude Include="sgD3D12Memory.h" />
+    <ClInclude Include="sgD3D12Shaders.h" />
     <ClInclude Include="sgPlatformInclude.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="shD3D12CommandBuffer.h" />
@@ -157,6 +158,7 @@
     </ClCompile>
     <ClCompile Include="sgD3D12Device.cpp" />
     <ClCompile Include="sgD3D12Memory.cpp" />
+    <ClCompile Include="sgD3D12Shaders.cpp" />
     <ClCompile Include="shD3D12CommandBuffer.cpp" />
     <ClCompile Include="SlimGraphicsD3D12.cpp" />
   </ItemGroup>
