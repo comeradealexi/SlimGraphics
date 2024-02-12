@@ -97,4 +97,24 @@ namespace sg
 
 		};
 	}
+
+	//Forward declarations of bindings
+	class ConstantBufferView;
+	class ShaderResourceView;
+	class UnorderedAccessView;
+	class Sampler;
+
+	struct Binding
+	{
+		//enum class Type { ConstantBufferView, ShaderResourceView, UnorderedAccessView, Sampler };
+		u32 cbv_binding_count = 0;
+		u32 srv_binding_count = 0;
+		u32 uav_binding_count = 0;
+		u32 sampler_binding_count = 0;
+		
+		ConstantBufferView* cbvs = nullptr;
+		ShaderResourceView* srvs = nullptr;
+		UnorderedAccessView* uavs = nullptr;
+		Sampler* samplers = nullptr;
+	};
 }
