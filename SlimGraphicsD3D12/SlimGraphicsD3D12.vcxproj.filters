@@ -27,13 +27,34 @@
     <ClInclude Include="sgD3D12Device.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="shD3D12CommandBuffer.h">
+    <ClInclude Include="sgD3D12CommandBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="sgD3D12Memory.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="sgD3D12Shaders.h">
+    <ClInclude Include="sgD3D12CommandQueue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sgD3D12Buffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sgD3D12Texture.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sgD3D12TextureView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sgD3D12BufferView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sgD3D12Shader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sgD3D12Pipeline.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sgPlatformForwardDeclare.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -47,13 +68,31 @@
     <ClCompile Include="sgD3D12Device.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="shD3D12CommandBuffer.cpp">
+    <ClCompile Include="sgD3D12CommandBuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="sgD3D12Memory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="sgD3D12Shaders.cpp">
+    <ClCompile Include="sgD3D12CommandQueue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sgD3D12Buffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sgD3D12Texture.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sgD3D12TextureView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sgD3D12BufferView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sgD3D12Shader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sgD3D12Pipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

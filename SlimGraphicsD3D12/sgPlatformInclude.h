@@ -1,12 +1,17 @@
 #pragma once
+#include "sgPlatformForwardDeclare.h"
 #include <sgTypes.h>
 #include "sgD3D12Device.h"
 #include "sgD3D12Memory.h"
+#include "sgD3D12Shader.h"
+#include "sgD3D12CommandBuffer.h"
+#include "sgD3D12CommandQueue.h"
+#include "sgD3D12Buffer.h"
+#include "sgD3D12Texture.h"
+#include "sgD3D12TextureView.h"
+#include "sgD3D12BufferView.h"
+#include "sgD3D12Pipeline.h"
 
-#define SG_PLATFORM_D3D12 (1)
-
-namespace sg
-{
-	using Device = D3D12::Device;
-	using Memory = D3D12::Memory;
-}
+#ifndef SG_PLATFORM_D3D12
+#error Expecting SG_PLATFORM_D3D12 to be defined
+#endif

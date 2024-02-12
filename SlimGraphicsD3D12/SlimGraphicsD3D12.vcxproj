@@ -141,13 +141,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="sgD3D12Buffer.h" />
+    <ClInclude Include="sgD3D12BufferView.h" />
+    <ClInclude Include="sgD3D12CommandQueue.h" />
     <ClInclude Include="sgD3D12Device.h" />
     <ClInclude Include="sgD3D12Include.h" />
     <ClInclude Include="sgD3D12Memory.h" />
-    <ClInclude Include="sgD3D12Shaders.h" />
+    <ClInclude Include="sgD3D12Pipeline.h" />
+    <ClInclude Include="sgD3D12Shader.h" />
+    <ClInclude Include="sgD3D12Texture.h" />
+    <ClInclude Include="sgD3D12TextureView.h" />
+    <ClInclude Include="sgPlatformForwardDeclare.h" />
     <ClInclude Include="sgPlatformInclude.h" />
     <ClInclude Include="pch.h" />
-    <ClInclude Include="shD3D12CommandBuffer.h" />
+    <ClInclude Include="sgD3D12CommandBuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -156,10 +163,16 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="sgD3D12Buffer.cpp" />
+    <ClCompile Include="sgD3D12BufferView.cpp" />
+    <ClCompile Include="sgD3D12CommandQueue.cpp" />
     <ClCompile Include="sgD3D12Device.cpp" />
     <ClCompile Include="sgD3D12Memory.cpp" />
-    <ClCompile Include="sgD3D12Shaders.cpp" />
-    <ClCompile Include="shD3D12CommandBuffer.cpp" />
+    <ClCompile Include="sgD3D12Pipeline.cpp" />
+    <ClCompile Include="sgD3D12Shader.cpp" />
+    <ClCompile Include="sgD3D12CommandBuffer.cpp" />
+    <ClCompile Include="sgD3D12Texture.cpp" />
+    <ClCompile Include="sgD3D12TextureView.cpp" />
     <ClCompile Include="SlimGraphicsD3D12.cpp" />
   </ItemGroup>
   <ItemGroup>

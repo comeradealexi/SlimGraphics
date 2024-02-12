@@ -4,14 +4,9 @@ namespace sg
 {
 	namespace D3D12
 	{
-		class Shader
+		class CommandQueue
 		{
-		public:
-
-		private:
 
 		};
 	}
 }
-
-

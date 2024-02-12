@@ -1,10 +1,11 @@
 #pragma once
+#include "sgD3D12Buffer.h"
 
 namespace sg
 {
 	namespace D3D12
 	{
-		class shD3D12CommandBuffer
+		class Texture : public Buffer
 		{
 
 		};
