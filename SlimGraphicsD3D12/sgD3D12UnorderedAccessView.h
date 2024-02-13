@@ -4,7 +4,7 @@ namespace sg
 {
 	namespace D3D12
 	{
-		class TextureView
+		class UnorderedAccessView
 		{
 
 		};

@@ -3,5 +3,7 @@
 using namespace sg;
 int main()
 {
-	Ptr<Device> device = Ptr<Device>(new Device());
+	SharedPtr<Device> device(new Device());
+	Ptr<CommandQueue> queue = device->create_command_queue();
+	Ptr<CommandList> command_buffer = device->create_command_buffer();
 }

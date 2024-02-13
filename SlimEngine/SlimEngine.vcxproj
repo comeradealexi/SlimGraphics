@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{20cc531c-1ea3-4717-aba7-aa30133f1318}</ProjectGuid>
-    <RootNamespace>SlimGraphicsD3D12</RootNamespace>
+    <ProjectGuid>{05d96440-dbf7-4e40-911a-982148d0f2d4}</ProjectGuid>
+    <RootNamespace>SlimEngine</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -111,8 +111,7 @@
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PrecompiledHeaderFile>se_engine_pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -129,8 +128,7 @@
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PrecompiledHeaderFile>se_engine_pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -141,52 +139,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="sgD3D12Buffer.h" />
-    <ClInclude Include="sgD3D12BufferView.h" />
-    <ClInclude Include="sgD3D12CommandQueue.h" />
-    <ClInclude Include="sgD3D12ConstantBufferView.h" />
-    <ClInclude Include="sgD3D12Device.h" />
-    <ClInclude Include="sgD3D12Include.h" />
-    <ClInclude Include="sgD3D12Memory.h" />
-    <ClInclude Include="sgD3D12Pipeline.h" />
-    <ClInclude Include="sgD3D12RenderTargetView.h" />
-    <ClInclude Include="sgD3D12Sampler.h" />
-    <ClInclude Include="sgD3D12Shader.h" />
-    <ClInclude Include="sgD3D12Texture.h" />
-    <ClInclude Include="sgD3D12ShaderResourceView.h" />
-    <ClInclude Include="sgD3D12UnorderedAccessView.h" />
-    <ClInclude Include="sgPlatformForwardDeclare.h" />
-    <ClInclude Include="sgPlatformInclude.h" />
-    <ClInclude Include="pch.h" />
-    <ClInclude Include="sgD3D12CommandList.h" />
+    <ClInclude Include="seEngineBasicFileIO.h" />
+    <ClInclude Include="se_engine_pch.h" />
+    <ClInclude Include="seEngine.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="pch.cpp">
+    <ClCompile Include="seEngineBasicFileIO.cpp" />
+    <ClCompile Include="se_engine_pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">se_engine_pch.h</PrecompiledHeaderFile>
     </ClCompile>
-    <ClCompile Include="sgD3D12Buffer.cpp" />
-    <ClCompile Include="sgD3D12BufferView.cpp" />
-    <ClCompile Include="sgD3D12CommandQueue.cpp" />
-    <ClCompile Include="sgD3D12ConstantBufferView.cpp" />
-    <ClCompile Include="sgD3D12Device.cpp" />
-    <ClCompile Include="sgD3D12Memory.cpp" />
-    <ClCompile Include="sgD3D12Pipeline.cpp" />
-    <ClCompile Include="sgD3D12RenderTargetView.cpp" />
-    <ClCompile Include="sgD3D12Sampler.cpp" />
-    <ClCompile Include="sgD3D12Shader.cpp" />
-    <ClCompile Include="sgD3D12CommandList.cpp" />
-    <ClCompile Include="sgD3D12Texture.cpp" />
-    <ClCompile Include="sgD3D12ShaderResourceView.cpp" />
-    <ClCompile Include="sgD3D12UnorderedAccessView.cpp" />
-    <ClCompile Include="SlimGraphicsD3D12.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\SlimGraphicsShared\SlimGraphicsShared.vcxproj">
-      <Project>{e34f8c1f-73f9-436c-98b8-fe787311530a}</Project>
-    </ProjectReference>
+    <ClCompile Include="seEngine.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

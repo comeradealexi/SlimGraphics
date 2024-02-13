@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "sgD3D12Device.h"
+#include "sgD3D12CommandQueue.h"
+#include "sgD3D12CommandList.h"
 
 namespace sg
 {
@@ -96,9 +98,30 @@ namespace sg
             GetHardwareAdapter(factory.Get(), &hardware_adapter, true, feature_level);
 
             CHECKHR(D3D12CreateDevice(hardware_adapter.Get(), feature_level, IID_PPV_ARGS(&device)));
-            CHECKHR(device->QueryInterface(IID_PPV_ARGS(&device9)));
+            CHECKHR(device->QueryInterface(IID_PPV_ARGS(&device6)));
 
             features.Init(device.Get());
 		}
+
+        Ptr<CommandQueue> Device::create_command_queue()
+        {
+            ComPtr<ID3D12CommandQueue> queue;
+            D3D12_COMMAND_QUEUE_DESC QueueDesc = {};
+            QueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+            CHECKHR(device->CreateCommandQueue(&QueueDesc, IID_PPV_ARGS(&queue)));
+            CHECKHR(queue->SetName(L"CommandQueue"));
+            return Ptr<CommandQueue>(new CommandQueue(queue));
+        }
+
+        Ptr<CommandList> Device::create_command_buffer()
+        {
+            ComPtr<ID3D12GraphicsCommandList6> command_list;
+            ComPtr<ID3D12CommandAllocator> command_allocator;
+
+            CHECKHR(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&command_allocator)));
+            CHECKHR(device6->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, command_allocator.Get(), nullptr, IID_PPV_ARGS(&command_list)));
+            CHECKHR(command_list->Close());
+            return Ptr<CommandList>(new CommandList(command_list, command_allocator));
+        }
 	}
 }

@@ -11,9 +11,12 @@
 #include <d3dx12_check_feature_support.h>
 #include <d3dx12_resource_helpers.h>
 
+#define USE_PIX
+#include <pix3.h>
+
 using Microsoft::WRL::ComPtr;
 
-#define CHECKHR(x) x
+#define CHECKHR(x) { HRESULT ___hr = x; seAssert(SUCCEEDED(___hr), "HRESULT Failure!"); }
 
 // Assign a name to the object to aid with debugging.
 #if defined(_DEBUG) || defined(DBG)

@@ -27,7 +27,7 @@
     <ClInclude Include="sgD3D12Device.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="sgD3D12CommandBuffer.h">
+    <ClInclude Include="sgD3D12CommandList.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="sgD3D12Memory.h">
@@ -42,7 +42,7 @@
     <ClInclude Include="sgD3D12Texture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="sgD3D12TextureView.h">
+    <ClInclude Include="sgD3D12ShaderResourceView.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="sgD3D12BufferView.h">
@@ -57,6 +57,18 @@
     <ClInclude Include="sgPlatformForwardDeclare.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="sgD3D12RenderTargetView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sgD3D12UnorderedAccessView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sgD3D12ConstantBufferView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sgD3D12Sampler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SlimGraphicsD3D12.cpp">
@@ -68,7 +80,7 @@
     <ClCompile Include="sgD3D12Device.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="sgD3D12CommandBuffer.cpp">
+    <ClCompile Include="sgD3D12CommandList.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="sgD3D12Memory.cpp">
@@ -83,7 +95,7 @@
     <ClCompile Include="sgD3D12Texture.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="sgD3D12TextureView.cpp">
+    <ClCompile Include="sgD3D12ShaderResourceView.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="sgD3D12BufferView.cpp">
@@ -93,6 +105,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="sgD3D12Pipeline.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sgD3D12RenderTargetView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sgD3D12UnorderedAccessView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sgD3D12ConstantBufferView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sgD3D12Sampler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -141,12 +141,6 @@ namespace sg
 		};
 	}
 
-	//Forward declarations of bindings
-	class ConstantBufferView;
-	class ShaderResourceView;
-	class UnorderedAccessView;
-	class Sampler;
-
 	struct BindingDesc
 	{
 		static constexpr size_t MAX_CBVS = 4;

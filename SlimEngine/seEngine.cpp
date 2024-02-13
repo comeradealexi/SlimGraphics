@@ -1,8 +1,6 @@
 #pragma once
+#include "se_engine_pch.h"
 #include "seEngine.h"
-#include <stdio.h>
-#include <stdarg.h>
-#include <mutex>
 
 extern "C"
 {
