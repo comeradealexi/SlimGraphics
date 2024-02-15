@@ -7,7 +7,10 @@ namespace sg
 	{
 		class Texture : public Buffer
 		{
-
+		public:
+			
+		private:
+			ComPtr<ID3D12Resource> resource;
 		};
 	}
 }

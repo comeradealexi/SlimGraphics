@@ -103,6 +103,12 @@ namespace sg
             features.Init(device.Get());
 		}
 
+        Ptr<Memory> Device::allocate_memory(MemoryType type, u64 size, u64 alignment)
+        {
+
+            return Ptr<Memory>();
+        }
+
         Ptr<CommandQueue> Device::create_command_queue()
         {
             ComPtr<ID3D12CommandQueue> queue;
