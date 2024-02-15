@@ -4,3 +4,12 @@
 [submodule "SubModules/D3D12MemoryAllocator"]
 	path = SubModules/D3D12MemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/D3D12MemoryAllocator
+[submodule "SubModules/imgui"]
+	path = SubModules/imgui
+	url = https://github.com/ocornut/imgui
+[submodule "SubModules/implot"]
+	path = SubModules/implot
+	url = https://github.com/epezent/implot
+[submodule "SubModules/DirectXMath"]
+	path = SubModules/DirectXMath
+	url = https://github.com/microsoft/DirectXMath
