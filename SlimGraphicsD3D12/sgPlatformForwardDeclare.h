@@ -45,3 +45,10 @@ namespace sg
 	using UnorderedAccessView = D3D12::UnorderedAccessView;
 	using VertexShader = D3D12::VertexShader;
 }
+
+namespace D3D12MA
+{
+	class Allocation;
+	class Allocator;
+	class Pool;
+}

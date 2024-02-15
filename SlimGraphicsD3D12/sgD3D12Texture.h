@@ -9,8 +9,6 @@ namespace sg
 		{
 		public:
 			
-		private:
-			ComPtr<ID3D12Resource> resource;
 		};
 	}
 }

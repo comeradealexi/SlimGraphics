@@ -3,10 +3,19 @@
 #include "sgD3D12CommandQueue.h"
 #include "sgD3D12CommandList.h"
 
+//D3D12 Memory Allocator
+#include <D3D12MemAlloc.h>
+
 namespace sg
 {
 	namespace D3D12
 	{
+        //https://learn.microsoft.com/en-us/cpp/cpp/pimpl-for-compile-time-encapsulation-modern-cpp?view=msvc-170
+        AllocatorPIMPL::AllocatorPIMPL() = default;
+        AllocatorPIMPL::~AllocatorPIMPL() = default;
+        PoolPIMPL::PoolPIMPL() = default;
+        PoolPIMPL::~PoolPIMPL() = default;
+
         // Helper function for acquiring the first available hardware adapter that supports Direct3D 12.
         // If no such adapter can be found, *ppAdapter will be set to nullptr.
         void GetHardwareAdapter(IDXGIFactory1* pFactory, IDXGIAdapter1** ppAdapter, bool requestHighPerformanceAdapter, D3D_FEATURE_LEVEL feature_level)
@@ -73,6 +82,8 @@ namespace sg
 
 		Device::Device()
 		{
+            seWriteLine("Creating D3D12 Device...");
+
             const D3D_FEATURE_LEVEL feature_level = D3D_FEATURE_LEVEL_12_0;
             UINT dxgiFactoryFlags = 0;
 
@@ -99,14 +110,93 @@ namespace sg
 
             CHECKHR(D3D12CreateDevice(hardware_adapter.Get(), feature_level, IID_PPV_ARGS(&device)));
             CHECKHR(device->QueryInterface(IID_PPV_ARGS(&device6)));
+            seWriteLine("D3D12 Device created.");
 
             features.Init(device.Get());
+           
+            //Create memory allocators
+            {
+                DXGI_ADAPTER_DESC1 adapter_desc;
+                CHECKHR(hardware_adapter->GetDesc1(&adapter_desc));
+                seAssert(adapter_desc.DedicatedVideoMemory > 0, "Expecting DedicatedVideoMemory");
+                const u64 total_memory_to_use = (adapter_desc.DedicatedVideoMemory * ADAPTER_MEMORY_TO_CONSUME_PERCENTAGE) / 100;
+
+                D3D12MA::ALLOCATOR_DESC desc = {};
+                desc.Flags = D3D12MA::ALLOCATOR_FLAG_DEFAULT_POOLS_NOT_ZEROED | D3D12MA::ALLOCATOR_FLAG_SINGLETHREADED;
+                desc.pDevice = device.Get();
+                desc.pAdapter = hardware_adapter.Get();
+                CHECKHR(D3D12MA::CreateAllocator(&desc, &allocator.ptr));
+
+                //mempool_textures
+                {
+                    D3D12MA::POOL_DESC desc = {};
+                    desc.HeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+                    desc.HeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+                    desc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+                    desc.BlockSize = ((total_memory_to_use * TEXTURE_POOL_PERCENTAGE) / 100);
+                    desc.MinBlockCount = 1;
+                    desc.MaxBlockCount = 1;
+                    desc.MinAllocationAlignment = D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT;
+                    CHECKHR(allocator.ptr->CreatePool(&desc, mempool_textures.ptr.GetAddressOf()));
+                    mempool_textures->SetName(L"Texture Heap");
+                }
+
+                //mempool_targets
+                {
+                    D3D12MA::POOL_DESC desc = {};
+                    desc.HeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+                    desc.HeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+                    desc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+                    desc.BlockSize = ((total_memory_to_use * TARGET_POOL_PERCENTAGE) / 100);
+                    desc.MinBlockCount = 1;
+                    desc.MaxBlockCount = 1;
+                    desc.MinAllocationAlignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+                    CHECKHR(allocator.ptr->CreatePool(&desc, mempool_targets.ptr.GetAddressOf()));
+                    mempool_targets->SetName(L"Render & Depth Target Heap");
+                }
+
+                //mempool_buffers
+                {
+                    D3D12MA::POOL_DESC desc = {};
+                    desc.HeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+                    desc.HeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+                    desc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+                    desc.BlockSize = ((total_memory_to_use * BUFFER_POOL_PERCENTAGE) / 100);
+                    desc.MinBlockCount = 1;
+                    desc.MaxBlockCount = 1;
+                    desc.MinAllocationAlignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+                    CHECKHR(allocator.ptr->CreatePool(&desc, mempool_buffers.ptr.GetAddressOf()));
+                    mempool_buffers->SetName(L"Buffer Heap");
+                }
+                seWriteLine("Created all allocators.");
+            }
+
 		}
 
-        Ptr<Memory> Device::allocate_memory(MemoryType type, u64 size, u64 alignment)
+        Ptr<Memory> Device::allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment)
         {
+            D3D12MA::Pool* pool = nullptr;
+            if (type == MemoryType::GPUOptimal)
+            {
+                switch (sub_type)
+                {
+                case MemorySubType::Texture: pool = mempool_textures.ptr.Get(); break;
+                case MemorySubType::Target: pool = mempool_targets.ptr.Get(); break;
+                case MemorySubType::Buffer: pool = mempool_buffers.ptr.Get(); break;
+                default:
+                    seAssert(false, "Missing Pool Type")
+                }
+            }
 
-            return Ptr<Memory>();
+            D3D12MA::ALLOCATION_DESC ad = {};
+            ad.CustomPool = pool;
+
+            D3D12_RESOURCE_ALLOCATION_INFO alloc_info{ size, alignment };
+
+            ComPtr<D3D12MA::Allocation> out_alloc;
+            CHECKHR(allocator->AllocateMemory(&ad, &alloc_info, out_alloc.GetAddressOf()));
+
+            return Ptr<Memory>(new Memory(out_alloc.Get()));
         }
 
         Ptr<CommandQueue> Device::create_command_queue()

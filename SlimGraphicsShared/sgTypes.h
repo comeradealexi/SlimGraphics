@@ -23,6 +23,11 @@ namespace sg
 		GPUOptimal, Upload, Readback
 	};
 
+	enum class MemorySubType
+	{
+		None, Texture, Target, Buffer
+	};
+
 	enum class Topology
 	{
 		Undefined, Point, Line,	Triangle, Patch
