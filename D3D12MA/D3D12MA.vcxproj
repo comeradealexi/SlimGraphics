@@ -18,11 +18,20 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\SubModules\D3D12MemoryAllocator\src\Common.cpp" />
+    <ClCompile Include="..\SubModules\D3D12MemoryAllocator\src\D3D12MemAlloc.cpp" />
+    <ClCompile Include="..\SubModules\D3D12MemoryAllocator\src\D3D12Sample.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\SubModules\D3D12MemoryAllocator\include\D3D12MemAlloc.h" />
+    <ClInclude Include="..\SubModules\D3D12MemoryAllocator\src\Common.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{20cc531c-1ea3-4717-aba7-aa30133f1318}</ProjectGuid>
-    <RootNamespace>SlimGraphicsD3D12</RootNamespace>
+    <ProjectGuid>{6ad98149-cdbd-4b3c-b1d6-ddb12d5bc54b}</ProjectGuid>
+    <RootNamespace>D3D12MA</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -110,9 +119,10 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\D3D12MemoryAllocator\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>..\SubModules\D3D12MemoryAllocator\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -128,9 +138,10 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\D3D12MemoryAllocator\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>..\SubModules\D3D12MemoryAllocator\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -140,57 +151,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClInclude Include="sgD3D12Buffer.h" />
-    <ClInclude Include="sgD3D12BufferView.h" />
-    <ClInclude Include="sgD3D12CommandQueue.h" />
-    <ClInclude Include="sgD3D12ConstantBufferView.h" />
-    <ClInclude Include="sgD3D12Device.h" />
-    <ClInclude Include="sgD3D12Include.h" />
-    <ClInclude Include="sgD3D12Memory.h" />
-    <ClInclude Include="sgD3D12Pipeline.h" />
-    <ClInclude Include="sgD3D12RenderTargetView.h" />
-    <ClInclude Include="sgD3D12Sampler.h" />
-    <ClInclude Include="sgD3D12Shader.h" />
-    <ClInclude Include="sgD3D12Texture.h" />
-    <ClInclude Include="sgD3D12ShaderResourceView.h" />
-    <ClInclude Include="sgD3D12UnorderedAccessView.h" />
-    <ClInclude Include="sgPlatformForwardDeclare.h" />
-    <ClInclude Include="sgPlatformInclude.h" />
-    <ClInclude Include="pch.h" />
-    <ClInclude Include="sgD3D12CommandList.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="sgD3D12Buffer.cpp" />
-    <ClCompile Include="sgD3D12BufferView.cpp" />
-    <ClCompile Include="sgD3D12CommandQueue.cpp" />
-    <ClCompile Include="sgD3D12ConstantBufferView.cpp" />
-    <ClCompile Include="sgD3D12Device.cpp" />
-    <ClCompile Include="sgD3D12Memory.cpp" />
-    <ClCompile Include="sgD3D12Pipeline.cpp" />
-    <ClCompile Include="sgD3D12RenderTargetView.cpp" />
-    <ClCompile Include="sgD3D12Sampler.cpp" />
-    <ClCompile Include="sgD3D12Shader.cpp" />
-    <ClCompile Include="sgD3D12CommandList.cpp" />
-    <ClCompile Include="sgD3D12Texture.cpp" />
-    <ClCompile Include="sgD3D12ShaderResourceView.cpp" />
-    <ClCompile Include="sgD3D12UnorderedAccessView.cpp" />
-    <ClCompile Include="SlimGraphicsD3D12.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\D3D12MA\D3D12MA.vcxproj">
-      <Project>{6ad98149-cdbd-4b3c-b1d6-ddb12d5bc54b}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\SlimGraphicsShared\SlimGraphicsShared.vcxproj">
-      <Project>{e34f8c1f-73f9-436c-98b8-fe787311530a}</Project>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

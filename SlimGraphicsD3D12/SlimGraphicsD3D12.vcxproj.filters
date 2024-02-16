@@ -13,9 +13,6 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="D3D12MemoryAllocator">
-      <UniqueIdentifier>{fab2f7c8-3949-4b3f-9c70-922541e81228}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sgD3D12Include.h">
@@ -72,12 +69,6 @@
     <ClInclude Include="sgD3D12Sampler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\SubModules\D3D12MemoryAllocator\include\D3D12MemAlloc.h">
-      <Filter>D3D12MemoryAllocator</Filter>
-    </ClInclude>
-    <ClInclude Include="..\SubModules\D3D12MemoryAllocator\src\Common.h">
-      <Filter>D3D12MemoryAllocator</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SlimGraphicsD3D12.cpp">
@@ -127,12 +118,6 @@
     </ClCompile>
     <ClCompile Include="sgD3D12Sampler.cpp">
       <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\SubModules\D3D12MemoryAllocator\src\Common.cpp">
-      <Filter>D3D12MemoryAllocator</Filter>
-    </ClCompile>
-    <ClCompile Include="..\SubModules\D3D12MemoryAllocator\src\D3D12MemAlloc.cpp">
-      <Filter>D3D12MemoryAllocator</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
