@@ -2,6 +2,7 @@
 #include "sgPlatformForwardDeclare.h"
 #include <sgTypes.h>
 #include "sgD3D12Device.h"
+#include "sgD3D12Shader.h"
 #include "sgD3D12Memory.h"
 #include "sgD3D12Shader.h"
 #include "sgD3D12CommandList.h"

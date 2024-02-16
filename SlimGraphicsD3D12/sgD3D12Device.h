@@ -2,6 +2,7 @@
 #include <sgTypes.h>
 #include "sgD3D12Include.h"
 #include "sgD3D12Memory.h"
+#include "sgD3D12Shader.h"
 
 namespace sg
 {
@@ -17,6 +18,7 @@ namespace sg
 			}
 			ComPtr<D3D12MA::Allocator> ptr;
 		};
+
 		struct PoolPIMPL
 		{
 			PoolPIMPL();
@@ -27,6 +29,7 @@ namespace sg
 			}
 			ComPtr<D3D12MA::Pool> ptr;
 		};
+
 		class Device
 		{
 		public:
@@ -42,6 +45,9 @@ namespace sg
 
 			Ptr<CommandQueue> create_command_queue();
 			Ptr<CommandList> create_command_buffer();
+
+			Ptr<VertexShader> create_vertex_shader(uint8_t* data, u64 size);
+			Ptr<PixelShader> create_pixel_shader(uint8_t* data, u64 size);
 
 			//Memory
 		private:

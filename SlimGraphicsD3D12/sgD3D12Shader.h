@@ -6,22 +6,30 @@ namespace sg
 	{
 		class Shader
 		{
+		public:
+			Shader(CD3DX12_SHADER_BYTECODE code) : shader_code(code) { }
+			
+		private:
+			CD3DX12_SHADER_BYTECODE shader_code;
+		};
+
+		class ComputeShader : public Shader
+		{
+		public:
+			ComputeShader(CD3DX12_SHADER_BYTECODE code) : Shader(code) { }
+		};
+
+		class VertexShader : public Shader
+		{
+		public:
+			VertexShader(CD3DX12_SHADER_BYTECODE code) : Shader(code) { }
 
 		};
 
-		class ComputeShader
+		class PixelShader : public Shader
 		{
-
-		};
-
-		class VertexShader
-		{
-
-		};
-
-		class PixelShader
-		{
-
+		public:
+			PixelShader(CD3DX12_SHADER_BYTECODE code) : Shader(code) { }
 		};
 	}
 }

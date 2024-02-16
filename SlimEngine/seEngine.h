@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <memory>
 
 #ifdef _DEBUG
 #define SE_USE_DEBUG_OUTPUT
@@ -35,3 +36,12 @@ namespace se
 #else
 #define seAssert(...)
 #endif
+
+namespace se
+{
+	template <typename T>
+	using Ptr = std::unique_ptr<T>;
+
+	template <typename T>
+	using SharedPtr = std::shared_ptr<T>;
+}

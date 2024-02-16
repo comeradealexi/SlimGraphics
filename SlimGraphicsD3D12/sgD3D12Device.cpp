@@ -219,5 +219,17 @@ namespace sg
             CHECKHR(command_list->Close());
             return Ptr<CommandList>(new CommandList(command_list, command_allocator));
         }
+
+        Ptr<VertexShader> Device::create_vertex_shader(uint8_t* data, u64 size)
+        {
+            CD3DX12_SHADER_BYTECODE code(data, size);
+            return Ptr<VertexShader>(new VertexShader(code));
+        }
+
+        Ptr<PixelShader> Device::create_pixel_shader(uint8_t* data, u64 size)
+        {
+            CD3DX12_SHADER_BYTECODE code(data, size);
+            return Ptr<PixelShader>(new PixelShader(code));
+        }
 	}
 }

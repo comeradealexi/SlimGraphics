@@ -7,8 +7,14 @@
 #ifndef SE_ENGINE_PCH_H
 #define SE_ENGINE_PCH_H
 
+#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
+#define NOMINMAX
+#include <seEngine.h>
+#include <windows.h>
+#include <windowsx.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <mutex>
+#include <chrono>
 
 #endif //PCH_H

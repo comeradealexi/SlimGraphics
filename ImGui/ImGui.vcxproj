@@ -18,11 +18,26 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\SubModules\imgui\imconfig.h" />
+    <ClInclude Include="..\SubModules\imgui\imgui.h" />
+    <ClInclude Include="..\SubModules\imgui\imgui_internal.h" />
+    <ClInclude Include="..\SubModules\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\SubModules\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\SubModules\imgui\imstb_truetype.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\SubModules\imgui\imgui.cpp" />
+    <ClCompile Include="..\SubModules\imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\SubModules\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\SubModules\imgui\imgui_tables.cpp" />
+    <ClCompile Include="..\SubModules\imgui\imgui_widgets.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{05d96440-dbf7-4e40-911a-982148d0f2d4}</ProjectGuid>
-    <RootNamespace>SlimEngine</RootNamespace>
+    <ProjectGuid>{f9d9bd80-2278-421c-abda-bfa4e5f3f81a}</ProjectGuid>
+    <RootNamespace>ImGui</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -110,9 +125,10 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>se_engine_pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>.;..\SubModules\imgui\backends;..\SubModules\imgui</AdditionalIncludeDirectories>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>..\SubModules\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -128,9 +144,10 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>se_engine_pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>.;..\SubModules\imgui\backends;..\SubModules\imgui</AdditionalIncludeDirectories>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
+      <AdditionalIncludeDirectories>..\SubModules\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -140,29 +157,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClInclude Include="seEngineBasicFileIO.h" />
-    <ClInclude Include="se_engine_pch.h" />
-    <ClInclude Include="seEngine.h" />
-    <ClInclude Include="Win32\seWindow.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="seEngineBasicFileIO.cpp" />
-    <ClCompile Include="se_engine_pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">se_engine_pch.h</PrecompiledHeaderFile>
-    </ClCompile>
-    <ClCompile Include="seEngine.cpp" />
-    <ClCompile Include="Win32\seWindow.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\ImGui\ImGui.vcxproj">
-      <Project>{f9d9bd80-2278-421c-abda-bfa4e5f3f81a}</Project>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
