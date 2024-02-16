@@ -9,7 +9,6 @@ namespace sg
 		public:
 			Shader(CD3DX12_SHADER_BYTECODE code) : shader_code(code) { }
 			
-		private:
 			CD3DX12_SHADER_BYTECODE shader_code;
 		};
 

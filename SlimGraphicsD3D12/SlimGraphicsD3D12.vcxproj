@@ -157,6 +157,7 @@
     <ClInclude Include="sgD3D12Shader.h" />
     <ClInclude Include="sgD3D12Texture.h" />
     <ClInclude Include="sgD3D12ShaderResourceView.h" />
+    <ClInclude Include="sgD3D12TypesTranslator.h" />
     <ClInclude Include="sgD3D12UnorderedAccessView.h" />
     <ClInclude Include="sgPlatformForwardDeclare.h" />
     <ClInclude Include="sgPlatformInclude.h" />

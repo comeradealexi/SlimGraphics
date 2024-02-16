@@ -7,6 +7,7 @@ namespace sg
 	{
 		class Texture : public Buffer
 		{
+			friend class Device;
 		public:
 			
 		};

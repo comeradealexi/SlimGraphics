@@ -51,7 +51,9 @@ namespace sg
 			Ptr<VertexShader> create_vertex_shader(uint8_t* data, u64 size);
 			Ptr<PixelShader> create_pixel_shader(uint8_t* data, u64 size);
 
-			bool create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, Ptr<RenderTargetView>* rtv_list);
+			bool create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list);
+
+			Ptr<Pipeline> create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc);
 
 		private:
 			void create_descriptors();

@@ -35,7 +35,7 @@ namespace sg
 	using ConstantBufferView = D3D12::ConstantBufferView;
 	using Device = D3D12::Device;
 	using Memory = D3D12::Memory;
-	using PipeLine = D3D12::Pipeline;
+	using Pipeline = D3D12::Pipeline;
 	using PixelShader = D3D12::PixelShader;
 	using RenderTargetView = D3D12::RenderTargetView;
 	using Sampler = D3D12::Sampler;

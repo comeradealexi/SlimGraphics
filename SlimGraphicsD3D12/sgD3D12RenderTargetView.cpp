@@ -5,6 +5,9 @@ namespace sg
 {
 	namespace D3D12
 	{
+		RenderTargetView::~RenderTargetView()
+		{
 
+		}
 	}
 }

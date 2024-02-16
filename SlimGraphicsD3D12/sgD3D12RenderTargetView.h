@@ -9,9 +9,9 @@ namespace sg
 		class RenderTargetView
 		{
 		public:
-			RenderTargetView(SharedPtr<Texture> texture);
+			~RenderTargetView();
 
-		private:
+			CD3DX12_CPU_DESCRIPTOR_HANDLE rtv;
 			SharedPtr<Texture> texture_resource;
 		};
 	}

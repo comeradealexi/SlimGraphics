@@ -12,6 +12,7 @@
 #include "sgD3D12ShaderResourceView.h"
 #include "sgD3D12BufferView.h"
 #include "sgD3D12Pipeline.h"
+#include "sgD3D12RenderTargetView.h"
 
 #ifndef SG_PLATFORM_D3D12
 #error Expecting SG_PLATFORM_D3D12 to be defined

@@ -6,6 +6,7 @@ namespace sg
 	{
 		class Buffer
 		{
+			friend class Device;
 		public:
 
 		protected:

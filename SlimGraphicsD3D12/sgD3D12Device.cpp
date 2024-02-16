@@ -2,6 +2,8 @@
 #include "sgD3D12Device.h"
 #include "sgD3D12CommandQueue.h"
 #include "sgD3D12CommandList.h"
+#include "sgD3D12RenderTargetView.h"
+#include "sgD3D12Pipeline.h"
 
 //D3D12 Memory Allocator
 #include <D3D12MemAlloc.h>
@@ -233,7 +235,20 @@ namespace sg
             return Ptr<PixelShader>(new PixelShader(code));
         }
 
-        bool Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, Ptr<RenderTargetView>* rtv_list)
+        Ptr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
+        {
+            D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
+            {
+                psoDesc.VS = pipeline_desc.vertex_shader ? pipeline_desc.vertex_shader->shader_code : CD3DX12_SHADER_BYTECODE();
+                psoDesc.PS = pipeline_desc.pixel_shader ? pipeline_desc.pixel_shader->shader_code : CD3DX12_SHADER_BYTECODE();
+
+            }
+            Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline());
+            CHECKHR(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(out_pipeline->pipeline.GetAddressOf())));
+            return out_pipeline;
+        }
+
+        bool Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list)
         {
             DXGI_SWAP_CHAIN_DESC1 desc = {};
             desc.BufferCount = buffer_count;
@@ -248,8 +263,12 @@ namespace sg
 
             for (u32 i = 0; i < buffer_count; i++)
             {
-                CHECKHR(swap_chain->GetBuffer(i, IID_PPV_ARGS(&m_renderTargets[i])));
-                device->CreateRenderTargetView(m_renderTargets[i].Get(), nullptr, rtvHandle);
+                SharedPtr<Texture> texture_resource = SharedPtr<Texture>(new Texture());
+                rtv_list[i].texture_resource = texture_resource;
+                CHECKHR(swap_chain->GetBuffer(i, IID_PPV_ARGS(texture_resource->resource.GetAddressOf())));
+
+                rtv_list[i].rtv = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtv_descriptor_heap->get_cpu_handle_heap_start(), rtv_descriptor_heap->allocate(), rtv_descriptor_heap->get_increment_size());
+                device->CreateRenderTargetView(texture_resource->resource.Get(), nullptr, rtv_list[i].rtv);
             }
 
             return SUCCEEDED(hr);
@@ -286,7 +305,7 @@ namespace sg
                 ComPtr<ID3D12DescriptorHeap> heap;
                 D3D12_DESCRIPTOR_HEAP_DESC dsvDesc = {};
                 dsvDesc.NumDescriptors = DESCRIPTOR_COUNT;
-                dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+                dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
                 dsvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
                 CHECKHR(device->CreateDescriptorHeap(&dsvDesc, IID_PPV_ARGS(&heap)));
                 heap->SetName(L"DSV Heap");
@@ -298,7 +317,7 @@ namespace sg
                 ComPtr<ID3D12DescriptorHeap> heap;
                 D3D12_DESCRIPTOR_HEAP_DESC splrDesc = {};
                 splrDesc.NumDescriptors = DESCRIPTOR_COUNT;
-                splrDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+                splrDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
                 splrDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
                 CHECKHR(device->CreateDescriptorHeap(&splrDesc, IID_PPV_ARGS(&heap)));
                 heap->SetName(L"Sampler Heap");

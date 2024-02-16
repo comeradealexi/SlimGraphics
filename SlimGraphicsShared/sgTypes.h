@@ -63,12 +63,84 @@ namespace sg
 
 	namespace Blend
 	{
+		enum class Type
+		{
+			Zero = 1,
+			One = 2,
+			Src_color = 3,
+			Inv_src_color = 4,
+			Src_alpha = 5,
+			Inv_src_alpha = 6,
+			Dest_alpha = 7,
+			Inv_dest_alpha = 8,
+			Dest_color = 9,
+			Inv_dest_color = 10,
+			Src_alpha_sat = 11,
+			Blend_factor = 14,
+			Inv_blend_factor = 15,
+			Src1_color = 16,
+			Inv_src1_color = 17,
+			Src1_alpha = 18,
+			Inv_src1_alpha = 19,
+			Alpha_factor = 20,
+			Inv_alpha_factor = 21
+		};
 
+		enum class Operation
+		{
+			Add, Subtract, ReverseSubtract, Min, Max
+		};
+
+		enum class LogicOperation
+		{
+			Clear = 0,
+			Set,
+			Copy,
+			Copy_inverted,
+			Noop,
+			Invert,
+			And,
+			Nand,
+			Or,
+			Nor,
+			Xor,
+			Equiv,
+			And_reverse,
+			And_inverted,
+			Or_reverse,
+			Or_inverted
+		};
+		
+		struct RenderTargetDesc
+		{
+			bool blend_enable = false;
+			bool logic_op_enable = false;
+			Type src_blend = Type::One;
+			Type dest_blend = Type::Zero;
+			Operation blend_op = Operation::Add;
+			Type src_blend_alpha = Type::One;
+			Type dest_blend_alpha = Type::Zero;
+			Operation blend_op_alpha = Operation::Add;
+			LogicOperation logic_op = LogicOperation::Noop;
+			uint8_t render_target_write_mask = 0xff;
+		};
+
+		struct Desc
+		{
+			bool alpha_to_coverage_enable = false;
+			bool independent_blend_enable = false;
+			RenderTargetDesc render_targets[8];
+		};
 	}
 
 	enum class ComparisonFunction
 	{
 		None, Never, Less, Equal, LessEqual, Greater, NotEqual, GreaterEqual, Always
+	};
+
+	enum class Topology
+	{
+		Undefined, Point, Line, Triangle, Patch
 	};
 
 	namespace DepthStencil
@@ -82,7 +154,7 @@ namespace sg
 			StencilOperation fail_operation = StencilOperation::Keep;
 			StencilOperation depth_operation = StencilOperation::Keep;
 			StencilOperation pass_operation = StencilOperation::Keep;
-			ComparisonFunction comparison_operation = ComparisonFunction::None;
+			ComparisonFunction comparison_operation = ComparisonFunction::Always;
 		};
 		struct Desc
 		{
@@ -90,8 +162,8 @@ namespace sg
 			bool depth_write = true;
 			ComparisonFunction comparison_function = ComparisonFunction::LessEqual;
 			bool stencil_enable = false;
-			uint8_t stencil_read_mask = 0;
-			uint8_t stencil_write_mask = 0;
+			uint8_t stencil_read_mask = 0xff;
+			uint8_t stencil_write_mask = 0xff;
 			StencilDesc stencil_front_desc;
 			StencilDesc stencil_back_desc;
 		};
@@ -123,21 +195,24 @@ namespace sg
 		};
 	}
 
-	namespace Pipeline
+	namespace PipelineDesc
 	{
-		struct ComputeDesc
+		struct Compute
 		{
 			ComputeShader* compute_shader = nullptr;
 		};
 
-		struct GraphicsDesc
+		struct Graphics
 		{
 			VertexShader* vertex_shader = nullptr;
 			PixelShader* pixel_shader = nullptr;
 
+			Topology topology = Topology::Triangle;
+
 			Rasterizer::Desc rasterizer_desc;
 			DepthStencil::Desc depth_stencil_desc;
 			InputLayout::Desc input_layout;
+			Blend::Desc blend_desc;
 
 			DXGI_FORMAT render_target_format_list[8] = {};
 			u32 render_target_count = 0;
