@@ -1,4 +1,6 @@
 #pragma once
+#include <sgTypes.h>
+#include "sgD3D12Texture.h"
 
 namespace sg
 {
@@ -6,7 +8,11 @@ namespace sg
 	{
 		class RenderTargetView
 		{
+		public:
+			RenderTargetView(SharedPtr<Texture> texture);
 
+		private:
+			SharedPtr<Texture> texture_resource;
 		};
 	}
 }

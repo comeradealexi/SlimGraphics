@@ -102,7 +102,6 @@ namespace sg
                 }
             #endif
 
-            ComPtr<IDXGIFactory4> factory;
             CHECKHR(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory)));
 
             ComPtr<IDXGIAdapter1> hardware_adapter;
@@ -114,6 +113,8 @@ namespace sg
 
             features.Init(device.Get());
            
+            create_descriptors();
+
             //Create memory allocators
             {
                 DXGI_ADAPTER_DESC1 adapter_desc;
@@ -230,6 +231,80 @@ namespace sg
         {
             CD3DX12_SHADER_BYTECODE code(data, size);
             return Ptr<PixelShader>(new PixelShader(code));
+        }
+
+        bool Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, Ptr<RenderTargetView>* rtv_list)
+        {
+            DXGI_SWAP_CHAIN_DESC1 desc = {};
+            desc.BufferCount = buffer_count;
+            desc.Width = width;
+            desc.Height = height;
+            desc.Format = format;
+            desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+            desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+            desc.SampleDesc.Count = 1;
+            HRESULT hr = factory->CreateSwapChainForHwnd(command_queue->get().Get(), hwnd, &desc, nullptr, nullptr, swap_chain.GetAddressOf());
+            CHECKHR(hr);
+
+            for (u32 i = 0; i < buffer_count; i++)
+            {
+                CHECKHR(swap_chain->GetBuffer(i, IID_PPV_ARGS(&m_renderTargets[i])));
+                device->CreateRenderTargetView(m_renderTargets[i].Get(), nullptr, rtvHandle);
+            }
+
+            return SUCCEEDED(hr);
+        }
+
+        void Device::create_descriptors()
+        {
+            //cbv srv uav
+            {
+                ComPtr<ID3D12DescriptorHeap> heap;
+                D3D12_DESCRIPTOR_HEAP_DESC cbvSrvHeapDesc = {};
+                cbvSrvHeapDesc.NumDescriptors = DESCRIPTOR_COUNT;
+                cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+                cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+                CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
+                heap->SetName(L"CBV SRV UAV Heap");
+                u32 increment_size = device->GetDescriptorHandleIncrementSize(cbvSrvHeapDesc.Type);
+                cbv_srv_uav_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, cbvSrvHeapDesc.NumDescriptors, increment_size));
+            }
+            //rtv
+            {
+                ComPtr<ID3D12DescriptorHeap> heap;
+                D3D12_DESCRIPTOR_HEAP_DESC rtvDesc = {};
+                rtvDesc.NumDescriptors = DESCRIPTOR_COUNT;
+                rtvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+                rtvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+                CHECKHR(device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&heap)));
+                heap->SetName(L"RTV Heap");
+                u32 increment_size = device->GetDescriptorHandleIncrementSize(rtvDesc.Type);
+                rtv_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, rtvDesc.NumDescriptors, increment_size));
+            }
+            //dsv
+            {
+                ComPtr<ID3D12DescriptorHeap> heap;
+                D3D12_DESCRIPTOR_HEAP_DESC dsvDesc = {};
+                dsvDesc.NumDescriptors = DESCRIPTOR_COUNT;
+                dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+                dsvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+                CHECKHR(device->CreateDescriptorHeap(&dsvDesc, IID_PPV_ARGS(&heap)));
+                heap->SetName(L"DSV Heap");
+                u32 increment_size = device->GetDescriptorHandleIncrementSize(dsvDesc.Type);
+                dsv_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, dsvDesc.NumDescriptors, increment_size));
+            }
+            //sampler
+            {
+                ComPtr<ID3D12DescriptorHeap> heap;
+                D3D12_DESCRIPTOR_HEAP_DESC splrDesc = {};
+                splrDesc.NumDescriptors = DESCRIPTOR_COUNT;
+                splrDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+                splrDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+                CHECKHR(device->CreateDescriptorHeap(&splrDesc, IID_PPV_ARGS(&heap)));
+                heap->SetName(L"Sampler Heap");
+                u32 increment_size = device->GetDescriptorHandleIncrementSize(splrDesc.Type);
+                sampler_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, splrDesc.NumDescriptors, increment_size));
+            }
         }
 	}
 }

@@ -69,6 +69,9 @@
     <ClInclude Include="sgD3D12Sampler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="sgD3D12DescriptorHeap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SlimGraphicsD3D12.cpp">
@@ -117,6 +120,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="sgD3D12Sampler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sgD3D12DescriptorHeap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
