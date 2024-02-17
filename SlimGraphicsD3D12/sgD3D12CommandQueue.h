@@ -12,6 +12,8 @@ namespace sg
 			CommandQueue(ComPtr<ID3D12CommandQueue>& in_queue);
 			ComPtr<ID3D12CommandQueue> get() { return queue; }
 
+
+
 		private:
 			ComPtr<ID3D12CommandQueue> queue;
 		};

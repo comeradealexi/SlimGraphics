@@ -1,6 +1,9 @@
 #include "pch.h"
 #include "sgD3D12CommandList.h"
 #include "sgD3D12Device.h"
+#include "sgD3D12Pipeline.h"
+#include "sgD3D12RenderTargetView.h"
+#include "sgD3D12DepthStencilView.h"
 
 namespace sg
 {
@@ -13,15 +16,21 @@ namespace sg
 
 		}
 
-		void CommandList::startRecording()
+		void CommandList::start_recording()
 		{
 			CHECKHR(command_list->Reset(command_allocator.Get(), nullptr));
 			descriptor_heap_index = 0;
 		}
 
-		void CommandList::endRecording()
+		void CommandList::end_recording()
 		{
 			CHECKHR(command_list->Close());
+		}
+
+		void CommandList::set_pipeline(Pipeline* pipeline)
+		{
+			command_list->SetPipelineState(pipeline->pipeline.Get());
+			command_list->IASetPrimitiveTopology(pipeline->topology);
 		}
 
 		void CommandList::bind(Binding& bind)
@@ -93,6 +102,34 @@ namespace sg
 			}
 
 			bind.set_not_dirty();
+		}
+
+		void CommandList::draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location)
+		{
+			command_list->DrawInstanced(vertex_count_per_instance, instance_count, start_vertex_location, start_instance_location);
+		}
+
+		void CommandList::draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i8 base_vertex_location, u32 start_instance_location)
+		{
+			command_list->DrawIndexedInstanced(index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location);
+		}
+
+		void CommandList::start_render_pass(u32 render_target_count, RenderTargetView* render_targets, DepthStencilView* depth_stencil)
+		{
+			seAssert(render_target_count == 1, "Only 1 supported atm TODO");
+			
+			CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(device->get_rtv_descriptor_heap()->GetCPUDescriptorHandleForHeapStart(), render_targets->rtv, device->get_rtv_descriptor_heap_increment_size());
+			//CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+			if (depth_stencil)
+			{
+				seAssert(false, "TODO");
+			}
+			command_list->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+		}
+
+		void CommandList::end_render_pass()
+		{
+
 		}
 	}
 }

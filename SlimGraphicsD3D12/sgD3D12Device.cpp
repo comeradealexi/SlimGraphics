@@ -255,6 +255,8 @@ namespace sg
         {
             Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline());
 
+            out_pipeline->topology = translate(pipeline_desc.primitive_topology);
+
             D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
             {
                 psoDesc.VS = pipeline_desc.vertex_shader ? pipeline_desc.vertex_shader->shader_code : CD3DX12_SHADER_BYTECODE();
@@ -353,6 +355,16 @@ namespace sg
         ComPtr<ID3D12DescriptorHeap> Device::get_cbv_srv_uav_descriptor_heap()
         {
             return cbv_srv_uav_descriptor_heap->get_heap();
+        }
+
+        ComPtr<ID3D12DescriptorHeap> Device::get_rtv_descriptor_heap()
+        {
+            return rtv_descriptor_heap->get_heap();
+        }
+
+        u32 Device::get_rtv_descriptor_heap_increment_size()
+        {
+            return rtv_descriptor_heap->get_increment_size();
         }
 
         void Device::create_descriptors()

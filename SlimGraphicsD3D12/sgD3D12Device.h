@@ -58,6 +58,9 @@ namespace sg
 			//D3D12 Specific
 		public:
 			ComPtr<ID3D12DescriptorHeap> get_cbv_srv_uav_descriptor_heap();
+			ComPtr<ID3D12DescriptorHeap> get_rtv_descriptor_heap();
+			u32 get_rtv_descriptor_heap_increment_size();
+
 			ComPtr<ID3D12Device> get_device() { return device; }
 
 		private:

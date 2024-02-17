@@ -18,6 +18,11 @@ namespace sg
 	using u32 = uint32_t;
 	using u64 = uint64_t;
 
+	using i8 = int8_t;
+	using i16 = int16_t;
+	using i32 = int32_t;
+	using i64 = int64_t;
+
 	enum class MemoryType
 	{
 		GPUOptimal, Upload, Readback
@@ -31,6 +36,20 @@ namespace sg
 	enum class Topology
 	{
 		Undefined, Point, Line,	Triangle, Patch
+	};
+
+	enum class PrimitiveTopology
+	{
+		Undefined,
+		Pointlist,
+		Linelist,
+		Linestrip,
+		Trianglelist,
+		Trianglestrip,
+		Linelist_adj,
+		Linestrip_adj,
+		Trianglelist_adj,
+		Trianglestrip_adj,
 	};
 
 	enum class PipelineType
@@ -204,6 +223,7 @@ namespace sg
 			PixelShader* pixel_shader = nullptr;
 
 			Topology topology = Topology::Triangle;
+			PrimitiveTopology primitive_topology = PrimitiveTopology::Trianglelist;
 
 			Rasterizer::Desc rasterizer_desc;
 			DepthStencil::Desc depth_stencil_desc;

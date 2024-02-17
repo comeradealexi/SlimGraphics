@@ -51,8 +51,23 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	}
 
 	volatile bool run = true;
+
+	u32 total_frame_idx = 0;
 	while (run)
 	{
+		u32 current_frame_idx = total_frame_idx % frame_count;
+
+		command_buffer->start_recording();
+		{
+			command_buffer->start_render_pass(1, &rtvs[current_frame_idx]);
+			{
+				command_buffer->set_pipeline(pipeline.get());
+				command_buffer->draw_instanced(6, 1, 0, 0);
+			}
+			command_buffer->end_render_pass();
+		}
+		command_buffer->end_recording();
+
 		wnd->Poll();
 	}
 }

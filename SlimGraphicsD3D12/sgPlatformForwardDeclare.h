@@ -11,6 +11,7 @@ namespace sg
 		class CommandQueue;
 		class ComputeShader;
 		class ConstantBufferView;
+		class DepthStencilView;
 		class Device;
 		class Memory;
 		class Pipeline;
@@ -33,6 +34,7 @@ namespace sg
 	using CommandQueue = D3D12::CommandQueue;
 	using ComputeShader = D3D12::ComputeShader;
 	using ConstantBufferView = D3D12::ConstantBufferView;
+	using DepthStencilView = D3D12::DepthStencilView;
 	using Device = D3D12::Device;
 	using Memory = D3D12::Memory;
 	using Pipeline = D3D12::Pipeline;

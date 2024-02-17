@@ -106,6 +106,35 @@ namespace sg
 			return D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 		}
 
+		D3D_PRIMITIVE_TOPOLOGY translate(PrimitiveTopology toplogy)
+		{
+			switch (toplogy)
+			{
+				case PrimitiveTopology::Undefined:
+					return         D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+				case PrimitiveTopology::Pointlist:
+					return         D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+				case PrimitiveTopology::Linelist:
+					return         D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+				case PrimitiveTopology::Linestrip:
+					return         D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
+				case PrimitiveTopology::Trianglelist:
+					return         D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+				case PrimitiveTopology::Trianglestrip:
+					return         D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+				case PrimitiveTopology::Linelist_adj:
+					return         D3D_PRIMITIVE_TOPOLOGY_LINELIST_ADJ ;
+				case PrimitiveTopology::Linestrip_adj:
+					return         D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ ;
+				case PrimitiveTopology::Trianglelist_adj:
+					return         D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ ;
+				case PrimitiveTopology::Trianglestrip_adj:
+					return         D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ ;
+			}
+			seAssert(false, "missing Topology");
+			return         D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+		}
+
 		D3D12_DEPTH_STENCILOP_DESC translate(const DepthStencil::StencilDesc& stencil_desc)
 		{
 			D3D12_DEPTH_STENCILOP_DESC sd = {};
