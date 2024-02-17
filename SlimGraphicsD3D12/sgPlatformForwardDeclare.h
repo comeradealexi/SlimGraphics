@@ -1,6 +1,8 @@
 #pragma once
 #define SG_PLATFORM_D3D12 (1)
 
+struct ID3D12Fence;
+
 namespace sg
 {
 	namespace D3D12
@@ -25,7 +27,6 @@ namespace sg
 		class VertexShader;
 	}
 }
-
 namespace sg
 {
 	using Buffer = D3D12::Buffer;
@@ -39,6 +40,7 @@ namespace sg
 	using Memory = D3D12::Memory;
 	using Pipeline = D3D12::Pipeline;
 	using PixelShader = D3D12::PixelShader;
+	using QueueFence = ::ID3D12Fence;
 	using RenderTargetView = D3D12::RenderTargetView;
 	using Sampler = D3D12::Sampler;
 	using ShaderResourceView = D3D12::ShaderResourceView;

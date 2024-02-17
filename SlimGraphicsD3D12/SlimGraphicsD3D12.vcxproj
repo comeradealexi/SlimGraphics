@@ -153,6 +153,7 @@
     <ClInclude Include="sgD3D12Include.h" />
     <ClInclude Include="sgD3D12Memory.h" />
     <ClInclude Include="sgD3D12Pipeline.h" />
+    <ClInclude Include="sgD3D12QueueFence.h" />
     <ClInclude Include="sgD3D12RenderTargetView.h" />
     <ClInclude Include="sgD3D12Sampler.h" />
     <ClInclude Include="sgD3D12Shader.h" />
@@ -181,6 +182,7 @@
     <ClCompile Include="sgD3D12Device.cpp" />
     <ClCompile Include="sgD3D12Memory.cpp" />
     <ClCompile Include="sgD3D12Pipeline.cpp" />
+    <ClCompile Include="sgD3D12QueueFence.cpp" />
     <ClCompile Include="sgD3D12RenderTargetView.cpp" />
     <ClCompile Include="sgD3D12Sampler.cpp" />
     <ClCompile Include="sgD3D12Shader.cpp" />

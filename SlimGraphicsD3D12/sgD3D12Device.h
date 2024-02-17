@@ -44,6 +44,7 @@ namespace sg
 		public:
 			Device();
 			Ptr<Memory> allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment);
+			ComPtr<QueueFence> create_queue_fence();
 
 			Ptr<CommandQueue> create_command_queue();
 			Ptr<CommandList> create_command_buffer();

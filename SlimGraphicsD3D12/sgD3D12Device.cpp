@@ -203,6 +203,13 @@ namespace sg
             return Ptr<Memory>(new Memory(out_alloc.Get()));
         }
 
+        ComPtr<QueueFence> Device::create_queue_fence()
+        {
+            ComPtr<QueueFence> fence;
+            CHECKHR(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf())))
+            return fence;
+        }
+
         Ptr<CommandQueue> Device::create_command_queue()
         {
             ComPtr<ID3D12CommandQueue> queue;
@@ -237,7 +244,19 @@ namespace sg
                 out_command_list->descriptor_heap_maximum = cbvSrvHeapDesc.NumDescriptors;
                 out_command_list->descriptor_heap = heap;
             }
+
+            out_command_list->device = device;
+
+            out_command_list->global_cbv_srv_uav_descriptor_heap = cbv_srv_uav_descriptor_heap->get_heap();
+            out_command_list->global_rtv_descriptor_heap = rtv_descriptor_heap->get_heap();
+            out_command_list->global_dsv_descriptor_heap = dsv_descriptor_heap->get_heap();
+            out_command_list->global_sampler_descriptor_heap = sampler_descriptor_heap->get_heap();
             
+            out_command_list->descriptor_increment_size_cbv_srv_uav = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+            out_command_list->descriptor_increment_size_rtv = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+            out_command_list->descriptor_increment_size_dsv = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+            out_command_list->descriptor_increment_size_sampler = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+
             return out_command_list;
         }
 
