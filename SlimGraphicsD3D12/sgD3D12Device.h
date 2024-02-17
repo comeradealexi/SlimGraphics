@@ -48,8 +48,8 @@ namespace sg
 			Ptr<CommandQueue> create_command_queue();
 			Ptr<CommandList> create_command_buffer();
 
-			Ptr<VertexShader> create_vertex_shader(uint8_t* data, u64 size);
-			Ptr<PixelShader> create_pixel_shader(uint8_t* data, u64 size);
+			Ptr<VertexShader> create_vertex_shader(std::vector<uint8_t>& shader);
+			Ptr<PixelShader> create_pixel_shader(std::vector<uint8_t>& shader);
 
 			bool create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list);
 

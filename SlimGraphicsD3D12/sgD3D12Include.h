@@ -17,7 +17,7 @@
 
 using Microsoft::WRL::ComPtr;
 
-#define CHECKHR(x) { HRESULT ___hr = x; seAssert(SUCCEEDED(___hr), "HRESULT Failure!"); }
+#define CHECKHR(x) { HRESULT ___hr = x; seAssert(SUCCEEDED(___hr), "HRESULT Failure: 0x%08X", static_cast<UINT>(___hr)); }
 
 // Assign a name to the object to aid with debugging.
 #if defined(_DEBUG) || defined(DBG)

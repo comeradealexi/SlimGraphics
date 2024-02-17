@@ -11,7 +11,7 @@ namespace sg
 		public:
 			~RenderTargetView();
 
-			CD3DX12_CPU_DESCRIPTOR_HANDLE rtv;
+			RTVBinding rtv;
 			SharedPtr<Texture> texture_resource;
 		};
 	}

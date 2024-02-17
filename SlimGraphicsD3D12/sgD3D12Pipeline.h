@@ -10,6 +10,7 @@ namespace sg
 		public:
 
 		private:
+			ComPtr<ID3D12RootSignature> root_signature;
 			ComPtr<ID3D12PipelineState> pipeline;
 		};
 	}

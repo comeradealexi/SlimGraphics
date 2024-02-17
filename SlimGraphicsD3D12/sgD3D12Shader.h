@@ -1,4 +1,6 @@
 #pragma once
+#include "sgD3D12Include.h"
+#include <vector>
 
 namespace sg
 {
@@ -7,28 +9,31 @@ namespace sg
 		class Shader
 		{
 		public:
-			Shader(CD3DX12_SHADER_BYTECODE code) : shader_code(code) { }
-			
+			Shader(std::vector<uint8_t>& shader) : shader_binary_data(shader)  
+			{ 
+				shader_code = CD3DX12_SHADER_BYTECODE(shader_binary_data.data(), shader_binary_data.size());
+			}
 			CD3DX12_SHADER_BYTECODE shader_code;
+			std::vector<uint8_t> shader_binary_data;
 		};
 
 		class ComputeShader : public Shader
 		{
 		public:
-			ComputeShader(CD3DX12_SHADER_BYTECODE code) : Shader(code) { }
+			ComputeShader(std::vector<uint8_t>& shader) : Shader(shader) { }
 		};
 
 		class VertexShader : public Shader
 		{
 		public:
-			VertexShader(CD3DX12_SHADER_BYTECODE code) : Shader(code) { }
+			VertexShader(std::vector<uint8_t>& shader) : Shader(shader) { }
 
 		};
 
 		class PixelShader : public Shader
 		{
 		public:
-			PixelShader(CD3DX12_SHADER_BYTECODE code) : Shader(code) { }
+			PixelShader(std::vector<uint8_t>& shader) : Shader(shader) { }
 		};
 	}
 }

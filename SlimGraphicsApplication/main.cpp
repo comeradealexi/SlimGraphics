@@ -28,8 +28,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	{
 		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_VertexShader.cso");
 		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_PixelShader.cso");
-		vs = device->create_vertex_shader(vertex_data.data(), vertex_data.size());
-		ps = device->create_pixel_shader(pixel_data.data(), pixel_data.size());
+		vs = device->create_vertex_shader(vertex_data);
+		ps = device->create_pixel_shader(pixel_data);
 	}
 
 	const u32 frame_count = 3;
@@ -40,6 +40,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	Ptr<Pipeline> pipeline;
 	{
 		BindingDesc bd;
+		//bd.cbv_binding_count = 1;
 
 		PipelineDesc::Graphics desc;
 		desc.pixel_shader = ps.get();

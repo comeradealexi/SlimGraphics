@@ -122,7 +122,7 @@ namespace sg
 			Type dest_blend_alpha = Type::Zero;
 			Operation blend_op_alpha = Operation::Add;
 			LogicOperation logic_op = LogicOperation::Noop;
-			uint8_t render_target_write_mask = 0xff;
+			uint8_t render_target_write_mask = 0xf;
 		};
 
 		struct Desc
@@ -235,6 +235,9 @@ namespace sg
 	using SRVBinding = u32;
 	using UAVBinding = u32;
 	using SamplerBinding = u32;
+
+	using RTVBinding = u32;
+	using DSVBinding = u32;
 
 	struct Binding : public BindingDesc
 	{

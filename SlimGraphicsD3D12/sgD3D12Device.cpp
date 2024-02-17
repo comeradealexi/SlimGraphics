@@ -4,6 +4,7 @@
 #include "sgD3D12CommandList.h"
 #include "sgD3D12RenderTargetView.h"
 #include "sgD3D12Pipeline.h"
+#include "sgD3D12TypesTranslator.h"
 
 //D3D12 Memory Allocator
 #include <D3D12MemAlloc.h>
@@ -240,26 +241,84 @@ namespace sg
             return out_command_list;
         }
 
-        Ptr<VertexShader> Device::create_vertex_shader(uint8_t* data, u64 size)
+        Ptr<VertexShader> Device::create_vertex_shader(std::vector<uint8_t>& shader)
         {
-            CD3DX12_SHADER_BYTECODE code(data, size);
-            return Ptr<VertexShader>(new VertexShader(code));
+            return Ptr<VertexShader>(new VertexShader(shader));
         }
 
-        Ptr<PixelShader> Device::create_pixel_shader(uint8_t* data, u64 size)
+        Ptr<PixelShader> Device::create_pixel_shader(std::vector<uint8_t>& shader)
         {
-            CD3DX12_SHADER_BYTECODE code(data, size);
-            return Ptr<PixelShader>(new PixelShader(code));
+            return Ptr<PixelShader>(new PixelShader(shader));
         }
 
         Ptr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
         {
+            Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline());
+
             D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
             {
                 psoDesc.VS = pipeline_desc.vertex_shader ? pipeline_desc.vertex_shader->shader_code : CD3DX12_SHADER_BYTECODE();
                 psoDesc.PS = pipeline_desc.pixel_shader ? pipeline_desc.pixel_shader->shader_code : CD3DX12_SHADER_BYTECODE();
+                psoDesc.pRootSignature = nullptr;
+                psoDesc.PrimitiveTopologyType = translate(pipeline_desc.topology);
+                psoDesc.BlendState = translate(pipeline_desc.blend_desc);
+                psoDesc.DepthStencilState = translate(pipeline_desc.depth_stencil_desc);
+                psoDesc.RasterizerState = translate(pipeline_desc.rasterizer_desc);
+                psoDesc.SampleMask = UINT_MAX;
+                psoDesc.NumRenderTargets = pipeline_desc.render_target_count;
+                for (u32 i = 0; i < pipeline_desc.render_target_count; i++)
+                {
+                    psoDesc.RTVFormats[i] = pipeline_desc.render_target_format_list[i];
+                }
+                psoDesc.DSVFormat = pipeline_desc.depth_stencil_format;
+                psoDesc.SampleDesc.Count = 1;
             }
-            Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline());
+            
+            //Root Signature Generation
+            {
+                CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
+                ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, binding_desc.cbv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);    // Diffuse texture + array of materials.
+                ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, binding_desc.srv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+                ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, binding_desc.uav_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+                ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, binding_desc.sampler_binding_count, 0);
+
+                CD3DX12_ROOT_PARAMETER1 rootParameters[4];
+                u32 parameter_index = 0;
+                if (binding_desc.cbv_binding_count)
+                {
+                    rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.cbv_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+                    parameter_index++;
+                }
+                if (binding_desc.srv_binding_count)
+                {
+                    rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.srv_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+                    parameter_index++;
+                }
+                if (binding_desc.uav_binding_count)
+                {
+                    rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.uav_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+                    parameter_index++;
+                }
+                if (binding_desc.sampler_binding_count)
+                {
+                    rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.sampler_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+                    parameter_index++;
+                }
+
+                CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
+                rootSignatureDesc.Init_1_1(parameter_index, rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+                
+                ComPtr<ID3DBlob> signature;
+                ComPtr<ID3DBlob> error;
+                CHECKHR(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, features.HighestRootSignatureVersion(), &signature, &error));
+                if (error)
+                {
+                    seWriteLine("D3DX12SerializeVersionedRootSignature Error: %s", error->GetBufferPointer());
+                }
+                CHECKHR(device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(out_pipeline->root_signature.GetAddressOf())));
+                psoDesc.pRootSignature = out_pipeline->root_signature.Get();
+            }
+
             CHECKHR(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(out_pipeline->pipeline.GetAddressOf())));
             return out_pipeline;
         }
@@ -283,8 +342,9 @@ namespace sg
                 rtv_list[i].texture_resource = texture_resource;
                 CHECKHR(swap_chain->GetBuffer(i, IID_PPV_ARGS(texture_resource->resource.GetAddressOf())));
 
-                rtv_list[i].rtv = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtv_descriptor_heap->get_cpu_handle_heap_start(), rtv_descriptor_heap->allocate(), rtv_descriptor_heap->get_increment_size());
-                device->CreateRenderTargetView(texture_resource->resource.Get(), nullptr, rtv_list[i].rtv);
+                rtv_list[i].rtv = rtv_descriptor_heap->allocate();
+                CD3DX12_CPU_DESCRIPTOR_HANDLE rtv_handle(rtv_descriptor_heap->get_cpu_handle_heap_start(), rtv_list[i].rtv, rtv_descriptor_heap->get_increment_size());
+                device->CreateRenderTargetView(texture_resource->resource.Get(), nullptr, rtv_handle);
             }
 
             return SUCCEEDED(hr);
