@@ -1,5 +1,7 @@
 #include "pch.h"
 #include "sgD3D12CommandList.h"
+#include "sgD3D12Device.h"
+
 namespace sg
 {
 	namespace D3D12
@@ -11,14 +13,43 @@ namespace sg
 
 		}
 
-		void CommandList::StartRecording()
+		void CommandList::startRecording()
 		{
 			CHECKHR(command_list->Reset(command_allocator.Get(), nullptr));
+			descriptor_heap_index = 0;
 		}
 
-		void CommandList::EndRecording()
+		void CommandList::endRecording()
 		{
 			CHECKHR(command_list->Close());
+		}
+
+		void CommandList::bind(Binding& bind)
+		{
+			//Binding contains the global list indices.
+
+			//ID3D12Device::CopyDescriptorsSimple method (d3d12.h)
+
+			if (bind.cbv_binding_count)
+			{
+				seAssert(descriptor_heap_index + bind.cbv_binding_count <= descriptor_heap_maximum, "maxium descriptor bindings exceeded");
+				CD3DX12_GPU_DESCRIPTOR_HANDLE dest_gpu(descriptor_heap->GetGPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
+				CD3DX12_CPU_DESCRIPTOR_HANDLE dest_cpu(descriptor_heap->GetCPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
+
+				ComPtr<ID3D12DescriptorHeap> global_heap = device->get_cbv_srv_uav_descriptor_heap();
+				ComPtr<ID3D12Device> dx12_device = device->get_device();
+				for (size_t i = 0; i < bind.cbv_binding_count; i++)
+				{
+					CD3DX12_CPU_DESCRIPTOR_HANDLE src_cpu(global_heap->GetCPUDescriptorHandleForHeapStart(), bind.get_cbvs(i), descriptor_heap_increment);
+					dx12_device->CopyDescriptorsSimple(1, dest_cpu, src_cpu, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+					dest_cpu.Offset(1);
+				}
+				
+				command_list->SetGraphicsRootDescriptorTable(0, dest_gpu);
+				descriptor_heap_index += bind.cbv_binding_count;
+			}
+
+			bind.set_not_dirty();
 		}
 	}
 }

@@ -55,6 +55,11 @@ namespace sg
 
 			Ptr<Pipeline> create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc);
 
+			//D3D12 Specific
+		public:
+			ComPtr<ID3D12DescriptorHeap> get_cbv_srv_uav_descriptor_heap();
+			ComPtr<ID3D12Device> get_device() { return device; }
+
 		private:
 			void create_descriptors();
 			

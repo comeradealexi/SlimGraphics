@@ -19,7 +19,7 @@ namespace sg
 			D3D12_GPU_DESCRIPTOR_HANDLE get_gpu_handle_heap_start(void) { return heap->GetGPUDescriptorHandleForHeapStart(); };
 
 			inline u32 get_increment_size() { return heap_increment_size; }
-
+			ComPtr<ID3D12DescriptorHeap> get_heap() { return heap; }
 		private:
 			std::mutex mutex;
 			u32 current_index = 0;

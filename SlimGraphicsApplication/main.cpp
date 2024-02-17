@@ -46,7 +46,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		desc.vertex_shader = vs.get();
 		desc.render_target_count = 1;
 		desc.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-		pipeline = device->create_pipeline(desc);
+		pipeline = device->create_pipeline(desc, bd);
 	}
 
 	volatile bool run = true;

@@ -220,7 +220,24 @@ namespace sg
             CHECKHR(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&command_allocator)));
             CHECKHR(device6->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, command_allocator.Get(), nullptr, IID_PPV_ARGS(&command_list)));
             CHECKHR(command_list->Close());
-            return Ptr<CommandList>(new CommandList(command_list, command_allocator));
+
+            Ptr<CommandList> out_command_list = Ptr<CommandList>(new CommandList(command_list, command_allocator));
+            //cbv srv uav
+            {
+                ComPtr<ID3D12DescriptorHeap> heap;
+                D3D12_DESCRIPTOR_HEAP_DESC cbvSrvHeapDesc = {};
+                cbvSrvHeapDesc.NumDescriptors = DESCRIPTOR_COUNT;
+                cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+                cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+                CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
+                heap->SetName(L"CBV SRV UAV Heap");
+                u32 increment_size = device->GetDescriptorHandleIncrementSize(cbvSrvHeapDesc.Type);
+                out_command_list->descriptor_heap_increment = increment_size;
+                out_command_list->descriptor_heap_maximum = cbvSrvHeapDesc.NumDescriptors;
+                out_command_list->descriptor_heap = heap;
+            }
+            
+            return out_command_list;
         }
 
         Ptr<VertexShader> Device::create_vertex_shader(uint8_t* data, u64 size)
@@ -241,7 +258,6 @@ namespace sg
             {
                 psoDesc.VS = pipeline_desc.vertex_shader ? pipeline_desc.vertex_shader->shader_code : CD3DX12_SHADER_BYTECODE();
                 psoDesc.PS = pipeline_desc.pixel_shader ? pipeline_desc.pixel_shader->shader_code : CD3DX12_SHADER_BYTECODE();
-
             }
             Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline());
             CHECKHR(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(out_pipeline->pipeline.GetAddressOf())));
@@ -272,6 +288,11 @@ namespace sg
             }
 
             return SUCCEEDED(hr);
+        }
+
+        ComPtr<ID3D12DescriptorHeap> Device::get_cbv_srv_uav_descriptor_heap()
+        {
+            return cbv_srv_uav_descriptor_heap->get_heap();
         }
 
         void Device::create_descriptors()
