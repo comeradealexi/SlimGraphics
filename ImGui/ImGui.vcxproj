@@ -27,6 +27,8 @@
     <ClInclude Include="..\SubModules\imgui\imstb_rectpack.h" />
     <ClInclude Include="..\SubModules\imgui\imstb_textedit.h" />
     <ClInclude Include="..\SubModules\imgui\imstb_truetype.h" />
+    <ClInclude Include="..\SubModules\implot\implot.h" />
+    <ClInclude Include="..\SubModules\implot\implot_internal.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\SubModules\imgui\backends\imgui_impl_dx12.cpp" />
@@ -36,6 +38,9 @@
     <ClCompile Include="..\SubModules\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\SubModules\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\SubModules\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\SubModules\implot\implot.cpp" />
+    <ClCompile Include="..\SubModules\implot\implot_demo.cpp" />
+    <ClCompile Include="..\SubModules\implot\implot_items.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

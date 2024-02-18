@@ -16,9 +16,15 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 {
 	const DXGI_FORMAT back_buffer_format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	const u32 frame_count = 3;
-	const u64 w = 1920;
-	const u64 h = 1080;
+	u64 w = 1920;
+	u64 h = 1080;
 	se::Ptr<se::Window> wnd(new se::Window(hInstance, nCmdShow, w,h));
+	{
+		RECT cr;
+		GetClientRect(wnd->g_hWnd, &cr);
+		w = cr.right;
+		h = cr.bottom;
+	}
 
 	SharedPtr<Device> device(new Device());
 	Ptr<CommandQueue> queue = device->create_command_queue();

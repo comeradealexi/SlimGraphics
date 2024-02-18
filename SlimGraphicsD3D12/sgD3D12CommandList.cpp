@@ -22,8 +22,8 @@ namespace sg
 			CHECKHR(command_list->Reset(command_allocator.Get(), nullptr));
 			descriptor_heap_index = 0;
 
-			ID3D12DescriptorHeap* heap = descriptor_heap.Get();
-			command_list->SetDescriptorHeaps(1, &heap);
+			ID3D12DescriptorHeap* heaps[2] = { descriptor_heap.Get(), global_sampler_descriptor_heap.Get() };
+			command_list->SetDescriptorHeaps(2, heaps);
 		}
 
 		void CommandList::end_recording()

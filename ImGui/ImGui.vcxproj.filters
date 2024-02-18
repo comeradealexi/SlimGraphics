@@ -42,6 +42,12 @@
     <ClInclude Include="..\SubModules\imgui\backends\imgui_impl_win32.h">
       <Filter>Backends</Filter>
     </ClInclude>
+    <ClInclude Include="..\SubModules\implot\implot.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\implot\implot_internal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\SubModules\imgui\imgui.cpp">
@@ -64,6 +70,15 @@
     </ClCompile>
     <ClCompile Include="..\SubModules\imgui\backends\imgui_impl_win32.cpp">
       <Filter>Backends</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SubModules\implot\implot.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SubModules\implot\implot_demo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SubModules\implot\implot_items.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
