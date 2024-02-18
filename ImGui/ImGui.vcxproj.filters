@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Backends">
+      <UniqueIdentifier>{3520833e-dc53-4ee8-ace3-f037bb8b06a7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\SubModules\imgui\imconfig.h">
@@ -33,6 +36,12 @@
     <ClInclude Include="..\SubModules\imgui\imstb_truetype.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\SubModules\imgui\backends\imgui_impl_dx12.h">
+      <Filter>Backends</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\imgui\backends\imgui_impl_win32.h">
+      <Filter>Backends</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\SubModules\imgui\imgui.cpp">
@@ -49,6 +58,12 @@
     </ClCompile>
     <ClCompile Include="..\SubModules\imgui\imgui_widgets.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SubModules\imgui\backends\imgui_impl_dx12.cpp">
+      <Filter>Backends</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SubModules\imgui\backends\imgui_impl_win32.cpp">
+      <Filter>Backends</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

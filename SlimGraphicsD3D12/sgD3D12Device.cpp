@@ -5,6 +5,7 @@
 #include "sgD3D12RenderTargetView.h"
 #include "sgD3D12Pipeline.h"
 #include "sgD3D12TypesTranslator.h"
+#include <imgui_impl_dx12.h>
 
 //D3D12 Memory Allocator
 #include <D3D12MemAlloc.h>
@@ -213,6 +214,26 @@ namespace sg
             }
 
 		}
+
+        void Device::imgui_init(u32 num_frames, DXGI_FORMAT format)
+        {
+            u32 idx = cbv_srv_uav_descriptor_heap->allocate();
+            CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap->get_increment_size());
+            CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle(cbv_srv_uav_descriptor_heap->get_gpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap->get_increment_size());
+            if (!ImGui_ImplDX12_Init(device.Get(), num_frames, format, cbv_srv_uav_descriptor_heap->get_heap().Get(), cpu_handle, gpu_handle))
+            {
+                seAssert(false, "Error: ImGui_ImplDX12_Init failed!" );
+            }
+        }
+
+        void Device::imgui_render(CommandList* command_list)
+        {
+            ID3D12GraphicsCommandList6* d3d_cmd_list = command_list->get().Get();
+
+            ID3D12DescriptorHeap* heap = cbv_srv_uav_descriptor_heap->get_heap().Get();
+            d3d_cmd_list->SetDescriptorHeaps(1, &heap);
+            ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), d3d_cmd_list);
+        }
 
         Ptr<Memory> Device::allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment)
         {

@@ -43,6 +43,8 @@ namespace sg
 
 		public:
 			Device();
+			void imgui_init(u32 num_frames, DXGI_FORMAT format);
+			void imgui_render(CommandList* command_list);
 			Ptr<Memory> allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment);
 			ComPtr<QueueFence> create_queue_fence();
 

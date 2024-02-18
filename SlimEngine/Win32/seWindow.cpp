@@ -3,7 +3,7 @@
 //#include "Input.h"
 //#include "CrossPlatformGFX\CrossPlatformGFX_Utils.h"
 #include "imgui.h"
-//extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #include <sstream>
 
 namespace se
@@ -15,7 +15,7 @@ namespace se
 		PAINTSTRUCT ps;
 		HDC hdc;
 
-		//ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam);
+		ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam);
 
 		switch (message)
 		{

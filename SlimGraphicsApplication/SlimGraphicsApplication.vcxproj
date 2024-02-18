@@ -104,7 +104,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -127,7 +127,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -148,6 +148,9 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ProjectReference Include="..\ImGui\ImGui.vcxproj">
+      <Project>{f9d9bd80-2278-421c-abda-bfa4e5f3f81a}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\SlimEngine\SlimEngine.vcxproj">
       <Project>{05d96440-dbf7-4e40-911a-982148d0f2d4}</Project>
     </ProjectReference>

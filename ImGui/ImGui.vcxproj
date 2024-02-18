@@ -19,6 +19,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\SubModules\imgui\backends\imgui_impl_dx12.h" />
+    <ClInclude Include="..\SubModules\imgui\backends\imgui_impl_win32.h" />
     <ClInclude Include="..\SubModules\imgui\imconfig.h" />
     <ClInclude Include="..\SubModules\imgui\imgui.h" />
     <ClInclude Include="..\SubModules\imgui\imgui_internal.h" />
@@ -27,6 +29,8 @@
     <ClInclude Include="..\SubModules\imgui\imstb_truetype.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\SubModules\imgui\backends\imgui_impl_dx12.cpp" />
+    <ClCompile Include="..\SubModules\imgui\backends\imgui_impl_win32.cpp" />
     <ClCompile Include="..\SubModules\imgui\imgui.cpp" />
     <ClCompile Include="..\SubModules\imgui\imgui_demo.cpp" />
     <ClCompile Include="..\SubModules\imgui\imgui_draw.cpp" />

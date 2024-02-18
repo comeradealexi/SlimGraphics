@@ -21,6 +21,9 @@ namespace sg
 		{
 			CHECKHR(command_list->Reset(command_allocator.Get(), nullptr));
 			descriptor_heap_index = 0;
+
+			ID3D12DescriptorHeap* heap = descriptor_heap.Get();
+			command_list->SetDescriptorHeaps(1, &heap);
 		}
 
 		void CommandList::end_recording()
@@ -123,7 +126,7 @@ namespace sg
 
 			active_render_pass.rtv0_is_swap_chain = rtv0_is_swap_chain;
 			active_render_pass.rtvs[0] = render_targets[0];
-
+			
 			if (rtv0_is_swap_chain)
 			{
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(render_targets[0].texture_resource->get().Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);

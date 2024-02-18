@@ -112,7 +112,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\D3D12MemoryAllocator\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\D3D12MemoryAllocator\include;..\SubModules\imgui;..\SubModules\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -131,7 +131,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\D3D12MemoryAllocator\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\D3D12MemoryAllocator\include;..\SubModules\imgui;..\SubModules\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
