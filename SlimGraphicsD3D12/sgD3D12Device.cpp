@@ -82,6 +82,41 @@ namespace sg
 
             *ppAdapter = adapter.Detach();
         }
+        
+        void d3d12_message_callback(D3D12_MESSAGE_CATEGORY Category, D3D12_MESSAGE_SEVERITY Severity, D3D12_MESSAGE_ID ID, LPCSTR pDescription, void* pContext)
+        {
+            __debugbreak();
+        }
+
+        void setup_debug_filters(ID3D12Device* device)
+        {
+#if _DEBUG
+            ID3D12InfoQueue* pInfoQueue = nullptr;
+            if (SUCCEEDED(device->QueryInterface(IID_PPV_ARGS(&pInfoQueue))))
+            {
+                D3D12_INFO_QUEUE_FILTER NewFilter = {};
+
+                D3D12_MESSAGE_SEVERITY Severities[] =
+                {
+                    D3D12_MESSAGE_SEVERITY_CORRUPTION,
+                    D3D12_MESSAGE_SEVERITY_ERROR,
+                    D3D12_MESSAGE_SEVERITY_WARNING,
+                    //D3D12_MESSAGE_SEVERITY_INFO,
+                    //D3D12_MESSAGE_SEVERITY_MESSAGE,
+                };
+                NewFilter.AllowList.NumSeverities = _countof(Severities);
+                NewFilter.AllowList.pSeverityList = Severities;
+
+                pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
+                pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
+                pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);
+                pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_INFO, false);
+                //CHECKHR(pInfoQueue->RegisterMessageCallback(d3d12_message_callback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, nullptr));
+                pInfoQueue->PushStorageFilter(&NewFilter);
+                pInfoQueue->Release();
+            }
+#endif
+        }
 
 		Device::Device()
 		{
@@ -113,6 +148,8 @@ namespace sg
             CHECKHR(D3D12CreateDevice(hardware_adapter.Get(), feature_level, IID_PPV_ARGS(&device)));
             CHECKHR(device->QueryInterface(IID_PPV_ARGS(&device6)));
             seWriteLine("D3D12 Device created.");
+
+            setup_debug_filters(device.Get());
 
             features.Init(device.Get());
            
@@ -344,10 +381,12 @@ namespace sg
             return out_pipeline;
         }
 
-        bool Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list)
+        u32 Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list)
         {
+            swap_chain_buffer_count = buffer_count;
+
             DXGI_SWAP_CHAIN_DESC1 desc = {};
-            desc.BufferCount = buffer_count;
+            desc.BufferCount = swap_chain_buffer_count;
             desc.Width = width;
             desc.Height = height;
             desc.Format = format;
@@ -357,7 +396,7 @@ namespace sg
             HRESULT hr = factory->CreateSwapChainForHwnd(command_queue->get().Get(), hwnd, &desc, nullptr, nullptr, swap_chain.GetAddressOf());
             CHECKHR(hr);
 
-            for (u32 i = 0; i < buffer_count; i++)
+            for (u32 i = 0; i < swap_chain_buffer_count; i++)
             {
                 SharedPtr<Texture> texture_resource = SharedPtr<Texture>(new Texture());
                 rtv_list[i].texture_resource = texture_resource;
@@ -368,7 +407,16 @@ namespace sg
                 device->CreateRenderTargetView(texture_resource->resource.Get(), nullptr, rtv_handle);
             }
 
-            return SUCCEEDED(hr);
+            return SUCCEEDED(hr) ? 0 : ~0;
+        }
+
+        u32 Device::present_swap_chain(CommandQueue* command_queue)
+        {
+            swap_chain->Present(1, 0);
+
+            swap_chain_current_index++;
+            swap_chain_current_index = swap_chain_current_index % swap_chain_buffer_count;
+            return swap_chain_current_index;
         }
 
         ComPtr<ID3D12DescriptorHeap> Device::get_cbv_srv_uav_descriptor_heap()

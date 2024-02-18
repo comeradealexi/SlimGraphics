@@ -30,6 +30,7 @@ namespace sg
 		void CommandList::set_pipeline(Pipeline* pipeline)
 		{
 			command_list->SetPipelineState(pipeline->pipeline.Get());
+			command_list->SetGraphicsRootSignature(pipeline->root_signature.Get());
 			command_list->IASetPrimitiveTopology(pipeline->topology);
 		}
 
@@ -127,7 +128,7 @@ namespace sg
 
 		void CommandList::end_render_pass()
 		{
-			command_list->SetGraphicsRootSignature
+			//command_list->SetGraphicsRootSignature
 		}
 	}
 }

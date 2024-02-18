@@ -35,7 +35,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	const u32 frame_count = 3;
 	RenderTargetView rtvs[frame_count];
-	device->create_swap_chain(wnd->g_hWnd, queue.get(), frame_count, DXGI_FORMAT_R8G8B8A8_UNORM, w, h, rtvs);
+	u32 current_frame_idx = device->create_swap_chain(wnd->g_hWnd, queue.get(), frame_count, DXGI_FORMAT_R8G8B8A8_UNORM, w, h, rtvs);
 
 	//Pipeline
 	Ptr<Pipeline> pipeline;
@@ -48,16 +48,17 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		desc.vertex_shader = vs.get();
 		desc.render_target_count = 1;
 		desc.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+		desc.depth_stencil_desc.depth_enable = false;
+		desc.depth_stencil_desc.depth_write = false;
 		pipeline = device->create_pipeline(desc, bd);
 	}
 
 	volatile bool run = true;
 
 	u32 total_frame_idx = 0;
+
 	while (run)
 	{
-		u32 current_frame_idx = total_frame_idx % frame_count;
-
 		command_buffer->start_recording();
 		{
 			command_buffer->start_render_pass(1, &rtvs[current_frame_idx]);
@@ -70,6 +71,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		command_buffer->end_recording();
 
 		queue->submit_command_list(command_buffer.get());
+		current_frame_idx = device->present_swap_chain(queue.get());
 		queue->fence_signal(fence.Get(), total_frame_idx);
 		queue->fence_wait(fence.Get(), total_frame_idx);
 

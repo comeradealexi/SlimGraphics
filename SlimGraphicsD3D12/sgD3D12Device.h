@@ -52,7 +52,9 @@ namespace sg
 			Ptr<VertexShader> create_vertex_shader(std::vector<uint8_t>& shader);
 			Ptr<PixelShader> create_pixel_shader(std::vector<uint8_t>& shader);
 
-			bool create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list);
+			//Returns current index to use
+			u32 create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list);
+			u32 present_swap_chain(CommandQueue* command_queue);
 
 			Ptr<Pipeline> create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc);
 
@@ -72,6 +74,8 @@ namespace sg
 			ComPtr<ID3D12Device6> device6;
 			ComPtr<IDXGIFactory4> factory;
 			ComPtr<IDXGISwapChain1> swap_chain;
+			u32 swap_chain_current_index = 0;
+			u32 swap_chain_buffer_count = 0;
 			CD3DX12FeatureSupport features;
 
 			AllocatorPIMPL allocator;
