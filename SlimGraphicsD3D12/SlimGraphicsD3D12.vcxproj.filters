@@ -81,6 +81,9 @@
     <ClInclude Include="sgD3D12QueueFence.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="sgGPUTimestampPool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SlimGraphicsD3D12.cpp">
@@ -138,6 +141,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="sgD3D12QueueFence.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sgGPUTimestampPool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

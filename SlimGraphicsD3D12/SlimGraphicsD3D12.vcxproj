@@ -161,6 +161,7 @@
     <ClInclude Include="sgD3D12ShaderResourceView.h" />
     <ClInclude Include="sgD3D12TypesTranslator.h" />
     <ClInclude Include="sgD3D12UnorderedAccessView.h" />
+    <ClInclude Include="sgGPUTimestampPool.h" />
     <ClInclude Include="sgPlatformForwardDeclare.h" />
     <ClInclude Include="sgPlatformInclude.h" />
     <ClInclude Include="pch.h" />
@@ -190,6 +191,7 @@
     <ClCompile Include="sgD3D12Texture.cpp" />
     <ClCompile Include="sgD3D12ShaderResourceView.cpp" />
     <ClCompile Include="sgD3D12UnorderedAccessView.cpp" />
+    <ClCompile Include="sgGPUTimestampPool.cpp" />
     <ClCompile Include="SlimGraphicsD3D12.cpp" />
   </ItemGroup>
   <ItemGroup>

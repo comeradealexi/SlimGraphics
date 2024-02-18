@@ -15,6 +15,7 @@ namespace sg
 		class ConstantBufferView;
 		class DepthStencilView;
 		class Device;
+		class GPUTimestampPool;
 		class Memory;
 		class Pipeline;
 		class PixelShader;
@@ -27,6 +28,7 @@ namespace sg
 		class VertexShader;
 	}
 }
+
 namespace sg
 {
 	using Buffer = D3D12::Buffer;
@@ -37,6 +39,7 @@ namespace sg
 	using ConstantBufferView = D3D12::ConstantBufferView;
 	using DepthStencilView = D3D12::DepthStencilView;
 	using Device = D3D12::Device;
+	using GPUTimestampPool = D3D12::GPUTimestampPool;
 	using Memory = D3D12::Memory;
 	using Pipeline = D3D12::Pipeline;
 	using PixelShader = D3D12::PixelShader;
