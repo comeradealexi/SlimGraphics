@@ -4,6 +4,7 @@
 #include "sgD3D12Pipeline.h"
 #include "sgD3D12RenderTargetView.h"
 #include "sgD3D12DepthStencilView.h"
+#include "sgD3D12TypesTranslator.h"
 
 namespace sg
 {
@@ -113,10 +114,22 @@ namespace sg
 			command_list->DrawIndexedInstanced(index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location);
 		}
 
-		void CommandList::start_render_pass(u32 render_target_count, RenderTargetView* render_targets, DepthStencilView* depth_stencil)
+		void CommandList::start_render_pass(u32 render_target_count, RenderTargetView* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain, DepthStencilView* depth_stencil)
 		{
-			seAssert(render_target_count == 1, "Only 1 supported atm TODO");
+			seAssert(render_target_count == 1, "Only 1 supported atm TODO"); //TODO DON'T FORGET VIEWPORTS AND SCISSORS
 			
+			const D3D12_VIEWPORT d3d_viewport = translate(viewport);
+			const D3D12_RECT d3d_scissor = translate(scissor);
+
+			active_render_pass.rtv0_is_swap_chain = rtv0_is_swap_chain;
+			active_render_pass.rtvs[0] = render_targets[0];
+
+			if (rtv0_is_swap_chain)
+			{
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(render_targets[0].texture_resource->get().Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+				command_list->ResourceBarrier(1, &barrier);
+			}
+
 			CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(global_rtv_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), render_targets->rtv, descriptor_increment_size_rtv);
 			//CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
 			if (depth_stencil)
@@ -124,11 +137,19 @@ namespace sg
 				seAssert(false, "TODO");
 			}
 			command_list->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+			command_list->RSSetViewports(1, &d3d_viewport);
+			command_list->RSSetScissorRects(1, &d3d_scissor);
 		}
 
 		void CommandList::end_render_pass()
 		{
-			//command_list->SetGraphicsRootSignature
+			if (active_render_pass.rtv0_is_swap_chain)
+			{
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(active_render_pass.rtvs[0].texture_resource->get().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+				command_list->ResourceBarrier(1, &barrier);
+			}
+
+			active_render_pass = {};
 		}
 	}
 }

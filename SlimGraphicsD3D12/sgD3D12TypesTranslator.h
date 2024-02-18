@@ -6,7 +6,17 @@ namespace sg
 {
 	namespace D3D12
 	{
-		D3D12_CULL_MODE translate(Rasterizer::CullMode cull_mode)
+		static D3D12_VIEWPORT translate(const Viewport& viewport)
+		{
+			return CD3DX12_VIEWPORT(viewport.top_left_x, viewport.top_left_y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth);
+		}
+
+		static D3D12_RECT translate(const ScissorRect& scissor)
+		{
+			return CD3DX12_RECT(scissor.left, scissor.top, scissor.right, scissor.bottom);
+		}
+
+		static D3D12_CULL_MODE translate(Rasterizer::CullMode cull_mode)
 		{
 			switch (cull_mode)
 			{
@@ -21,7 +31,7 @@ namespace sg
 			return D3D12_CULL_MODE_BACK;
 		}
 
-		D3D12_FILL_MODE translate(Rasterizer::FillMode fill_mode)
+		static D3D12_FILL_MODE translate(Rasterizer::FillMode fill_mode)
 		{
 			switch (fill_mode)
 			{
@@ -34,7 +44,7 @@ namespace sg
 			return D3D12_FILL_MODE_SOLID;
 		}
 
-		D3D12_COMPARISON_FUNC translate(ComparisonFunction comp_func)
+		static D3D12_COMPARISON_FUNC translate(ComparisonFunction comp_func)
 		{
 			switch (comp_func)
 			{
@@ -61,7 +71,7 @@ namespace sg
 			return D3D12_COMPARISON_FUNC_ALWAYS;
 		}
 
-		D3D12_STENCIL_OP translate(DepthStencil::StencilOperation stencil_op)
+		static D3D12_STENCIL_OP translate(DepthStencil::StencilOperation stencil_op)
 		{
 			switch (stencil_op)
 			{
@@ -86,7 +96,7 @@ namespace sg
 			return D3D12_STENCIL_OP_KEEP;
 		}
 
-		D3D12_PRIMITIVE_TOPOLOGY_TYPE translate(Topology topology)
+		static D3D12_PRIMITIVE_TOPOLOGY_TYPE translate(Topology topology)
 		{
 			switch (topology)
 			{
@@ -106,7 +116,7 @@ namespace sg
 			return D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
 		}
 
-		D3D_PRIMITIVE_TOPOLOGY translate(PrimitiveTopology toplogy)
+		static D3D_PRIMITIVE_TOPOLOGY translate(PrimitiveTopology toplogy)
 		{
 			switch (toplogy)
 			{
@@ -135,7 +145,7 @@ namespace sg
 			return         D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
 		}
 
-		D3D12_DEPTH_STENCILOP_DESC translate(const DepthStencil::StencilDesc& stencil_desc)
+		static D3D12_DEPTH_STENCILOP_DESC translate(const DepthStencil::StencilDesc& stencil_desc)
 		{
 			D3D12_DEPTH_STENCILOP_DESC sd = {};
 			sd.StencilFunc = translate(stencil_desc.comparison_operation);
@@ -145,7 +155,7 @@ namespace sg
 			return sd;
 		}
 
-		D3D12_RASTERIZER_DESC translate(const Rasterizer::Desc& desc)
+		static D3D12_RASTERIZER_DESC translate(const Rasterizer::Desc& desc)
 		{
 			CD3DX12_RASTERIZER_DESC rd(D3D12_DEFAULT);	
 			rd.CullMode = translate(desc.cull_mode);
@@ -154,7 +164,7 @@ namespace sg
 			return rd;
 		}
 
-		D3D12_DEPTH_STENCIL_DESC translate(const DepthStencil::Desc& desc)
+		static D3D12_DEPTH_STENCIL_DESC translate(const DepthStencil::Desc& desc)
 		{
 			CD3DX12_DEPTH_STENCIL_DESC ds(D3D12_DEFAULT);
 
@@ -169,7 +179,7 @@ namespace sg
 			return ds;
 		}
 
-		D3D12_BLEND translate(Blend::Type blend_type)
+		static D3D12_BLEND translate(Blend::Type blend_type)
 		{
 			switch (blend_type)
 			{
@@ -216,7 +226,7 @@ namespace sg
 			return D3D12_BLEND_ONE;
 		}
 
-		D3D12_BLEND_OP translate(const Blend::Operation blend_operation)
+		static D3D12_BLEND_OP translate(const Blend::Operation blend_operation)
 		{
 			switch (blend_operation)
 			{
@@ -236,7 +246,7 @@ namespace sg
 			return D3D12_BLEND_OP_ADD;
 		}
 
-		D3D12_LOGIC_OP translate(Blend::LogicOperation logic_op)
+		static D3D12_LOGIC_OP translate(Blend::LogicOperation logic_op)
 		{
 			switch (logic_op)
 			{
@@ -277,7 +287,7 @@ namespace sg
 			return D3D12_LOGIC_OP_NOOP;
 		}
 
-		D3D12_RENDER_TARGET_BLEND_DESC translate(const Blend::RenderTargetDesc& desc)
+		static D3D12_RENDER_TARGET_BLEND_DESC translate(const Blend::RenderTargetDesc& desc)
 		{
 			D3D12_RENDER_TARGET_BLEND_DESC  rtd = {};
 			rtd.BlendEnable = desc.blend_enable;
@@ -293,7 +303,7 @@ namespace sg
 			return rtd;
 		}
 
-		D3D12_BLEND_DESC translate(const Blend::Desc& desc)
+		static D3D12_BLEND_DESC translate(const Blend::Desc& desc)
 		{
 			CD3DX12_BLEND_DESC bd(D3D12_DEFAULT);
 

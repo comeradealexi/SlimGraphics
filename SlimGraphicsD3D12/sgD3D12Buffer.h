@@ -8,6 +8,7 @@ namespace sg
 		{
 			friend class Device;
 		public:
+			ComPtr<ID3D12Resource> get() { return resource; }
 
 		protected:
 			SharedPtr<Memory> memory;

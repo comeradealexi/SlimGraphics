@@ -61,6 +61,24 @@ namespace sg
 	{
 		Compute, Pixel, Vertex
 	};
+	
+	struct Viewport
+	{
+		float top_left_x = 0.0f;
+		float top_left_y = 0.0f;
+		float width = 0.0f;
+		float height = 0.0f;
+		float min_depth = 0.0f;
+		float max_depth = 1.0f;
+	};
+
+	struct ScissorRect
+	{
+		u32 left = 0;
+		u32 top = 0;
+		u32 right = 0;
+		u32 bottom = 0;
+	};
 
 	namespace Rasterizer
 	{

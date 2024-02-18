@@ -57,11 +57,17 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	u32 total_frame_idx = 0;
 
+	Viewport vp;
+	vp.width = w;
+	vp.height = h;
+	ScissorRect sc;
+	sc.right = w;
+	sc.bottom = h;
 	while (run)
 	{
 		command_buffer->start_recording();
 		{
-			command_buffer->start_render_pass(1, &rtvs[current_frame_idx]);
+			command_buffer->start_render_pass(1, &rtvs[current_frame_idx], vp, sc, true);
 			{
 				command_buffer->set_pipeline(pipeline.get());
 				command_buffer->draw_instanced(6, 1, 0, 0);

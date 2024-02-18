@@ -1,5 +1,7 @@
 #pragma once
 #include <sgTypes.h>
+#include "sgD3D12RenderTargetView.h"
+#include "sgD3D12DepthStencilView.h"
 namespace sg
 {
 	namespace D3D12
@@ -17,7 +19,7 @@ namespace sg
 			void draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location);
 			void draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i8 base_vertex_location, u32 start_instance_location);
 
-			void start_render_pass(u32 render_target_count, RenderTargetView* render_targets, DepthStencilView* depth_stencil = nullptr);
+			void start_render_pass(u32 render_target_count, RenderTargetView* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain = false, DepthStencilView* depth_stencil = nullptr);
 			void end_render_pass();
 
 			ComPtr<ID3D12GraphicsCommandList6> get() { return command_list; };
@@ -40,6 +42,13 @@ namespace sg
 			u32 descriptor_increment_size_rtv = 0;
 			u32 descriptor_increment_size_dsv = 0;
 			u32 descriptor_increment_size_sampler = 0;
+
+			struct ActiveRenderPass
+			{
+				RenderTargetView rtvs[8];
+				DepthStencilView dsv;
+				bool rtv0_is_swap_chain = false;;
+			} active_render_pass;
 
 		};
 	}
