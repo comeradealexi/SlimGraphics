@@ -5,12 +5,6 @@
 #include <imgui_impl_dx12.h>
 #include <imgui_impl_win32.h>
 
-//TODO
-//Create PSO
-//Create command buffer
-//Command buffer submission
-//Swap chain presentation
-
 using namespace sg;
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
@@ -86,15 +80,42 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	sc.right = (u32)w;
 	sc.bottom = (u32)h;
 
-	bool show_demo_window = true;
+	int plot_index = 0;
+	float gpu_frame_time_history[100] = {};
+	float cpu_frame_time_history[100] = {};
+
 	bool bOpen = true;
 	while (run)
 	{
+		auto cpu_start_time = std::chrono::high_resolution_clock::now();
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
-		ImGui::Begin("Dear ImGui Demo", &bOpen, 0);
-		ImGui::ShowDemoWindow(&show_demo_window);
+		ImGui::Begin("Slim Graphics", &bOpen, 0);
+		if (ImGui::CollapsingHeader("Performance"))
+		{
+			// Plots can display overlay texts
+			// (in this example, we will display an average value)
+			{
+				float average = 0.0f;
+				float max = 0.0f;
+				float min = FLT_MAX;
+				for (int n = 0; n < _countof(gpu_frame_time_history); n++)
+				{
+					average += gpu_frame_time_history[n];
+					max = std::max<float>(max, gpu_frame_time_history[n]);
+					min = std::min<float>(min, gpu_frame_time_history[n]);
+
+				}
+				average /= (float)_countof(gpu_frame_time_history);
+				char overlay[32];
+				sprintf_s(overlay, "avg %f", average);
+				ImGui::PlotLines("Lines", gpu_frame_time_history, _countof(gpu_frame_time_history), plot_index, overlay, min, max, ImVec2(0, 80.0f));
+			}
+		}
+
+		//if (bOpen) { ImGui::ShowDemoWindow(&show_demo_window); }
+
 		command_buffer->start_recording();
 		timestamp_pool->begin_frame();
 		GPUTimestampPool::Index gpu_timestamp_idx = timestamp_pool->allocate_new_timestamp();
@@ -123,9 +144,12 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 		//Timestamps
 		timestamp_pool->resolve();
-		seWriteLine("FrameTime: %fus", timestamp_pool->collect_timestamp_us(gpu_timestamp_idx));
-
+		gpu_frame_time_history[plot_index] = timestamp_pool->collect_timestamp_us(gpu_timestamp_idx);
 		total_frame_idx++;
 		wnd->Poll();
+
+		cpu_frame_time_history[]
+		auto cpu_start_time = std::chrono::high_resolution_clock::now();
+		plot_index = (plot_index + 1) % _countof(gpu_frame_time_history);
 	}
 }
