@@ -48,6 +48,8 @@ namespace sg
 			Ptr<Memory> allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment);
 			ComPtr<QueueFence> create_queue_fence();
 
+			Ptr<GPUTimestampPool> create_gpu_timestamp_pool(CommandQueue* queue, u32 max_timestamps);
+
 			Ptr<CommandQueue> create_command_queue();
 			Ptr<CommandList> create_command_buffer();
 

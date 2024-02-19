@@ -73,16 +73,18 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		pipeline = device->create_pipeline(desc, bd);
 	}
 
+	Ptr<GPUTimestampPool> timestamp_pool = device->create_gpu_timestamp_pool(queue.get(), 1024);
+
 	volatile bool run = true;
 
 	u32 total_frame_idx = 0;
 
 	Viewport vp;
-	vp.width = w;
-	vp.height = h;
+	vp.width = (u32)w;
+	vp.height = (u32)h;
 	ScissorRect sc;
-	sc.right = w;
-	sc.bottom = h;
+	sc.right = (u32)w;
+	sc.bottom = (u32)h;
 
 	bool show_demo_window = true;
 	bool bOpen = true;
@@ -94,6 +96,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImGui::Begin("Dear ImGui Demo", &bOpen, 0);
 		ImGui::ShowDemoWindow(&show_demo_window);
 		command_buffer->start_recording();
+		timestamp_pool->begin_frame();
+		GPUTimestampPool::Index gpu_timestamp_idx = timestamp_pool->allocate_new_timestamp();
+		timestamp_pool->begin_timestamp(gpu_timestamp_idx, command_buffer.get());
 		{
 			command_buffer->start_render_pass(1, &rtvs[current_frame_idx], vp, sc, true);
 			{
@@ -107,13 +112,18 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			}
 			command_buffer->end_render_pass();
 		}
-
+		timestamp_pool->end_timestamp(gpu_timestamp_idx, command_buffer.get());
+		timestamp_pool->end_frame(command_buffer.get());
 		command_buffer->end_recording();
 
 		queue->submit_command_list(command_buffer.get());
 		current_frame_idx = device->present_swap_chain(queue.get());
 		queue->fence_signal(fence.Get(), total_frame_idx);
 		queue->fence_wait(fence.Get(), total_frame_idx);
+
+		//Timestamps
+		timestamp_pool->resolve();
+		seWriteLine("FrameTime: %fus", timestamp_pool->collect_timestamp_us(gpu_timestamp_idx));
 
 		total_frame_idx++;
 		wnd->Poll();

@@ -81,7 +81,7 @@
     <ClInclude Include="sgD3D12QueueFence.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="sgGPUTimestampPool.h">
+    <ClInclude Include="sgD3D12GPUTimestampPool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -143,7 +143,7 @@
     <ClCompile Include="sgD3D12QueueFence.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="sgGPUTimestampPool.cpp">
+    <ClCompile Include="sgD3D12GPUTimestampPool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
