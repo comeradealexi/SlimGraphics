@@ -100,6 +100,22 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				float average = 0.0f;
 				float max = 0.0f;
 				float min = FLT_MAX;
+				for (int n = 0; n < _countof(cpu_frame_time_history); n++)
+				{
+					average += cpu_frame_time_history[n];
+					max = std::max<float>(max, cpu_frame_time_history[n]);
+					min = std::min<float>(min, cpu_frame_time_history[n]);
+
+				}
+				average /= (float)_countof(cpu_frame_time_history);
+				char overlay[32];
+				sprintf_s(overlay, "avg %f", average);
+				ImGui::PlotLines("CPU", cpu_frame_time_history, _countof(cpu_frame_time_history), plot_index, overlay, min, max, ImVec2(0, 80.0f));
+			}
+			{
+				float average = 0.0f;
+				float max = 0.0f;
+				float min = FLT_MAX;
 				for (int n = 0; n < _countof(gpu_frame_time_history); n++)
 				{
 					average += gpu_frame_time_history[n];
@@ -110,7 +126,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				average /= (float)_countof(gpu_frame_time_history);
 				char overlay[32];
 				sprintf_s(overlay, "avg %f", average);
-				ImGui::PlotLines("Lines", gpu_frame_time_history, _countof(gpu_frame_time_history), plot_index, overlay, min, max, ImVec2(0, 80.0f));
+				ImGui::PlotLines("GPU", gpu_frame_time_history, _countof(gpu_frame_time_history), plot_index, overlay, min, max, ImVec2(0, 80.0f));
 			}
 		}
 
@@ -148,8 +164,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		total_frame_idx++;
 		wnd->Poll();
 
-		cpu_frame_time_history[]
-		auto cpu_start_time = std::chrono::high_resolution_clock::now();
+		cpu_frame_time_history[plot_index] = std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - cpu_start_time).count() * 1000000.0;
 		plot_index = (plot_index + 1) % _countof(gpu_frame_time_history);
 	}
 }
