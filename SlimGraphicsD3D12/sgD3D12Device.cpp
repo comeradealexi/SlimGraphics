@@ -219,10 +219,10 @@ namespace sg
 
         void Device::imgui_init(u32 num_frames, DXGI_FORMAT format)
         {
-            u32 idx = cbv_srv_uav_descriptor_heap->allocate();
-            CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap->get_increment_size());
-            CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle(cbv_srv_uav_descriptor_heap->get_gpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap->get_increment_size());
-            if (!ImGui_ImplDX12_Init(device.Get(), num_frames, format, cbv_srv_uav_descriptor_heap->get_heap().Get(), cpu_handle, gpu_handle))
+            u32 idx = imgui_cbv_srv_uav_descriptor_heap->allocate();
+            CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(imgui_cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, imgui_cbv_srv_uav_descriptor_heap->get_increment_size());
+            CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle(imgui_cbv_srv_uav_descriptor_heap->get_gpu_handle_heap_start(), idx, imgui_cbv_srv_uav_descriptor_heap->get_increment_size());
+            if (!ImGui_ImplDX12_Init(device.Get(), num_frames, format, imgui_cbv_srv_uav_descriptor_heap->get_heap().Get(), cpu_handle, gpu_handle))
             {
                 seAssert(false, "Error: ImGui_ImplDX12_Init failed!" );
             }
@@ -232,7 +232,7 @@ namespace sg
         {
             ID3D12GraphicsCommandList6* d3d_cmd_list = command_list->get().Get();
 
-            ID3D12DescriptorHeap* heap = cbv_srv_uav_descriptor_heap->get_heap().Get();
+            ID3D12DescriptorHeap* heap = imgui_cbv_srv_uav_descriptor_heap->get_heap().Get();
             d3d_cmd_list->SetDescriptorHeaps(1, &heap);
             ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), d3d_cmd_list);
         }
@@ -508,15 +508,26 @@ namespace sg
         {
             //cbv srv uav
             {
-                ComPtr<ID3D12DescriptorHeap> heap;
-                D3D12_DESCRIPTOR_HEAP_DESC cbvSrvHeapDesc = {};
-                cbvSrvHeapDesc.NumDescriptors = DESCRIPTOR_COUNT;
-                cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-                cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-                CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
-                heap->SetName(L"CBV SRV UAV Heap");
-                u32 increment_size = device->GetDescriptorHandleIncrementSize(cbvSrvHeapDesc.Type);
-                cbv_srv_uav_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, cbvSrvHeapDesc.NumDescriptors, increment_size));
+				D3D12_DESCRIPTOR_HEAP_DESC cbvSrvHeapDesc = {};
+				cbvSrvHeapDesc.NumDescriptors = DESCRIPTOR_COUNT;
+				cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+				cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+
+				{
+					ComPtr<ID3D12DescriptorHeap> heap;
+					CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
+					heap->SetName(L"CBV SRV UAV Heap");
+					u32 increment_size = device->GetDescriptorHandleIncrementSize(cbvSrvHeapDesc.Type);
+					cbv_srv_uav_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, cbvSrvHeapDesc.NumDescriptors, increment_size));
+				}
+				{
+					cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+					ComPtr<ID3D12DescriptorHeap> heap;
+					CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
+					heap->SetName(L"CBV SRV UAV Heap");
+					u32 increment_size = device->GetDescriptorHandleIncrementSize(cbvSrvHeapDesc.Type);
+					imgui_cbv_srv_uav_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, cbvSrvHeapDesc.NumDescriptors, increment_size));
+				}
             }
             //rtv
             {
@@ -548,7 +559,7 @@ namespace sg
                 D3D12_DESCRIPTOR_HEAP_DESC splrDesc = {};
                 splrDesc.NumDescriptors = DESCRIPTOR_COUNT;
                 splrDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-                splrDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+                splrDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
                 CHECKHR(device->CreateDescriptorHeap(&splrDesc, IID_PPV_ARGS(&heap)));
                 heap->SetName(L"Sampler Heap");
                 u32 increment_size = device->GetDescriptorHandleIncrementSize(splrDesc.Type);

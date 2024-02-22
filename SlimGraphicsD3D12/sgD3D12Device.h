@@ -95,6 +95,7 @@ namespace sg
 			Ptr<DescriptorHeap> rtv_descriptor_heap;
 			Ptr<DescriptorHeap> dsv_descriptor_heap;
 			Ptr<DescriptorHeap> sampler_descriptor_heap;
+			Ptr<DescriptorHeap> imgui_cbv_srv_uav_descriptor_heap;
 		};
 	}
 }
