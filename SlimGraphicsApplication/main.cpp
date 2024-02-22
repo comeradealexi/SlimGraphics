@@ -2,8 +2,10 @@
 #include <seEngineBasicFileIO.h>
 #include <Win32/seWindow.h>
 #include <imgui.h>
+#include <implot.h>
 #include <imgui_impl_dx12.h>
 #include <imgui_impl_win32.h>
+#include "AverageTimer.h"
 
 using namespace sg;
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
@@ -25,13 +27,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	Ptr<CommandList> command_buffer = device->create_command_buffer();
 	auto fence = device->create_queue_fence();
 
-	Ptr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
+	SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
 	mem = nullptr;
 
 	//ImGui
 	{
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
+		ImPlot::CreateContext();
 		ImGui::StyleColorsDark();
 		ImGui_ImplWin32_Init(wnd->g_hWnd);
 		ShowWindow(wnd->g_hWnd, SW_SHOWNORMAL);
@@ -41,11 +44,16 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	//Load Shaders
 	Ptr<VertexShader> vs;
 	Ptr<PixelShader> ps;
+	Ptr<PixelShader> ps_cb;
 	{
 		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_VertexShader.cso");
 		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_PixelShader.cso");
 		vs = device->create_vertex_shader(vertex_data);
 		ps = device->create_pixel_shader(pixel_data);
+	}
+	{
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_ConstantBuffer_PixelShader.cso");
+		ps_cb = device->create_pixel_shader(pixel_data);
 	}
 
 	RenderTargetView rtvs[frame_count];
@@ -53,6 +61,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	//Pipeline
 	Ptr<Pipeline> pipeline;
+	Ptr<Pipeline> pipeline_cb;
 	{
 		BindingDesc bd;
 		//bd.cbv_binding_count = 1;
@@ -65,7 +74,17 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		desc.depth_stencil_desc.depth_enable = false;
 		desc.depth_stencil_desc.depth_write = false;
 		pipeline = device->create_pipeline(desc, bd);
+
+		bd.cbv_binding_count = 1;
+		desc.pixel_shader = ps_cb.get();
+		pipeline_cb = device->create_pipeline(desc, bd);
 	}
+
+	//CB
+	mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
+	Ptr<Buffer> cbfr = device->create_buffer(mem, 64ull * 1024, 64ull * 1024);
+	ConstantBufferView cbv = device->create_constant_buffer_view(cbfr.get(), 0, 256);
+
 
 	Ptr<GPUTimestampPool> timestamp_pool = device->create_gpu_timestamp_pool(queue.get(), 1024);
 
@@ -80,9 +99,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	sc.right = (u32)w;
 	sc.bottom = (u32)h;
 
-	int plot_index = 0;
-	float gpu_frame_time_history[100] = {};
-	float cpu_frame_time_history[100] = {};
+	AverageTimer gpu_timer;
+	AverageTimer cpu_timer;
 
 	bool bOpen = true;
 	while (run)
@@ -91,42 +109,39 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
+		ImPlot::ShowDemoWindow();
 		ImGui::Begin("Slim Graphics", &bOpen, 0);
 		if (ImGui::CollapsingHeader("Performance"))
 		{
 			// Plots can display overlay texts
 			// (in this example, we will display an average value)
 			{
-				float average = 0.0f;
-				float max = 0.0f;
-				float min = FLT_MAX;
-				for (int n = 0; n < _countof(cpu_frame_time_history); n++)
-				{
-					average += cpu_frame_time_history[n];
-					max = std::max<float>(max, cpu_frame_time_history[n]);
-					min = std::min<float>(min, cpu_frame_time_history[n]);
-
-				}
-				average /= (float)_countof(cpu_frame_time_history);
 				char overlay[32];
-				sprintf_s(overlay, "avg %f", average);
-				ImGui::PlotLines("CPU", cpu_frame_time_history, _countof(cpu_frame_time_history), plot_index, overlay, min, max, ImVec2(0, 80.0f));
+				sprintf_s(overlay, "CPU - %u", (u32)cpu_timer.most_recent());
+				char text[128];
+				sprintf_s(text, "Average: %u\nMin: %u\nMax: %u", (u32)cpu_timer.get_average(), (u32)cpu_timer.min(), (u32)cpu_timer.max());
+				ImGui::PlotLines(text, cpu_timer.get_history_buffer(), cpu_timer.get_history_count(), cpu_timer.get_history_idx(), overlay, 0.0f, 50000.0f, ImVec2(0, 80.0f));
 			}
 			{
-				float average = 0.0f;
-				float max = 0.0f;
-				float min = FLT_MAX;
-				for (int n = 0; n < _countof(gpu_frame_time_history); n++)
-				{
-					average += gpu_frame_time_history[n];
-					max = std::max<float>(max, gpu_frame_time_history[n]);
-					min = std::min<float>(min, gpu_frame_time_history[n]);
-
-				}
-				average /= (float)_countof(gpu_frame_time_history);
 				char overlay[32];
-				sprintf_s(overlay, "avg %f", average);
-				ImGui::PlotLines("GPU", gpu_frame_time_history, _countof(gpu_frame_time_history), plot_index, overlay, min, max, ImVec2(0, 80.0f));
+				sprintf_s(overlay, "GPU - %u", (u32)gpu_timer.most_recent());
+				char text[128];
+				sprintf_s(text, "Average: %u\nMin: %u\nMax: %u", (u32)gpu_timer.get_average(), (u32)gpu_timer.min(), (u32)gpu_timer.max());
+				ImGui::PlotLines(text, gpu_timer.get_history_buffer(), gpu_timer.get_history_count(), gpu_timer.get_history_idx(), overlay, 0.0f, 50000.0f, ImVec2(0, 80.0f));
+			}
+			{
+#if 0
+				if (ImPlot::BeginPlot("##Rolling", ImVec2(0.0f, 150.0f))) 
+				{
+					ImPlot::SetupAxes(nullptr, "us", ImPlotAxisFlags_NoTickLabels, ImPlotAxisFlags_NoTickLabels);
+					ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, cpu_timer.get_history_count(), ImGuiCond_Always);
+					ImPlot::SetupAxisLimits(ImAxis_Y1, 0.0, 50000.0);
+					ImPlot::PlotLine<float>("CPU", cpu_timer.get_history_buffer(), (int)cpu_timer.get_history_idx());
+					ImPlot::PlotLine<float>("GPU", gpu_timer.get_history_buffer(), (int)gpu_timer.get_history_idx());
+
+					ImPlot::EndPlot();
+				}
+#endif
 			}
 		}
 
@@ -140,6 +155,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			command_buffer->start_render_pass(1, &rtvs[current_frame_idx], vp, sc, true);
 			{
 				command_buffer->set_pipeline(pipeline.get());
+				command_buffer->draw_instanced(6, 1, 0, 0);
+			}
+			{
+				command_buffer->set_pipeline(pipeline_cb.get());
+				Binding b;
+				b.cbv_binding_count = 1;
+				b.set_cbv(cbv.cbv, 0);
+				command_buffer->bind(b);
 				command_buffer->draw_instanced(6, 1, 0, 0);
 			}
 			{
@@ -160,11 +183,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 		//Timestamps
 		timestamp_pool->resolve();
-		gpu_frame_time_history[plot_index] = timestamp_pool->collect_timestamp_us(gpu_timestamp_idx);
+		gpu_timer.add_time(timestamp_pool->collect_timestamp_us(gpu_timestamp_idx));
 		total_frame_idx++;
 		wnd->Poll();
 
-		cpu_frame_time_history[plot_index] = std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - cpu_start_time).count() * 1000000.0;
-		plot_index = (plot_index + 1) % _countof(gpu_frame_time_history);
+		cpu_timer.add_time(std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - cpu_start_time).count() * 1000000.0);
 	}
 }

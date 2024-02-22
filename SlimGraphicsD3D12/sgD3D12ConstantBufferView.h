@@ -1,4 +1,5 @@
 #pragma once
+#include <sgTypes.h>
 
 namespace sg
 {
@@ -6,7 +7,8 @@ namespace sg
 	{
 		class ConstantBufferView
 		{
-
+		public:
+			CBVBinding cbv;
 		};
 	}
 }

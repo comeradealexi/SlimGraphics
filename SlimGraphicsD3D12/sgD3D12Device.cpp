@@ -3,6 +3,7 @@
 #include "sgD3D12CommandQueue.h"
 #include "sgD3D12CommandList.h"
 #include "sgD3D12RenderTargetView.h"
+#include "sgD3D12ConstantBufferView.h"
 #include "sgD3D12Pipeline.h"
 #include "sgD3D12TypesTranslator.h"
 #include "sgD3D12GPUTimestampPool.h"
@@ -236,7 +237,7 @@ namespace sg
             ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), d3d_cmd_list);
         }
 
-        Ptr<Memory> Device::allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment)
+        SharedPtr<Memory> Device::allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment)
         {
             D3D12MA::Pool* pool = nullptr;
             if (type == MemoryType::GPUOptimal)
@@ -259,7 +260,7 @@ namespace sg
             ComPtr<D3D12MA::Allocation> out_alloc;
             CHECKHR(allocator->AllocateMemory(&ad, &alloc_info, out_alloc.GetAddressOf()));
 
-            return Ptr<Memory>(new Memory(out_alloc.Get()));
+            return SharedPtr<Memory>(new Memory(out_alloc.Get()));
         }
 
         ComPtr<QueueFence> Device::create_queue_fence()
@@ -410,7 +411,47 @@ namespace sg
             return out_pipeline;
         }
 
-        u32 Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list)
+
+		sg::Ptr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, bool unordered_access /*= false*/)
+		{
+            const D3D12_RESOURCE_FLAGS flags = unordered_access ? D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE : D3D12_RESOURCE_FLAG_NONE;
+            const D3D12_RESOURCE_ALLOCATION_INFO rai = { size, alignment };
+            const CD3DX12_RESOURCE_DESC ResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(rai, flags);
+
+            D3D12MA::Allocation* alloc = memory->memory_ptr.ptr.Get();
+            
+			ComPtr<ID3D12Resource> d3d12_buffer;
+            CHECKHR(device6->CreatePlacedResource(alloc->GetHeap(), alloc->GetOffset(), &ResourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
+
+            sg::Ptr<sg::Buffer> buffer(new sg::Buffer());
+            buffer->memory = memory;
+            buffer->resource = d3d12_buffer;
+            return buffer;
+		}
+
+
+		sg::ConstantBufferView Device::create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size)
+		{
+			seAssert(offset % D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT == 0, "Invalid offset");
+            seAssert(size > 0, "Invalid size");
+            seAssert(buffer != nullptr, "Invalid buffer");
+			seAssert(buffer->get().Get() != nullptr, "Invalid buffer");
+
+			u32 idx = cbv_srv_uav_descriptor_heap->allocate();
+			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap->get_increment_size());
+
+			D3D12_CONSTANT_BUFFER_VIEW_DESC CBVDesc;
+			CBVDesc.BufferLocation = buffer->get()->GetGPUVirtualAddress() + offset;
+			CBVDesc.SizeInBytes = size;
+
+			device->CreateConstantBufferView(&CBVDesc, cpu_handle);
+
+            ConstantBufferView cbv;
+            cbv.cbv = idx;
+			return cbv;
+		}
+
+		u32 Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list)
         {
             swap_chain_buffer_count = buffer_count;
 
@@ -471,7 +512,7 @@ namespace sg
                 D3D12_DESCRIPTOR_HEAP_DESC cbvSrvHeapDesc = {};
                 cbvSrvHeapDesc.NumDescriptors = DESCRIPTOR_COUNT;
                 cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-                cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+                cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
                 CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
                 heap->SetName(L"CBV SRV UAV Heap");
                 u32 increment_size = device->GetDescriptorHandleIncrementSize(cbvSrvHeapDesc.Type);
@@ -507,7 +548,7 @@ namespace sg
                 D3D12_DESCRIPTOR_HEAP_DESC splrDesc = {};
                 splrDesc.NumDescriptors = DESCRIPTOR_COUNT;
                 splrDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-                splrDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+                splrDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
                 CHECKHR(device->CreateDescriptorHeap(&splrDesc, IID_PPV_ARGS(&heap)));
                 heap->SetName(L"Sampler Heap");
                 u32 increment_size = device->GetDescriptorHandleIncrementSize(splrDesc.Type);

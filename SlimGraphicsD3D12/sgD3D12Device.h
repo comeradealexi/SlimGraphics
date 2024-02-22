@@ -45,7 +45,7 @@ namespace sg
 			Device();
 			void imgui_init(u32 num_frames, DXGI_FORMAT format);
 			void imgui_render(CommandList* command_list);
-			Ptr<Memory> allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment);
+			SharedPtr<Memory> allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment);
 			ComPtr<QueueFence> create_queue_fence();
 
 			Ptr<GPUTimestampPool> create_gpu_timestamp_pool(CommandQueue* queue, u32 max_timestamps);
@@ -61,6 +61,10 @@ namespace sg
 			u32 present_swap_chain(CommandQueue* command_queue);
 
 			Ptr<Pipeline> create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc);
+
+			Ptr<Buffer> create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, bool unordered_access = false);
+
+			ConstantBufferView create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size);
 
 			//D3D12 Specific
 		public:

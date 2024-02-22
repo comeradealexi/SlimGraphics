@@ -26,12 +26,18 @@
     <ClInclude Include="..\SlimEngine\seEngine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="AverageTimer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Basic_VertexShader.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Basic_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Basic_ConstantBuffer_PixelShader.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

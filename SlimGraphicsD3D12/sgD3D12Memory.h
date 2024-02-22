@@ -18,6 +18,7 @@ namespace sg
 
 		class Memory
 		{
+			friend class Device;
 		public:
 			Memory(D3D12MA::Allocation* ptr);
 

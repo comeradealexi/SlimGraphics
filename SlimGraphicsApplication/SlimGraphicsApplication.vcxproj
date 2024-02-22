@@ -104,7 +104,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -127,7 +127,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -163,8 +163,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\SlimEngine\seEngine.h" />
+    <ClInclude Include="AverageTimer.h" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Basic_ConstantBuffer_PixelShader.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PSMain</EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.1</ShaderModel>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PSMain</EntryPointName>
+    </FxCompile>
     <FxCompile Include="Basic_PixelShader.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>

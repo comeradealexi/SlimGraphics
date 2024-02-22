@@ -9,6 +9,13 @@
 //
 //*********************************************************
 
+#ifdef ADD_CONSTANT_BUFFER
+cbuffer ConstantBufferData : register(b0)
+{
+    float4 cb_colour;
+};
+#endif
+
 struct PS_INPUT
 {
     float4 Position : SV_POSITION;
@@ -55,6 +62,9 @@ PS_INPUT VSMain(uint id : SV_VertexID)
 
 float4 PSMain(PS_INPUT input) : SV_TARGET
 {
+#ifdef ADD_CONSTANT_BUFFER
+        return float4(input.UVs.x * cb_colour.x, input.UVs.y * cb_colour.y, cb_colour.z, 1);
+#else    
     return float4(input.UVs.x, input.UVs.y, 0, 1);
-
+#endif
 }
