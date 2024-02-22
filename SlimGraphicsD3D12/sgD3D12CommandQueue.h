@@ -20,7 +20,7 @@ namespace sg
 			//Inserts a GPU wait to the queue
 			void fence_wait_gpu(QueueFence* fence, u64 value);
 
-			//Waits immediately on the CPU for the fence to be signalled
+			//Waits immediately on the CPU for the fence to be signaled
 			void fence_wait_cpu(QueueFence* fence, u64 value);
 
 		private:

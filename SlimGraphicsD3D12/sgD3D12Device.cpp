@@ -214,7 +214,6 @@ namespace sg
                 }
                 seWriteLine("Created all allocators.");
             }
-
 		}
 
         void Device::imgui_init(u32 num_frames, DXGI_FORMAT format)
