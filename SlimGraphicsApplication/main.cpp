@@ -10,6 +10,12 @@
 using namespace sg;
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
+#if false
+	while (!IsDebuggerPresent())
+	{
+		Sleep(0);
+	}
+#endif
 	const DXGI_FORMAT back_buffer_format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	const u32 frame_count = 3;
 	u64 w = 1920;
@@ -85,6 +91,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	Ptr<Buffer> cbfr = device->create_buffer(mem, 64ull * 1024, 64ull * 1024);
 	ConstantBufferView cbv = device->create_constant_buffer_view(cbfr.get(), 0, 256);
 
+	SharedPtr<Memory> upload_heap = device->allocate_memory(MemoryType::Upload, MemorySubType::None, 64ull * 1024, 64ull * 1024);
 
 	Ptr<GPUTimestampPool> timestamp_pool = device->create_gpu_timestamp_pool(queue.get(), 1024);
 

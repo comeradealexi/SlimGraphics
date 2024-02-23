@@ -238,9 +238,36 @@ namespace sg
 
         SharedPtr<Memory> Device::allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment)
         {
-            D3D12MA::Pool* pool = nullptr;
-            if (type == MemoryType::GPUOptimal)
+            if (type == MemoryType::Upload)
             {
+                ComPtr<D3D12MA::Pool> pool;
+                //Upload heaps should be managed by the application, so it always creates a new pool.
+				D3D12MA::POOL_DESC desc = {};
+				desc.HeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+				desc.HeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				desc.HeapFlags = D3D12_HEAP_FLAG_NONE | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+				desc.BlockSize = size;
+				desc.MinBlockCount = 1;
+				desc.MaxBlockCount = 1;
+				desc.MinAllocationAlignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+				CHECKHR(allocator.ptr->CreatePool(&desc, pool.GetAddressOf()));
+                pool->SetName(L"Upload Heap");
+
+				D3D12MA::ALLOCATION_DESC ad = {};
+				ad.CustomPool = pool.Get();
+
+				D3D12_RESOURCE_ALLOCATION_INFO alloc_info{ size, alignment };
+
+				ComPtr<D3D12MA::Allocation> out_alloc;
+				CHECKHR(allocator->AllocateMemory(&ad, &alloc_info, out_alloc.GetAddressOf()));
+				SharedPtr<Memory> out_mem = SharedPtr<Memory>(new Memory(out_alloc.Get()));
+                out_mem->memory_ptr.ptr_pool = pool;
+                out_mem->cpu_writeable = true;
+                return out_mem;
+            }
+            else //if (type == MemoryType::GPUOptimal)
+            {
+				D3D12MA::Pool* pool = nullptr;
                 switch (sub_type)
                 {
                 case MemorySubType::Texture: pool = mempool_textures.ptr.Get(); break;
@@ -249,17 +276,16 @@ namespace sg
                 default:
                     seAssert(false, "Missing Pool Type")
                 }
+				D3D12MA::ALLOCATION_DESC ad = {};
+				ad.CustomPool = pool;
+
+				D3D12_RESOURCE_ALLOCATION_INFO alloc_info{ size, alignment };
+
+				ComPtr<D3D12MA::Allocation> out_alloc;
+				CHECKHR(allocator->AllocateMemory(&ad, &alloc_info, out_alloc.GetAddressOf()));
+
+				return SharedPtr<Memory>(new Memory(out_alloc.Get()));
             }
-
-            D3D12MA::ALLOCATION_DESC ad = {};
-            ad.CustomPool = pool;
-
-            D3D12_RESOURCE_ALLOCATION_INFO alloc_info{ size, alignment };
-
-            ComPtr<D3D12MA::Allocation> out_alloc;
-            CHECKHR(allocator->AllocateMemory(&ad, &alloc_info, out_alloc.GetAddressOf()));
-
-            return SharedPtr<Memory>(new Memory(out_alloc.Get()));
         }
 
         ComPtr<QueueFence> Device::create_queue_fence()
@@ -415,12 +441,12 @@ namespace sg
 		{
             const D3D12_RESOURCE_FLAGS flags = unordered_access ? D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE : D3D12_RESOURCE_FLAG_NONE;
             const D3D12_RESOURCE_ALLOCATION_INFO rai = { size, alignment };
-            const CD3DX12_RESOURCE_DESC ResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(rai, flags);
+			const CD3DX12_RESOURCE_DESC ResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(rai, flags);
 
-            D3D12MA::Allocation* alloc = memory->memory_ptr.ptr.Get();
-            
+			D3D12MA::Allocation* alloc = memory->memory_ptr.ptr.Get();
+
 			ComPtr<ID3D12Resource> d3d12_buffer;
-            CHECKHR(device6->CreatePlacedResource(alloc->GetHeap(), alloc->GetOffset(), &ResourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
+			CHECKHR(device6->CreatePlacedResource(alloc->GetHeap(), alloc->GetOffset(), &ResourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
 
             sg::Ptr<sg::Buffer> buffer(new sg::Buffer());
             buffer->memory = memory;

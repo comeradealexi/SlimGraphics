@@ -22,6 +22,8 @@ namespace sg
 			void start_render_pass(u32 render_target_count, RenderTargetView* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain = false, DepthStencilView* depth_stencil = nullptr);
 			void end_render_pass();
 
+			void copy_buffer_to_buffer(Buffer* dest, Buffer* source);
+
 			ComPtr<ID3D12GraphicsCommandList6> get() { return command_list; };
 
 		private:

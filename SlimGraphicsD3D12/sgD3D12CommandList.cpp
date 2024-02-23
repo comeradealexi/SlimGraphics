@@ -151,8 +151,31 @@ namespace sg
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(active_render_pass.rtvs[0].texture_resource->get().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 				command_list->ResourceBarrier(1, &barrier);
 			}
-
+			
 			active_render_pass = {};
 		}
+
+		void CommandList::copy_buffer_to_buffer(Buffer* dest, Buffer* source)
+		{
+			seAssert(dest && source, "no valid buffers");
+
+			{
+				CD3DX12_RESOURCE_BARRIER barriers[2];
+				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+				barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(source->get().Get(), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_SOURCE);
+				command_list->ResourceBarrier(2, barriers);
+			}
+
+			command_list->CopyResource(dest->get().Get(), source->get().Get());
+		
+			{
+				CD3DX12_RESOURCE_BARRIER barriers[2];
+				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(source->get().Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
+				command_list->ResourceBarrier(2, barriers);
+			}
+		
+		}
+
 	}
 }
