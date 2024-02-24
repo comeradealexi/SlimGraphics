@@ -1,0 +1,13 @@
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/CMakeFiles/uninstall.dir
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/CMakeFiles/UpdateAssimpLibsDebugSymbolsAndDLLs.dir
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/CMakeFiles/INSTALL.dir
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/CMakeFiles/ALL_BUILD.dir
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/CMakeFiles/ZERO_CHECK.dir
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/contrib/zlib/CMakeFiles/zlibstatic.dir
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/contrib/zlib/CMakeFiles/INSTALL.dir
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/contrib/zlib/CMakeFiles/ALL_BUILD.dir
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/code/CMakeFiles/assimp.dir
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/code/CMakeFiles/INSTALL.dir
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/test/CMakeFiles/unit.dir
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/test/CMakeFiles/INSTALL.dir
+C:/Users/hough/source/SlimGraphics/External/assimp-5.3.1/test/headercheck/CMakeFiles/INSTALL.dir
