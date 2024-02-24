@@ -240,10 +240,10 @@ namespace sg
 		SizeAndAlignment Device::calculate_resource_size_alignment(const ResourceCreateDesc& desc)
 		{
             const ResourceUsageFlags invalid_4kb_flags = ResourceUsageFlags::RenderTarget | ResourceUsageFlags::DepthStencil;
-            const bool bAlign4Kb = desc.try_alignment_4kb && (static_cast<u32>(desc.usage_flags & invalid_4kb_flags) == 0);
+            const bool bAlign4Kb = false;// desc.try_alignment_4kb && (static_cast<u32>(desc.usage_flags & invalid_4kb_flags) == 0) && desc.dimension != ResourceDimension::Buffer; //SEE HOW D3D12MA DOES THIS BUT IT'S NOT EXPOSED VIA HEADER
 
             D3D12_RESOURCE_DESC d3d12_desc = {};
-            d3d12_desc.Alignment = bAlign4Kb ? 1024 * 4 : 0; //0 = default
+            d3d12_desc.Alignment = bAlign4Kb ? 4096 : 0; //0 = default
 			d3d12_desc.Dimension = translate(desc.dimension);
 			d3d12_desc.Width = desc.width;
 			d3d12_desc.Height = desc.height;
@@ -252,7 +252,7 @@ namespace sg
 			d3d12_desc.Format = desc.format;
 			d3d12_desc.SampleDesc.Count = 1;
 			d3d12_desc.SampleDesc.Quality = 0;
-			d3d12_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+			d3d12_desc.Layout = desc.dimension == ResourceDimension::Buffer ? D3D12_TEXTURE_LAYOUT_ROW_MAJOR :  D3D12_TEXTURE_LAYOUT_UNKNOWN;
             d3d12_desc.Flags = translate(desc.usage_flags);
 
             D3D12_RESOURCE_ALLOCATION_INFO alloc_info = device->GetResourceAllocationInfo(0, 1, &d3d12_desc);

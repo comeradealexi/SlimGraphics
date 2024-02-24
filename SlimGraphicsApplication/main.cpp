@@ -74,6 +74,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	
 	{//Res size test
 		ResourceCreateDesc rd;
+		rd.width = 128;
+		rd.height = 128;
 		rd.format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		rd.usage_flags = ResourceUsageFlags::UnorderedAccess;
 		SizeAndAlignment sal = device->calculate_resource_size_alignment(rd);
