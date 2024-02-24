@@ -166,7 +166,7 @@ namespace sg
                 const u64 total_memory_to_use = (adapter_desc.DedicatedVideoMemory * ADAPTER_MEMORY_TO_CONSUME_PERCENTAGE) / 100;
 
                 D3D12MA::ALLOCATOR_DESC desc = {};
-                desc.Flags = D3D12MA::ALLOCATOR_FLAG_DEFAULT_POOLS_NOT_ZEROED | D3D12MA::ALLOCATOR_FLAG_SINGLETHREADED;
+                desc.Flags = (D3D12MA::ALLOCATOR_FLAGS) (D3D12MA::ALLOCATOR_FLAG_DEFAULT_POOLS_NOT_ZEROED | D3D12MA::ALLOCATOR_FLAG_SINGLETHREADED);
                 desc.pDevice = device.Get();
                 desc.pAdapter = hardware_adapter.Get();
                 CHECKHR(D3D12MA::CreateAllocator(&desc, &allocator.ptr));
@@ -236,7 +236,30 @@ namespace sg
             ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), d3d_cmd_list);
         }
 
-        SharedPtr<Memory> Device::allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment)
+
+		SizeAndAlignment Device::calculate_resource_size_alignment(const ResourceCreateDesc& desc)
+		{
+            const ResourceUsageFlags invalid_4kb_flags = ResourceUsageFlags::RenderTarget | ResourceUsageFlags::DepthStencil;
+            const bool bAlign4Kb = desc.try_alignment_4kb && (static_cast<u32>(desc.usage_flags & invalid_4kb_flags) == 0);
+
+            D3D12_RESOURCE_DESC d3d12_desc = {};
+            d3d12_desc.Alignment = bAlign4Kb ? 1024 * 4 : 0; //0 = default
+			d3d12_desc.Dimension = translate(desc.dimension);
+			d3d12_desc.Width = desc.width;
+			d3d12_desc.Height = desc.height;
+			d3d12_desc.DepthOrArraySize = desc.depth;
+			d3d12_desc.MipLevels = desc.mip_count;
+			d3d12_desc.Format = desc.format;
+			d3d12_desc.SampleDesc.Count = 1;
+			d3d12_desc.SampleDesc.Quality = 0;
+			d3d12_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+            d3d12_desc.Flags = translate(desc.usage_flags);
+
+            D3D12_RESOURCE_ALLOCATION_INFO alloc_info = device->GetResourceAllocationInfo(0, 1, &d3d12_desc);
+            return { alloc_info.SizeInBytes, alloc_info.Alignment };
+		}
+
+		SharedPtr<Memory> Device::allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment)
         {
             if (type == MemoryType::Upload)
             {

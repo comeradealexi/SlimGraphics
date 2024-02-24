@@ -4,6 +4,19 @@
 #include <memory>
 #include <dxgiformat.h>
 #include <array>
+#include <type_traits>
+
+#define ENUM_FLAG_OPERATORS(Flags)														      \
+static inline Flags operator| (const Flags& a, const Flags& b)								  \
+{																							  \
+	using BaseType = std::underlying_type<Flags>::type;										  \
+	return static_cast<Flags>(static_cast<BaseType>(a) | static_cast<BaseType>(b));			  \
+}																							  \
+static inline Flags operator& (const Flags& a, const Flags& b)								  \
+{																							  \
+	using BaseType = std::underlying_type<Flags>::type;										  \
+	return static_cast<Flags>(static_cast<BaseType>(a) & static_cast<BaseType>(b));			  \
+}
 
 //sg = simple graphics
 namespace sg
@@ -26,6 +39,12 @@ namespace sg
 
 	using float4 = std::array<float, 4>;
 
+	struct SizeAndAlignment
+	{
+		u64 size;
+		u64 alignment;
+	};
+
 	enum class MemoryType
 	{
 		GPUOptimal, Upload, Readback
@@ -45,6 +64,15 @@ namespace sg
 	{
 		Vertex, Index, Constant, UnorderedAccess, Texture, Upload
 	};
+
+	enum class ResourceUsageFlags
+	{
+		None			= 0,
+		RenderTarget	= 1 << 0,
+		DepthStencil	= 1 << 1,
+		UnorderedAccess = 1 << 2,
+	};
+	ENUM_FLAG_OPERATORS(ResourceUsageFlags)
 
 	enum class PrimitiveTopology
 	{
@@ -86,6 +114,23 @@ namespace sg
 		u32 top = 0;
 		u32 right = 0;
 		u32 bottom = 0;
+	};
+
+	enum class ResourceDimension
+	{
+		Buffer, Texture1D, Texture2D, Texture3D
+	};
+
+	struct ResourceCreateDesc
+	{
+		u32 width = 1;
+		u32 height = 1;
+		u32 depth = 1;
+		u32 mip_count = 1;
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+		ResourceUsageFlags usage_flags = ResourceUsageFlags::None;
+		ResourceDimension dimension = ResourceDimension::Texture2D;
+		bool try_alignment_4kb = true;
 	};
 
 	namespace Rasterizer

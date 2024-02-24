@@ -72,6 +72,13 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		device->imgui_init(frame_count, back_buffer_format);
 	}
 	
+	{//Res size test
+		ResourceCreateDesc rd;
+		rd.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		rd.usage_flags = ResourceUsageFlags::UnorderedAccess;
+		SizeAndAlignment sal = device->calculate_resource_size_alignment(rd);
+	}
+
 	//Load Shaders
 	Ptr<VertexShader> vs;
 	Ptr<PixelShader> ps;
