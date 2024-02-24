@@ -158,21 +158,29 @@ namespace sg
 		void CommandList::copy_buffer_to_buffer(Buffer* dest, Buffer* source)
 		{
 			seAssert(dest && source, "no valid buffers");
-
+			seAssert(source->get_type() == BufferType::Upload, "only upload supported. Need to add different barrier transition for other types (to copy src)");
 			const D3D12_RESOURCE_STATES state_dest = get_d3d12_resource_state(dest->get_type());
 
+			//Barrier transition
 			{
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), state_dest, D3D12_RESOURCE_STATE_COPY_DEST);
 				command_list->ResourceBarrier(1, &barrier);
 			}
-
-			command_list->CopyResource(dest->get().Get(), source->get().Get());
-		
+			
+			command_list->CopyResource(dest->get().Get(), source->get().Get());	
+			
+			//Barrier transition
 			{
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), D3D12_RESOURCE_STATE_COPY_DEST, state_dest);
 				command_list->ResourceBarrier(1, &barrier);
 			}
-		
+		}
+
+
+		void CommandList::clear_render_target_view(RenderTargetView rtv, float4 colour)
+		{
+			CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(global_rtv_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), rtv.rtv, descriptor_increment_size_rtv);
+			command_list->ClearRenderTargetView(rtvHandle, colour.data(), 0, nullptr);
 		}
 
 	}

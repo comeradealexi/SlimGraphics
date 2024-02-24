@@ -273,7 +273,7 @@ namespace sg
                 case MemorySubType::Target: pool = mempool_targets.ptr.Get(); break;
                 case MemorySubType::Buffer: pool = mempool_buffers.ptr.Get(); break;
                 default:
-                    seAssert(false, "Missing Pool Type")
+                    seAssert(false, "Missing Pool Type");
                 }
 				D3D12MA::ALLOCATION_DESC ad = {};
 				ad.CustomPool = pool;
@@ -365,6 +365,8 @@ namespace sg
         {
             Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline());
 
+            seAssert(pipeline_desc.input_layout.num_elements == 0, "not supported yet");
+
             out_pipeline->topology = translate(pipeline_desc.primitive_topology);
 
             D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
@@ -435,6 +437,12 @@ namespace sg
             return out_pipeline;
         }
 
+
+		se::Ptr<sg::Pipeline> Device::create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc)
+		{
+            //CHECKHR(device->CreateGraphicsPipelineState());
+            return nullptr;
+		}
 
 		sg::Ptr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type)
 		{

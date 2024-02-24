@@ -61,6 +61,7 @@ namespace sg
 			u32 present_swap_chain(CommandQueue* command_queue);
 
 			Ptr<Pipeline> create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc);
+			Ptr<Pipeline> create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc);
 
 			Ptr<Buffer> create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type);
 

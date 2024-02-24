@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <memory>
 #include <dxgiformat.h>
+#include <array>
 
 //sg = simple graphics
 namespace sg
@@ -22,6 +23,8 @@ namespace sg
 	using i16 = int16_t;
 	using i32 = int32_t;
 	using i64 = int64_t;
+
+	using float4 = std::array<float, 4>;
 
 	enum class MemoryType
 	{

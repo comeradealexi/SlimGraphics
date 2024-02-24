@@ -114,6 +114,9 @@
       <PrecompiledHeaderFile>se_engine_pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>.;..\SubModules\imgui\backends;..\SubModules\imgui</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <SupportJustMyCode>false</SupportJustMyCode>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -133,6 +136,8 @@
       <PrecompiledHeaderFile>se_engine_pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>.;..\SubModules\imgui\backends;..\SubModules\imgui</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>

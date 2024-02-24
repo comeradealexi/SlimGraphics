@@ -5,9 +5,34 @@
 #include <implot.h>
 #include <imgui_impl_dx12.h>
 #include <imgui_impl_win32.h>
+#include <DirectXMath.h>
 #include "AverageTimer.h"
 
+/*
+TODO:
+Compute
+Vertex Buffers
+Index Buffers
+Texture Bindings
+UAV
+*/
 using namespace sg;
+
+struct Simple3DModel
+{
+	Simple3DModel(Device* device)
+	{
+
+	}
+	
+	void render(CommandList* command_list)
+	{
+
+	}
+
+	Ptr<Buffer> vb;
+};
+
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
 #if false
@@ -166,6 +191,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		{
 			command_buffer->start_render_pass(1, &rtvs[current_frame_idx], vp, sc, true);
 			{
+				float4 colour = { 0.0f,1.0f,0.0f,1.0f };
+				command_buffer->clear_render_target_view(rtvs[current_frame_idx], colour);
+			}
+			{
 				command_buffer->copy_buffer_to_buffer(cbfr.get(), upload_buffer.get());
 			}
 			{
@@ -203,6 +232,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		total_frame_idx++;
 		wnd->Poll();
 
-		cpu_timer.add_time(std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - cpu_start_time).count() * 1000000.0);
+		cpu_timer.add_time(std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - cpu_start_time).count() * 1000000.0);
 	}
 }

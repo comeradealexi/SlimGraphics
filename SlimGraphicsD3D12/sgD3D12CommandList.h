@@ -24,6 +24,8 @@ namespace sg
 
 			void copy_buffer_to_buffer(Buffer* dest, Buffer* source);
 
+			void clear_render_target_view(RenderTargetView rtv, float4 colour);
+
 			ComPtr<ID3D12GraphicsCommandList6> get() { return command_list; };
 
 		private:

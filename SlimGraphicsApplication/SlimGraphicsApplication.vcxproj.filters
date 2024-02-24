@@ -40,9 +40,18 @@
     <FxCompile Include="Basic_ConstantBuffer_PixelShader.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="Basic3D_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Basic3D_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Basic_Header.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Basic3D_Header.hlsli">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

@@ -114,6 +114,9 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\D3D12MemoryAllocator\include;..\SubModules\imgui;..\SubModules\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <SupportJustMyCode>false</SupportJustMyCode>
     </ClCompile>
     <Link>
       <SubSystem>
@@ -133,6 +136,8 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\D3D12MemoryAllocator\include;..\SubModules\imgui;..\SubModules\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>
