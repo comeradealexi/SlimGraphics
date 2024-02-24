@@ -33,5 +33,16 @@ namespace sg
 			seAssert(free_list[heap_index] == true, "Freeing descriptor to bad index");
 			free_list[heap_index] = false;
 		}
+
+		CD3DX12_CPU_DESCRIPTOR_HANDLE DescriptorHeap::get_cpu_handle_at_offset(u32 index_offset)
+		{
+			return CD3DX12_CPU_DESCRIPTOR_HANDLE(heap->GetCPUDescriptorHandleForHeapStart(), index_offset, heap_increment_size);
+		}
+
+		CD3DX12_GPU_DESCRIPTOR_HANDLE DescriptorHeap::get_gpu_handle_at_offset(u32 index_offset)
+		{
+			return CD3DX12_GPU_DESCRIPTOR_HANDLE(heap->GetGPUDescriptorHandleForHeapStart(), index_offset, heap_increment_size);
+		}
+
 	}
 }

@@ -15,10 +15,13 @@ namespace sg
 			u32 allocate();
 			void free(u32 heap_index);
 
-			D3D12_CPU_DESCRIPTOR_HANDLE get_cpu_handle_heap_start(void) { return heap->GetCPUDescriptorHandleForHeapStart(); };
-			D3D12_GPU_DESCRIPTOR_HANDLE get_gpu_handle_heap_start(void) { return heap->GetGPUDescriptorHandleForHeapStart(); };
+			D3D12_CPU_DESCRIPTOR_HANDLE get_cpu_handle_heap_start(void) const { return heap->GetCPUDescriptorHandleForHeapStart(); };
+			D3D12_GPU_DESCRIPTOR_HANDLE get_gpu_handle_heap_start(void) const { return heap->GetGPUDescriptorHandleForHeapStart(); };
 
-			inline u32 get_increment_size() { return heap_increment_size; }
+			CD3DX12_CPU_DESCRIPTOR_HANDLE get_cpu_handle_at_offset(u32 index_offset);
+			CD3DX12_GPU_DESCRIPTOR_HANDLE get_gpu_handle_at_offset(u32 index_offset);
+
+			inline u32 get_increment_size() const { return heap_increment_size; }
 			ComPtr<ID3D12DescriptorHeap> get_heap() { return heap; }
 		private:
 			std::mutex mutex;

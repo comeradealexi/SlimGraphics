@@ -14,6 +14,7 @@
 #include "sgD3D12Pipeline.h"
 #include "sgD3D12RenderTargetView.h"
 #include "sgD3D12ConstantBufferView.h"
+#include "sgD3D12UnorderedAccessView.h"
 #include "sgD3D12GPUTimestampPool.h"
 
 #ifndef SG_PLATFORM_D3D12
