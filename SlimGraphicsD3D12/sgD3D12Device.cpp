@@ -260,9 +260,8 @@ namespace sg
 
 				ComPtr<D3D12MA::Allocation> out_alloc;
 				CHECKHR(allocator->AllocateMemory(&ad, &alloc_info, out_alloc.GetAddressOf()));
-				SharedPtr<Memory> out_mem = SharedPtr<Memory>(new Memory(out_alloc.Get()));
+				SharedPtr<Memory> out_mem = SharedPtr<Memory>(new Memory(type, out_alloc.Get()));
                 out_mem->memory_ptr.ptr_pool = pool;
-                out_mem->cpu_writeable = true;
                 return out_mem;
             }
             else //if (type == MemoryType::GPUOptimal)
@@ -284,7 +283,7 @@ namespace sg
 				ComPtr<D3D12MA::Allocation> out_alloc;
 				CHECKHR(allocator->AllocateMemory(&ad, &alloc_info, out_alloc.GetAddressOf()));
 
-				return SharedPtr<Memory>(new Memory(out_alloc.Get()));
+				return SharedPtr<Memory>(new Memory(type, out_alloc.Get()));
             }
         }
 
@@ -437,18 +436,19 @@ namespace sg
         }
 
 
-		sg::Ptr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, bool unordered_access /*= false*/)
+		sg::Ptr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type)
 		{
-            const D3D12_RESOURCE_FLAGS flags = unordered_access ? D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE : D3D12_RESOURCE_FLAG_NONE;
+            const D3D12_RESOURCE_FLAGS flags = type == BufferType::UnorderedAccess ? (D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE) : D3D12_RESOURCE_FLAG_NONE;
             const D3D12_RESOURCE_ALLOCATION_INFO rai = { size, alignment };
 			const CD3DX12_RESOURCE_DESC ResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(rai, flags);
 
 			D3D12MA::Allocation* alloc = memory->memory_ptr.ptr.Get();
 
+            const D3D12_RESOURCE_STATES resource_state = get_d3d12_resource_state(type);
 			ComPtr<ID3D12Resource> d3d12_buffer;
-			CHECKHR(device6->CreatePlacedResource(alloc->GetHeap(), alloc->GetOffset(), &ResourceDesc, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
+			CHECKHR(device6->CreatePlacedResource(alloc->GetHeap(), alloc->GetOffset(), &ResourceDesc, resource_state, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
 
-            sg::Ptr<sg::Buffer> buffer(new sg::Buffer());
+            sg::Ptr<sg::Buffer> buffer(new sg::Buffer(type, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
             buffer->memory = memory;
             buffer->resource = d3d12_buffer;
             return buffer;
@@ -461,6 +461,7 @@ namespace sg
             seAssert(size > 0, "Invalid size");
             seAssert(buffer != nullptr, "Invalid buffer");
 			seAssert(buffer->get().Get() != nullptr, "Invalid buffer");
+            seAssert(buffer->type == BufferType::Constant, "expecting constant buffer");
 
 			u32 idx = cbv_srv_uav_descriptor_heap->allocate();
 			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap->get_increment_size());

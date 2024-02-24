@@ -16,6 +16,34 @@ namespace sg
 			return CD3DX12_RECT(scissor.left, scissor.top, scissor.right, scissor.bottom);
 		}
 
+		static D3D12_RESOURCE_STATES get_d3d12_resource_state(BufferType type)
+		{
+			D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;
+			switch (type)
+			{
+			case BufferType::Vertex:
+			case BufferType::Constant:
+				state = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+				break;
+			case BufferType::Index:
+				state = D3D12_RESOURCE_STATE_INDEX_BUFFER;
+				break;
+			case BufferType::UnorderedAccess:
+				state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				break;
+			case BufferType::Upload:
+				state = D3D12_RESOURCE_STATE_GENERIC_READ;
+				break;
+			case BufferType::Texture:
+				state = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+				break;
+			default:
+				seAssert(false, "Missing case statement");
+				break;
+			}
+			return state;
+		}
+
 		static D3D12_CULL_MODE translate(Rasterizer::CullMode cull_mode)
 		{
 			switch (cull_mode)

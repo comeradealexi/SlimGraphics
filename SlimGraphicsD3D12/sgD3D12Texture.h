@@ -9,6 +9,7 @@ namespace sg
 		{
 			friend class Device;
 		public:
+			Texture() : Buffer(BufferType::Texture, false, false) { }
 			
 		};
 	}

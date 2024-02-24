@@ -38,6 +38,11 @@ namespace sg
 		Undefined, Point, Line,	Triangle, Patch
 	};
 
+	enum class BufferType
+	{
+		Vertex, Index, Constant, UnorderedAccess, Texture, Upload
+	};
+
 	enum class PrimitiveTopology
 	{
 		Undefined,

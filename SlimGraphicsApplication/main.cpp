@@ -88,10 +88,15 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	//CB
 	mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
-	Ptr<Buffer> cbfr = device->create_buffer(mem, 64ull * 1024, 64ull * 1024);
+	Ptr<Buffer> cbfr = device->create_buffer(mem, 64ull * 1024, 64ull * 1024, BufferType::Constant);
 	ConstantBufferView cbv = device->create_constant_buffer_view(cbfr.get(), 0, 256);
 
 	SharedPtr<Memory> upload_heap = device->allocate_memory(MemoryType::Upload, MemorySubType::None, 64ull * 1024, 64ull * 1024);
+	Ptr<Buffer> upload_buffer = device->create_buffer(upload_heap, 64ull * 1024, 64ull * 1024, BufferType::Upload);
+	{
+		float data[4] = { 1.0f,0.0f,0.0f,1.0f };
+		upload_buffer->write_memory(0, data, sizeof(data));
+	}
 
 	Ptr<GPUTimestampPool> timestamp_pool = device->create_gpu_timestamp_pool(queue.get(), 1024);
 
@@ -160,6 +165,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		timestamp_pool->begin_timestamp(gpu_timestamp_idx, command_buffer.get());
 		{
 			command_buffer->start_render_pass(1, &rtvs[current_frame_idx], vp, sc, true);
+			{
+				command_buffer->copy_buffer_to_buffer(cbfr.get(), upload_buffer.get());
+			}
 			{
 				command_buffer->set_pipeline(pipeline.get());
 				command_buffer->draw_instanced(6, 1, 0, 0);

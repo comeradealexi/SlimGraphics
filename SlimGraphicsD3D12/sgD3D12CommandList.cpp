@@ -159,20 +159,18 @@ namespace sg
 		{
 			seAssert(dest && source, "no valid buffers");
 
+			const D3D12_RESOURCE_STATES state_dest = get_d3d12_resource_state(dest->get_type());
+
 			{
-				CD3DX12_RESOURCE_BARRIER barriers[2];
-				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-				barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(source->get().Get(), D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_COPY_SOURCE);
-				command_list->ResourceBarrier(2, barriers);
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), state_dest, D3D12_RESOURCE_STATE_COPY_DEST);
+				command_list->ResourceBarrier(1, &barrier);
 			}
 
 			command_list->CopyResource(dest->get().Get(), source->get().Get());
 		
 			{
-				CD3DX12_RESOURCE_BARRIER barriers[2];
-				barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
-				barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(source->get().Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
-				command_list->ResourceBarrier(2, barriers);
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), D3D12_RESOURCE_STATE_COPY_DEST, state_dest);
+				command_list->ResourceBarrier(1, &barrier);
 			}
 		
 		}

@@ -21,16 +21,11 @@ namespace sg
 		{
 			friend class Device;
 		public:
-			Memory(D3D12MA::Allocation* ptr);
-
-			void write_memory(u32 offset, void* memory_src, u64 size);
-
-			void read_memory(u32 offset, void* memory_dest, u64 size);
-
+			Memory(MemoryType type_, D3D12MA::Allocation* ptr);
+			MemoryType get_type() const { return type; }
 		private:
+			const MemoryType type;
 			AllocationPIMPL memory_ptr;
-			bool cpu_writeable = false;
-			bool cpu_readable = false;
 		};
 	}
 }
