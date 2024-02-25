@@ -5,6 +5,7 @@
 #include <dxgiformat.h>
 #include <array>
 #include <type_traits>
+#include <bitset>
 
 #define ENUM_FLAG_OPERATORS(Flags)														      \
 static inline Flags operator| (const Flags& a, const Flags& b)								  \
@@ -337,15 +338,17 @@ namespace sg
 			dirty = true;
 			cbvs[index] = binding;
 		}
-		void set_srv(SRVBinding binding, u32 index)
+		void set_srv(SRVBinding binding, u32 index, bool writeable = false)
 		{
 			dirty = true;
 			srvs[index] = binding;
+			srvs_writable[index] = writeable;
 		}
-		void set_uav(UAVBinding binding, u32 index)
+		void set_uav(UAVBinding binding, u32 index, bool writeable = false)
 		{
 			dirty = true;
 			uavs[index] = binding;
+			uavs_writable[index] = writeable;
 		}
 		void set_sampler(SamplerBinding binding, u32 index)
 		{
@@ -362,8 +365,13 @@ namespace sg
 	private:
 		bool dirty = true;
 		CBVBinding cbvs[MAX_CBVS] = {};
+
 		SRVBinding srvs[MAX_SRVS] = {};
+		std::bitset<MAX_SRVS> srvs_writable = {};
+
 		UAVBinding uavs[MAX_UAVS] = {};
+		std::bitset<MAX_UAVS> uavs_writable = {};
+		
 		SamplerBinding samplers[MAX_SAMPLERS] = {};
 	};
 }

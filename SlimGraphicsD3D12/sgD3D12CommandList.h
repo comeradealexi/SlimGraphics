@@ -19,8 +19,10 @@ namespace sg
 			void draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location);
 			void draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i8 base_vertex_location, u32 start_instance_location);
 
-			void start_render_pass(u32 render_target_count, RenderTargetView* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain = false, DepthStencilView* depth_stencil = nullptr);
-			void end_render_pass();
+			void start_geometry_pass(u32 render_target_count, RenderTargetView* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain = false, DepthStencilView* depth_stencil = nullptr);
+			void end_geometry_pass();
+
+			void dispatch(u32 x = 1, u32 y = 1, u32 z = 1);
 
 			void copy_buffer_to_buffer(Buffer* dest, Buffer* source);
 
@@ -47,13 +49,14 @@ namespace sg
 			u32 descriptor_increment_size_dsv = 0;
 			u32 descriptor_increment_size_sampler = 0;
 
-			struct ActiveRenderPass
+			//Binding Info
+			Binding active_binding;
+			struct ActiveGeometryPass
 			{
 				RenderTargetView rtvs[8];
 				DepthStencilView dsv;
 				bool rtv0_is_swap_chain = false;;
-			} active_render_pass;
-
+			} active_geometry_pass;
 		};
 	}
 }

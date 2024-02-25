@@ -9,6 +9,7 @@ namespace sg
 		{
 		public:
 			UAVBinding uav;
+			bool write_access = false;
 		};
 	}
 }

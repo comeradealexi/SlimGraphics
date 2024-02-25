@@ -105,6 +105,13 @@ namespace sg
 			}
 
 			bind.set_not_dirty();
+
+			active_binding = bind;
+
+			//Transition Write resources back to read state
+			{
+				//Don't want to do this though if it's already bound at the exact same point though??
+			}
 		}
 
 		void CommandList::draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location)
@@ -117,15 +124,15 @@ namespace sg
 			command_list->DrawIndexedInstanced(index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location);
 		}
 
-		void CommandList::start_render_pass(u32 render_target_count, RenderTargetView* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain, DepthStencilView* depth_stencil)
+		void CommandList::start_geometry_pass(u32 render_target_count, RenderTargetView* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain, DepthStencilView* depth_stencil)
 		{
 			seAssert(render_target_count == 1, "Only 1 supported atm TODO"); //TODO DON'T FORGET VIEWPORTS AND SCISSORS
 			
 			const D3D12_VIEWPORT d3d_viewport = translate(viewport);
 			const D3D12_RECT d3d_scissor = translate(scissor);
 
-			active_render_pass.rtv0_is_swap_chain = rtv0_is_swap_chain;
-			active_render_pass.rtvs[0] = render_targets[0];
+			active_geometry_pass.rtv0_is_swap_chain = rtv0_is_swap_chain;
+			active_geometry_pass.rtvs[0] = render_targets[0];
 			
 			if (rtv0_is_swap_chain)
 			{
@@ -144,15 +151,24 @@ namespace sg
 			command_list->RSSetScissorRects(1, &d3d_scissor);
 		}
 
-		void CommandList::end_render_pass()
+		void CommandList::end_geometry_pass()
 		{
-			if (active_render_pass.rtv0_is_swap_chain)
+			if (active_geometry_pass.rtv0_is_swap_chain)
 			{
-				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(active_render_pass.rtvs[0].texture_resource->get().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(active_geometry_pass.rtvs[0].texture_resource->get().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 				command_list->ResourceBarrier(1, &barrier);
 			}
-			
-			active_render_pass = {};
+		
+			//To allow bound resources to be transitioned back to a read state.
+			Binding default_binding;
+			bind(default_binding);
+
+			active_geometry_pass = {};
+		}
+
+		void CommandList::dispatch(u32 x /*= 1*/, u32 y /*= 1*/, u32 z /*= 1*/)
+		{
+			command_list->Dispatch(x, y, z);
 		}
 
 		void CommandList::copy_buffer_to_buffer(Buffer* dest, Buffer* source)

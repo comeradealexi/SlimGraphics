@@ -198,7 +198,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		GPUTimestampPool::Index gpu_timestamp_idx = timestamp_pool->allocate_new_timestamp();
 		timestamp_pool->begin_timestamp(gpu_timestamp_idx, command_buffer.get());
 		{
-			command_buffer->start_render_pass(1, &rtvs[current_frame_idx], vp, sc, true);
+			command_buffer->start_geometry_pass(1, &rtvs[current_frame_idx], vp, sc, true);
 			{
 				float4 colour = { 0.0f,1.0f,0.0f,1.0f };
 				command_buffer->clear_render_target_view(rtvs[current_frame_idx], colour);
@@ -223,7 +223,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				ImGui::Render();
 				device->imgui_render(command_buffer.get());
 			}
-			command_buffer->end_render_pass();
+			command_buffer->end_geometry_pass();
 		}
 		timestamp_pool->end_timestamp(gpu_timestamp_idx, command_buffer.get());
 		timestamp_pool->end_frame(command_buffer.get());
