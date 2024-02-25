@@ -79,6 +79,7 @@ namespace sg
 			ComPtr<ID3D12Device> get_device() { return device; }
 
 		private:
+			ComPtr<ID3D12RootSignature> create_root_signature(const BindingDesc& binding_desc);
 			void create_descriptors();
 			
 		private:

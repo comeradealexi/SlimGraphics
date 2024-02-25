@@ -139,7 +139,16 @@ namespace sg
 
                         // Enable additional debug layers.
                         dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
+
+#if false
+						ComPtr<ID3D12Debug1> debugController1;
+						if (SUCCEEDED(debugController->QueryInterface(IID_PPV_ARGS(&debugController1))))
+						{
+                            debugController1->SetEnableGPUBasedValidation(true);
+						}
+#endif
                     }
+
                 }
             #endif
 
@@ -413,46 +422,7 @@ namespace sg
             
             //Root Signature Generation
             {
-                CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
-                ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, binding_desc.cbv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);    // Diffuse texture + array of materials.
-                ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, binding_desc.srv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-                ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, binding_desc.uav_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-                ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, binding_desc.sampler_binding_count, 0);
-
-                CD3DX12_ROOT_PARAMETER1 rootParameters[4];
-                u32 parameter_index = 0;
-                if (binding_desc.cbv_binding_count)
-                {
-                    rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.cbv_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
-                    parameter_index++;
-                }
-                if (binding_desc.srv_binding_count)
-                {
-                    rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.srv_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
-                    parameter_index++;
-                }
-                if (binding_desc.uav_binding_count)
-                {
-                    rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.uav_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
-                    parameter_index++;
-                }
-                if (binding_desc.sampler_binding_count)
-                {
-                    rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.sampler_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
-                    parameter_index++;
-                }
-
-                CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-                rootSignatureDesc.Init_1_1(parameter_index, rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-                
-                ComPtr<ID3DBlob> signature;
-                ComPtr<ID3DBlob> error;
-                CHECKHR(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, features.HighestRootSignatureVersion(), &signature, &error));
-                if (error)
-                {
-                    seWriteLine("D3DX12SerializeVersionedRootSignature Error: %s", error->GetBufferPointer());
-                }
-                CHECKHR(device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(out_pipeline->root_signature.GetAddressOf())));
+                out_pipeline->root_signature = create_root_signature(binding_desc);
                 psoDesc.pRootSignature = out_pipeline->root_signature.Get();
             }
 
@@ -463,8 +433,20 @@ namespace sg
 
 		se::Ptr<sg::Pipeline> Device::create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc)
 		{
-            //CHECKHR(device->CreateGraphicsPipelineState());
-            return nullptr;
+			Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline());
+
+			D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
+            psoDesc.CS = pipeline_desc.compute_shader->shader_code;
+
+			//Root Signature Generation
+			{
+				out_pipeline->root_signature = create_root_signature(binding_desc);
+				psoDesc.pRootSignature = out_pipeline->root_signature.Get();
+			}
+
+			CHECKHR(device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(out_pipeline->pipeline.GetAddressOf())));
+            
+            return out_pipeline;
 		}
 
 		sg::Ptr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type)
@@ -561,7 +543,54 @@ namespace sg
             return rtv_descriptor_heap->get_increment_size();
         }
 
-        void Device::create_descriptors()
+
+		ComPtr<ID3D12RootSignature> Device::create_root_signature(const BindingDesc& binding_desc)
+		{
+			CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
+			ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, binding_desc.cbv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);    // Diffuse texture + array of materials.
+			ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, binding_desc.srv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+			ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, binding_desc.uav_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+			ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, binding_desc.sampler_binding_count, 0);
+
+			CD3DX12_ROOT_PARAMETER1 rootParameters[4];
+			u32 parameter_index = 0;
+			if (binding_desc.cbv_binding_count)
+			{
+				rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.cbv_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+				parameter_index++;
+			}
+			if (binding_desc.srv_binding_count)
+			{
+				rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.srv_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+				parameter_index++;
+			}
+			if (binding_desc.uav_binding_count)
+			{
+				rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.uav_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+				parameter_index++;
+			}
+			if (binding_desc.sampler_binding_count)
+			{
+				rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.sampler_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+				parameter_index++;
+			}
+
+			CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
+			rootSignatureDesc.Init_1_1(parameter_index, rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+			ComPtr<ID3DBlob> signature;
+			ComPtr<ID3DBlob> error;
+			CHECKHR(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, features.HighestRootSignatureVersion(), &signature, &error));
+			if (error)
+			{
+				seWriteLine("D3DX12SerializeVersionedRootSignature Error: %s", error->GetBufferPointer());
+			}
+            ComPtr<ID3D12RootSignature> rs;
+			CHECKHR(device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(rs.GetAddressOf())));
+            return rs;
+        }
+
+		void Device::create_descriptors()
         {
             //cbv srv uav
             {
