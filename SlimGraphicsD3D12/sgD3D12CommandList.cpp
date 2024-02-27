@@ -41,8 +41,8 @@ namespace sg
 		void CommandList::bind(Binding& bind)
 		{
 			//Binding contains the global list indices.
-
 			//ID3D12Device::CopyDescriptorsSimple method (d3d12.h)
+			u32 root_parameter_index = 0;
 
 			if (bind.cbv_binding_count)
 			{
@@ -58,7 +58,8 @@ namespace sg
 					dest_cpu.Offset(descriptor_heap_increment);
 				}
 				
-				command_list->SetGraphicsRootDescriptorTable(0, dest_gpu);
+				command_list->SetGraphicsRootDescriptorTable(root_parameter_index, dest_gpu);
+				root_parameter_index++;
 				descriptor_heap_index += bind.cbv_binding_count;
 			}
 
@@ -77,7 +78,8 @@ namespace sg
 					dest_cpu.Offset(descriptor_heap_increment);
 				}
 
-				command_list->SetGraphicsRootDescriptorTable(1, dest_gpu);
+				command_list->SetGraphicsRootDescriptorTable(root_parameter_index, dest_gpu);
+				root_parameter_index++;
 				descriptor_heap_index += bind.srv_binding_count;
 			}
 
@@ -92,36 +94,72 @@ namespace sg
 				{
 					CD3DX12_CPU_DESCRIPTOR_HANDLE src_cpu(global_heap->GetCPUDescriptorHandleForHeapStart(), bind.get_uavs(i), descriptor_heap_increment);
 					device->CopyDescriptorsSimple(1, dest_cpu, src_cpu, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-					dest_cpu.Offset(descriptor_heap_increment);
+					dest_cpu.Offset(descriptor_heap_increment);					
 				}
 
-				command_list->SetGraphicsRootDescriptorTable(2, dest_gpu);
+				command_list->SetGraphicsRootDescriptorTable(root_parameter_index, dest_gpu);
+				root_parameter_index++;
 				descriptor_heap_index += bind.uav_binding_count;
 			}
 
 			if (bind.sampler_binding_count)
 			{
+				root_parameter_index++;
 				seAssert(false, "todo");
 			}
 
-			bind.set_not_dirty();
-
-			active_binding = bind;
-
-			//Transition Write resources back to read state
+			//Transition old UAVs back to read state and new UAVs to write state
+			const u32 highest_bind_count = std::max<u32>(active_binding.uav_binding_count, bind.uav_binding_count);
+			if (highest_bind_count)
 			{
-				//Don't want to do this though if it's already bound at the exact same point though??
+				u32 barrier_count_out = 0;
+				u32 barrier_count_in = 0;
+				CD3DX12_RESOURCE_BARRIER barriers_out[Binding::MAX_UAVS];
+				CD3DX12_RESOURCE_BARRIER barriers_in[Binding::MAX_UAVS];
+
+				for (size_t i = 0; i < highest_bind_count; i++)
+				{
+					if (active_binding.get_uavs(i) != bind.get_uavs(i))
+					{
+						if (active_binding.get_uavs(i) != Binding::INVALID_BINDING)
+						{
+							barriers_out[barrier_count_out] = CD3DX12_RESOURCE_BARRIER::Transition(active_binding.d3d12_uavs[i].buffer_resource->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, bind.d3d12_uavs[i].buffer_resource->get_read_resource_state());
+							barrier_count_out++;
+						}
+
+						if (bind.get_uavs(i) != Binding::INVALID_BINDING)
+						{
+							barriers_in[barrier_count_in] = CD3DX12_RESOURCE_BARRIER::Transition(active_binding.d3d12_uavs[i].buffer_resource->get().Get(),bind.d3d12_uavs[i].buffer_resource->get_read_resource_state(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+							barrier_count_in++;
+						}
+					}
+				}
+
+				if (barrier_count_out)
+				{
+					command_list->ResourceBarrier(barrier_count_out, barriers_out);
+				}
+
+				if (barrier_count_in)
+				{
+					command_list->ResourceBarrier(barrier_count_in, barriers_in);
+				}
 			}
+
+			bind.set_not_dirty();
+			active_binding = bind;
 		}
 
 		void CommandList::draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location)
 		{
 			command_list->DrawInstanced(vertex_count_per_instance, instance_count, start_vertex_location, start_instance_location);
+			flush_bound_uavs();
 		}
 
 		void CommandList::draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i8 base_vertex_location, u32 start_instance_location)
 		{
 			command_list->DrawIndexedInstanced(index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location);
+			flush_bound_uavs();
 		}
 
 		void CommandList::start_geometry_pass(u32 render_target_count, RenderTargetView* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain, DepthStencilView* depth_stencil)
@@ -169,13 +207,14 @@ namespace sg
 		void CommandList::dispatch(u32 x /*= 1*/, u32 y /*= 1*/, u32 z /*= 1*/)
 		{
 			command_list->Dispatch(x, y, z);
+			flush_bound_uavs();
 		}
 
 		void CommandList::copy_buffer_to_buffer(Buffer* dest, Buffer* source)
 		{
 			seAssert(dest && source, "no valid buffers");
 			seAssert(source->get_type() == BufferType::Upload, "only upload supported. Need to add different barrier transition for other types (to copy src)");
-			const D3D12_RESOURCE_STATES state_dest = get_d3d12_resource_state(dest->get_type());
+			const D3D12_RESOURCE_STATES state_dest = dest->get_read_resource_state();
 
 			//Barrier transition
 			{
@@ -199,5 +238,23 @@ namespace sg
 			command_list->ClearRenderTargetView(rtvHandle, colour.data(), 0, nullptr);
 		}
 
+
+		void CommandList::flush_bound_uavs()
+		{
+			if (active_binding.uav_binding_count)
+			{
+				D3D12_RESOURCE_BARRIER barriers[Binding::MAX_UAVS];
+
+				for (size_t i = 0; i < active_binding.uav_binding_count; i++)
+				{
+					barriers[i] = {};
+					barriers[i].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+					barriers[i].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+					barriers[i].UAV.pResource = active_binding.d3d12_uavs[i].buffer_resource->get().Get();
+				}
+
+				command_list->ResourceBarrier(active_binding.uav_binding_count, barriers);
+			}
+		}
 	}
 }

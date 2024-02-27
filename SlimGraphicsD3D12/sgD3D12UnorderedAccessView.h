@@ -1,5 +1,6 @@
 #pragma once
 #include <sgTypes.h>
+#include "sgD3D12Buffer.h"
 
 namespace sg
 {
@@ -9,7 +10,7 @@ namespace sg
 		{
 		public:
 			UAVBinding uav;
-			bool write_access = false;
+			SharedPtr<Buffer> buffer_resource;
 		};
 	}
 }

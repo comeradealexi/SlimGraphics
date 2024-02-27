@@ -85,6 +85,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	Ptr<VertexShader> vs;
 	Ptr<PixelShader> ps;
 	Ptr<PixelShader> ps_cb;
+	Ptr<ComputeShader> cs;
 	{
 		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_VertexShader.cso");
 		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_PixelShader.cso");
@@ -95,6 +96,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_ConstantBuffer_PixelShader.cso");
 		ps_cb = device->create_pixel_shader(pixel_data);
 	}
+	{
+		std::vector<uint8_t> compute_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_ComputeShader.cso");
+		cs = device->create_compute_shader(compute_data);
+	}
 
 	RenderTargetView rtvs[frame_count];
 	u32 current_frame_idx = device->create_swap_chain(wnd->g_hWnd, queue.get(), frame_count, back_buffer_format, w, h, rtvs);
@@ -102,6 +107,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	//Pipeline
 	Ptr<Pipeline> pipeline;
 	Ptr<Pipeline> pipeline_cb;
+	Ptr<Pipeline> pipeline_compute;
 	{
 		BindingDesc bd;
 		//bd.cbv_binding_count = 1;
@@ -119,14 +125,21 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		desc.pixel_shader = ps_cb.get();
 		pipeline_cb = device->create_pipeline(desc, bd);
 	}
+	{
+		BindingDesc bd;
+		bd.uav_binding_count = 1;
+		PipelineDesc::Compute desc;
+		desc.compute_shader = cs.get();
+		pipeline_compute = device->create_pipeline(desc, bd);
+	}
 
 	//CB
 	mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
-	Ptr<Buffer> cbfr = device->create_buffer(mem, 64ull * 1024, 64ull * 1024, BufferType::Constant);
+	Ptr<Buffer> cbfr = device->create_buffer(mem, 64ull * 1024, 64ull * 1024, BufferType::Constant, false);
 	ConstantBufferView cbv = device->create_constant_buffer_view(cbfr.get(), 0, 256);
 
 	SharedPtr<Memory> upload_heap = device->allocate_memory(MemoryType::Upload, MemorySubType::None, 64ull * 1024, 64ull * 1024);
-	Ptr<Buffer> upload_buffer = device->create_buffer(upload_heap, 64ull * 1024, 64ull * 1024, BufferType::Upload);
+	Ptr<Buffer> upload_buffer = device->create_buffer(upload_heap, 64ull * 1024, 64ull * 1024, BufferType::Upload, false);
 	{
 		float data[4] = { 1.0f,0.0f,0.0f,1.0f };
 		upload_buffer->write_memory(0, data, sizeof(data));
@@ -214,7 +227,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				command_buffer->set_pipeline(pipeline_cb.get());
 				Binding b;
 				b.cbv_binding_count = 1;
-				b.set_cbv(cbv.cbv, 0);
+				b.set_cbv(cbv, 0);
 				command_buffer->bind(b);
 				command_buffer->draw_instanced(6, 1, 0, 0);
 			}

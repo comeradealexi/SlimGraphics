@@ -1,5 +1,6 @@
 #pragma once
 #include <sgTypes.h>
+#include "sgD3D12Binding.h"
 #include "sgD3D12RenderTargetView.h"
 #include "sgD3D12DepthStencilView.h"
 namespace sg
@@ -31,6 +32,8 @@ namespace sg
 			ComPtr<ID3D12GraphicsCommandList6> get() { return command_list; };
 
 		private:
+			void flush_bound_uavs();
+
 			ComPtr<ID3D12GraphicsCommandList6> command_list;
 			ComPtr<ID3D12CommandAllocator> command_allocator;
 

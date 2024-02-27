@@ -56,8 +56,9 @@ namespace sg
 			Ptr<CommandQueue> create_command_queue();
 			Ptr<CommandList> create_command_buffer();
 
-			Ptr<VertexShader> create_vertex_shader(std::vector<uint8_t>& shader);
-			Ptr<PixelShader> create_pixel_shader(std::vector<uint8_t>& shader);
+			Ptr<VertexShader> create_vertex_shader(const std::vector<uint8_t>& shader);
+			Ptr<PixelShader> create_pixel_shader(const std::vector<uint8_t>& shader);
+			Ptr<ComputeShader> create_compute_shader(const std::vector<uint8_t>& shader);
 
 			//Returns current index to use
 			u32 create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list);
@@ -66,7 +67,7 @@ namespace sg
 			Ptr<Pipeline> create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc);
 			Ptr<Pipeline> create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc);
 
-			Ptr<Buffer> create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type);
+			Ptr<Buffer> create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type, bool uav_access);
 
 			ConstantBufferView create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size);
 
@@ -79,7 +80,7 @@ namespace sg
 			ComPtr<ID3D12Device> get_device() { return device; }
 
 		private:
-			ComPtr<ID3D12RootSignature> create_root_signature(const BindingDesc& binding_desc);
+			ComPtr<ID3D12RootSignature> create_root_signature(const BindingDesc& binding_desc, bool compute);
 			void create_descriptors();
 			
 		private:

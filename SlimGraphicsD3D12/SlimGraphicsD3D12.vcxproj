@@ -148,6 +148,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="sgD3D12Binding.h" />
     <ClInclude Include="sgD3D12Buffer.h" />
     <ClInclude Include="sgD3D12BufferView.h" />
     <ClInclude Include="sgD3D12CommandQueue.h" />
@@ -179,6 +180,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="sgD3D12Binding.cpp" />
     <ClCompile Include="sgD3D12Buffer.cpp" />
     <ClCompile Include="sgD3D12BufferView.cpp" />
     <ClCompile Include="sgD3D12CommandQueue.cpp" />

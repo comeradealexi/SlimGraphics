@@ -1,4 +1,5 @@
 #pragma once
+#include "seEngine.h"
 #include "sgPlatformForwardDeclare.h"
 #include <stdint.h>
 #include <memory>
@@ -63,7 +64,12 @@ namespace sg
 
 	enum class BufferType
 	{
-		Vertex, Index, Constant, UnorderedAccess, Texture, Upload
+		GeneralDataBuffer, //UAV / Structured Buffer for example
+		Vertex, 
+		Index, 
+		Constant, 
+		Texture, 
+		Upload
 	};
 
 	enum class ResourceUsageFlags
@@ -331,27 +337,37 @@ namespace sg
 	using RTVBinding = u32;
 	using DSVBinding = u32;
 
-	struct Binding : public BindingDesc
+	struct BaseBinding : public BindingDesc
 	{
+		static constexpr u32 INVALID_BINDING = (u32)~0;
+		BaseBinding()
+		{
+			for (auto& v : cbvs) v = INVALID_BINDING;
+			for (auto& v : srvs) v = INVALID_BINDING;
+			for (auto& v : uavs) v = INVALID_BINDING;
+			for (auto& v : samplers) v = INVALID_BINDING;
+		}
 		void set_cbv(CBVBinding binding, u32 index)
 		{
+			seAssert(index < cbv_binding_count, "exceeded");
 			dirty = true;
 			cbvs[index] = binding;
 		}
-		void set_srv(SRVBinding binding, u32 index, bool writeable = false)
+		void set_srv(SRVBinding binding, u32 index)
 		{
+			seAssert(index < srv_binding_count, "exceeded");
 			dirty = true;
 			srvs[index] = binding;
-			srvs_writable[index] = writeable;
 		}
-		void set_uav(UAVBinding binding, u32 index, bool writeable = false)
+		void set_uav(UAVBinding binding, u32 index)
 		{
+			seAssert(index < uav_binding_count, "exceeded");
 			dirty = true;
 			uavs[index] = binding;
-			uavs_writable[index] = writeable;
 		}
 		void set_sampler(SamplerBinding binding, u32 index)
 		{
+			seAssert(index < sampler_binding_count, "exceeded");
 			dirty = true;
 			samplers[index] = binding;
 		}
@@ -364,14 +380,9 @@ namespace sg
 
 	private:
 		bool dirty = true;
-		CBVBinding cbvs[MAX_CBVS] = {};
-
-		SRVBinding srvs[MAX_SRVS] = {};
-		std::bitset<MAX_SRVS> srvs_writable = {};
-
-		UAVBinding uavs[MAX_UAVS] = {};
-		std::bitset<MAX_UAVS> uavs_writable = {};
-		
-		SamplerBinding samplers[MAX_SAMPLERS] = {};
+		CBVBinding cbvs[MAX_CBVS];
+		SRVBinding srvs[MAX_SRVS];
+		UAVBinding uavs[MAX_UAVS];
+		SamplerBinding samplers[MAX_SAMPLERS];
 	};
 }

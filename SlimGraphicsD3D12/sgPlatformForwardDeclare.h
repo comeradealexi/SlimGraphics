@@ -26,6 +26,7 @@ namespace sg
 		class TextureView;
 		class UnorderedAccessView;
 		class VertexShader;
+		class Binding;
 	}
 }
 
@@ -51,6 +52,7 @@ namespace sg
 	using TextureView = D3D12::TextureView;
 	using UnorderedAccessView = D3D12::UnorderedAccessView;
 	using VertexShader = D3D12::VertexShader;
+	using Binding = D3D12::Binding;
 }
 
 namespace D3D12MA

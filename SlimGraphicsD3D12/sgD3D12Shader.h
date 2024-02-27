@@ -9,7 +9,7 @@ namespace sg
 		class Shader
 		{
 		public:
-			Shader(std::vector<uint8_t>& shader) : shader_binary_data(shader)  
+			Shader(const std::vector<uint8_t>& shader) : shader_binary_data(shader)
 			{ 
 				shader_code = CD3DX12_SHADER_BYTECODE(shader_binary_data.data(), shader_binary_data.size());
 			}
@@ -20,20 +20,20 @@ namespace sg
 		class ComputeShader : public Shader
 		{
 		public:
-			ComputeShader(std::vector<uint8_t>& shader) : Shader(shader) { }
+			ComputeShader(const std::vector<uint8_t>& shader) : Shader(shader) { }
 		};
 
 		class VertexShader : public Shader
 		{
 		public:
-			VertexShader(std::vector<uint8_t>& shader) : Shader(shader) { }
+			VertexShader(const std::vector<uint8_t>& shader) : Shader(shader) { }
 
 		};
 
 		class PixelShader : public Shader
 		{
 		public:
-			PixelShader(std::vector<uint8_t>& shader) : Shader(shader) { }
+			PixelShader(const std::vector<uint8_t>& shader) : Shader(shader) { }
 		};
 	}
 }

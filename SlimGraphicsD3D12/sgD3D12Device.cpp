@@ -383,17 +383,22 @@ namespace sg
             return out_command_list;
         }
 
-        Ptr<VertexShader> Device::create_vertex_shader(std::vector<uint8_t>& shader)
+        Ptr<VertexShader> Device::create_vertex_shader(const std::vector<uint8_t>& shader)
         {
             return Ptr<VertexShader>(new VertexShader(shader));
         }
 
-        Ptr<PixelShader> Device::create_pixel_shader(std::vector<uint8_t>& shader)
+        Ptr<PixelShader> Device::create_pixel_shader(const std::vector<uint8_t>& shader)
         {
             return Ptr<PixelShader>(new PixelShader(shader));
         }
 
-        Ptr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
+		sg::Ptr<sg::ComputeShader> Device::create_compute_shader(const std::vector<uint8_t>& shader)
+		{
+			return Ptr<ComputeShader>(new ComputeShader(shader));
+		}
+
+		Ptr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
         {
             Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline());
 
@@ -422,7 +427,7 @@ namespace sg
             
             //Root Signature Generation
             {
-                out_pipeline->root_signature = create_root_signature(binding_desc);
+                out_pipeline->root_signature = create_root_signature(binding_desc, false);
                 psoDesc.pRootSignature = out_pipeline->root_signature.Get();
             }
 
@@ -440,7 +445,7 @@ namespace sg
 
 			//Root Signature Generation
 			{
-				out_pipeline->root_signature = create_root_signature(binding_desc);
+				out_pipeline->root_signature = create_root_signature(binding_desc, true);
 				psoDesc.pRootSignature = out_pipeline->root_signature.Get();
 			}
 
@@ -449,19 +454,19 @@ namespace sg
             return out_pipeline;
 		}
 
-		sg::Ptr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type)
+		sg::Ptr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type, bool uav_access)
 		{
-            const D3D12_RESOURCE_FLAGS flags = type == BufferType::UnorderedAccess ? (D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE) : D3D12_RESOURCE_FLAG_NONE;
+            const D3D12_RESOURCE_FLAGS flags = uav_access ? (D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE) : D3D12_RESOURCE_FLAG_NONE;
             const D3D12_RESOURCE_ALLOCATION_INFO rai = { size, alignment };
 			const CD3DX12_RESOURCE_DESC ResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(rai, flags);
 
 			D3D12MA::Allocation* alloc = memory->memory_ptr.ptr.Get();
 
-            const D3D12_RESOURCE_STATES resource_state = get_d3d12_resource_state(type);
+            const D3D12_RESOURCE_STATES resource_state = get_d3d12_resource_read_state(type);
 			ComPtr<ID3D12Resource> d3d12_buffer;
 			CHECKHR(device6->CreatePlacedResource(alloc->GetHeap(), alloc->GetOffset(), &ResourceDesc, resource_state, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
 
-            sg::Ptr<sg::Buffer> buffer(new sg::Buffer(type, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
+            sg::Ptr<sg::Buffer> buffer(new sg::Buffer(type, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
             buffer->memory = memory;
             buffer->resource = d3d12_buffer;
             return buffer;
@@ -507,7 +512,7 @@ namespace sg
 
             for (u32 i = 0; i < swap_chain_buffer_count; i++)
             {
-                SharedPtr<Texture> texture_resource = SharedPtr<Texture>(new Texture());
+                SharedPtr<Texture> texture_resource = SharedPtr<Texture>(new Texture(false));
                 rtv_list[i].texture_resource = texture_resource;
                 CHECKHR(swap_chain->GetBuffer(i, IID_PPV_ARGS(texture_resource->resource.GetAddressOf())));
 
@@ -544,7 +549,7 @@ namespace sg
         }
 
 
-		ComPtr<ID3D12RootSignature> Device::create_root_signature(const BindingDesc& binding_desc)
+		ComPtr<ID3D12RootSignature> Device::create_root_signature(const BindingDesc& binding_desc, bool compute)
 		{
 			CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
 			ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, binding_desc.cbv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);    // Diffuse texture + array of materials.
@@ -561,22 +566,22 @@ namespace sg
 			}
 			if (binding_desc.srv_binding_count)
 			{
-				rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.srv_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+				rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.srv_binding_count > 0 ? 1 : 0, &ranges[1], D3D12_SHADER_VISIBILITY_ALL);
 				parameter_index++;
 			}
 			if (binding_desc.uav_binding_count)
 			{
-				rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.uav_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+				rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.uav_binding_count > 0 ? 1 : 0, &ranges[2], D3D12_SHADER_VISIBILITY_ALL);
 				parameter_index++;
 			}
 			if (binding_desc.sampler_binding_count)
 			{
-				rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.sampler_binding_count > 0 ? 1 : 0, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
+				rootParameters[parameter_index].InitAsDescriptorTable(binding_desc.sampler_binding_count > 0 ? 1 : 0, &ranges[3], D3D12_SHADER_VISIBILITY_ALL);
 				parameter_index++;
 			}
 
 			CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-			rootSignatureDesc.Init_1_1(parameter_index, rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+			rootSignatureDesc.Init_1_1(parameter_index, rootParameters, 0, nullptr, compute ? D3D12_ROOT_SIGNATURE_FLAG_NONE : D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 			ComPtr<ID3DBlob> signature;
 			ComPtr<ID3DBlob> error;

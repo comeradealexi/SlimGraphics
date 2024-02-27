@@ -55,7 +55,7 @@ namespace sg
 			}
 		}
 
-		static D3D12_RESOURCE_STATES get_d3d12_resource_state(BufferType type)
+		static D3D12_RESOURCE_STATES get_d3d12_resource_read_state(BufferType type)
 		{
 			D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;
 			switch (type)
@@ -67,8 +67,8 @@ namespace sg
 			case BufferType::Index:
 				state = D3D12_RESOURCE_STATE_INDEX_BUFFER;
 				break;
-			case BufferType::UnorderedAccess:
-				state = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+			case BufferType::GeneralDataBuffer:
+				state = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 				break;
 			case BufferType::Upload:
 				state = D3D12_RESOURCE_STATE_GENERIC_READ;

@@ -1,10 +1,17 @@
 #include "pch.h"
 #include "sgD3D12Buffer.h"	
+#include "sgD3D12TypesTranslator.h"
 
 namespace sg
 {
 	namespace D3D12
 	{
+
+		D3D12_RESOURCE_STATES Buffer::get_read_resource_state() const
+		{
+			return get_d3d12_resource_read_state(type);
+		}
+
 		void Buffer::write_memory(u32 offset, const void* memory_src, u64 size)
 		{
 			seAssert(cpu_writeable, "Trying to write gpu memory that is not cpu visible");
