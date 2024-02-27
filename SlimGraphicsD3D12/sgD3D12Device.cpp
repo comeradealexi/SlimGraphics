@@ -454,9 +454,9 @@ namespace sg
             return out_pipeline;
 		}
 
-		sg::Ptr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type, bool uav_access)
+		sg::SharedPtr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type, bool uav_access)
 		{
-            const D3D12_RESOURCE_FLAGS flags = uav_access ? (D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE) : D3D12_RESOURCE_FLAG_NONE;
+            const D3D12_RESOURCE_FLAGS flags = uav_access ? (D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) : D3D12_RESOURCE_FLAG_NONE;
             const D3D12_RESOURCE_ALLOCATION_INFO rai = { size, alignment };
 			const CD3DX12_RESOURCE_DESC ResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(rai, flags);
 
@@ -466,7 +466,7 @@ namespace sg
 			ComPtr<ID3D12Resource> d3d12_buffer;
 			CHECKHR(device6->CreatePlacedResource(alloc->GetHeap(), alloc->GetOffset(), &ResourceDesc, resource_state, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
 
-            sg::Ptr<sg::Buffer> buffer(new sg::Buffer(type, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
+            sg::SharedPtr<sg::Buffer> buffer(new sg::Buffer(type, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
             buffer->memory = memory;
             buffer->resource = d3d12_buffer;
             return buffer;
@@ -484,15 +484,64 @@ namespace sg
 			u32 idx = cbv_srv_uav_descriptor_heap->allocate();
 			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap->get_increment_size());
 
-			D3D12_CONSTANT_BUFFER_VIEW_DESC CBVDesc;
-			CBVDesc.BufferLocation = buffer->get()->GetGPUVirtualAddress() + offset;
-			CBVDesc.SizeInBytes = size;
+			D3D12_CONSTANT_BUFFER_VIEW_DESC desc;
+			desc.BufferLocation = buffer->get()->GetGPUVirtualAddress() + offset;
+			desc.SizeInBytes = size;
 
-			device->CreateConstantBufferView(&CBVDesc, cpu_handle);
+			device->CreateConstantBufferView(&desc, cpu_handle);
 
             ConstantBufferView cbv;
             cbv.cbv = idx;
 			return cbv;
+		}
+
+
+		sg::D3D12::ShaderResourceView Device::create_shader_resource_view(Buffer* buffer, u64 element_size, u64 element_count)
+		{
+            D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+			{
+				desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+				desc.Format = DXGI_FORMAT_UNKNOWN;
+				desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+				desc.Buffer.NumElements = element_count;
+				desc.Buffer.StructureByteStride = element_size;
+				desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+			}
+
+			u32 idx = cbv_srv_uav_descriptor_heap->allocate();
+			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap->get_increment_size());
+
+			device->CreateShaderResourceView(buffer->get().Get(), &desc, cpu_handle);
+
+            ShaderResourceView srv;
+            srv.srv = idx;
+            return srv;
+		}
+
+
+		sg::D3D12::UnorderedAccessView Device::create_unordered_access_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count)
+		{
+            D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
+			{
+				desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+				desc.Format = DXGI_FORMAT_UNKNOWN;
+				desc.Buffer.CounterOffsetInBytes = 0;
+
+				desc.Buffer.NumElements = element_count;
+				desc.Buffer.StructureByteStride = element_size;
+				desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+			}
+
+			u32 idx = cbv_srv_uav_descriptor_heap->allocate();
+			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap->get_increment_size());
+
+			device->CreateUnorderedAccessView(buffer->get().Get(),nullptr, &desc, cpu_handle);
+
+            UnorderedAccessView uav;
+            uav.uav = idx;
+            uav.buffer_resource = buffer;
+			return uav;
 		}
 
 		u32 Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list)

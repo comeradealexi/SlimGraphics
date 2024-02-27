@@ -67,9 +67,11 @@ namespace sg
 			Ptr<Pipeline> create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc);
 			Ptr<Pipeline> create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc);
 
-			Ptr<Buffer> create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type, bool uav_access);
+			SharedPtr<Buffer> create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type, bool uav_access);
 
 			ConstantBufferView create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size);
+			ShaderResourceView create_shader_resource_view(Buffer* buffer, u64 element_size, u64 element_count);
+			UnorderedAccessView create_unordered_access_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count);
 
 			//D3D12 Specific
 		public:

@@ -135,17 +135,23 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	//CB
 	mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
-	Ptr<Buffer> cbfr = device->create_buffer(mem, 64ull * 1024, 64ull * 1024, BufferType::Constant, false);
+	SharedPtr<Buffer> cbfr = device->create_buffer(mem, 64ull * 1024, 64ull * 1024, BufferType::Constant, false);
 	ConstantBufferView cbv = device->create_constant_buffer_view(cbfr.get(), 0, 256);
 
 	SharedPtr<Memory> upload_heap = device->allocate_memory(MemoryType::Upload, MemorySubType::None, 64ull * 1024, 64ull * 1024);
-	Ptr<Buffer> upload_buffer = device->create_buffer(upload_heap, 64ull * 1024, 64ull * 1024, BufferType::Upload, false);
+	SharedPtr<Buffer> upload_buffer = device->create_buffer(upload_heap, 64ull * 1024, 64ull * 1024, BufferType::Upload, false);
 	{
 		float data[4] = { 1.0f,0.0f,0.0f,1.0f };
 		upload_buffer->write_memory(0, data, sizeof(data));
 	}
 
 	Ptr<GPUTimestampPool> timestamp_pool = device->create_gpu_timestamp_pool(queue.get(), 1024);
+
+	SharedPtr<Memory> mem_uav = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
+	SharedPtr<Buffer> bfr_uav = device->create_buffer(mem_uav, 64ull * 1024, 64ull * 1024, BufferType::GeneralDataBuffer, true);
+	UnorderedAccessView uav_uav = device->create_unordered_access_view(bfr_uav, sizeof(float) * 4, 1);
+	ShaderResourceView srv_uav = device->create_shader_resource_view(bfr_uav.get(), sizeof(float) * 4, 1);
+
 
 	volatile bool run = true;
 
