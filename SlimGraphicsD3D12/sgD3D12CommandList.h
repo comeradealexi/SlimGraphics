@@ -16,7 +16,7 @@ namespace sg
 			void start_recording();
 			void end_recording();
 			void set_pipeline(Pipeline* pipeline);
-			void bind(Binding& bind);
+			void bind(Binding& bind, PipelineType type);
 			void draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location);
 			void draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i8 base_vertex_location, u32 start_instance_location);
 

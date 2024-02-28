@@ -34,11 +34,18 @@ namespace sg
 		void CommandList::set_pipeline(Pipeline* pipeline)
 		{
 			command_list->SetPipelineState(pipeline->pipeline.Get());
-			command_list->SetGraphicsRootSignature(pipeline->root_signature.Get());
-			command_list->IASetPrimitiveTopology(pipeline->topology);
+			if (pipeline->compute)
+			{
+				command_list->SetComputeRootSignature(pipeline->root_signature.Get());
+			}
+			else
+			{
+				command_list->SetGraphicsRootSignature(pipeline->root_signature.Get());
+				command_list->IASetPrimitiveTopology(pipeline->topology);
+			}
 		}
 
-		void CommandList::bind(Binding& bind)
+		void CommandList::bind(Binding& bind, PipelineType type)
 		{
 			//Binding contains the global list indices.
 			//ID3D12Device::CopyDescriptorsSimple method (d3d12.h)
@@ -58,7 +65,14 @@ namespace sg
 					dest_cpu.Offset(descriptor_heap_increment);
 				}
 				
-				command_list->SetGraphicsRootDescriptorTable(root_parameter_index, dest_gpu);
+				if (type == PipelineType::Geometry)
+				{
+					command_list->SetGraphicsRootDescriptorTable(root_parameter_index, dest_gpu);
+				}
+				else
+				{
+					command_list->SetComputeRootDescriptorTable(root_parameter_index, dest_gpu);
+				}
 				root_parameter_index++;
 				descriptor_heap_index += bind.cbv_binding_count;
 			}
@@ -78,7 +92,14 @@ namespace sg
 					dest_cpu.Offset(descriptor_heap_increment);
 				}
 
-				command_list->SetGraphicsRootDescriptorTable(root_parameter_index, dest_gpu);
+				if (type == PipelineType::Geometry)
+				{
+					command_list->SetGraphicsRootDescriptorTable(root_parameter_index, dest_gpu);
+				}
+				else
+				{
+					command_list->SetComputeRootDescriptorTable(root_parameter_index, dest_gpu);
+				}
 				root_parameter_index++;
 				descriptor_heap_index += bind.srv_binding_count;
 			}
@@ -97,7 +118,14 @@ namespace sg
 					dest_cpu.Offset(descriptor_heap_increment);					
 				}
 
-				command_list->SetGraphicsRootDescriptorTable(root_parameter_index, dest_gpu);
+				if (type == PipelineType::Geometry)
+				{
+					command_list->SetGraphicsRootDescriptorTable(root_parameter_index, dest_gpu);
+				}
+				else
+				{
+					command_list->SetComputeRootDescriptorTable(root_parameter_index, dest_gpu);
+				}
 				root_parameter_index++;
 				descriptor_heap_index += bind.uav_binding_count;
 			}
@@ -123,13 +151,13 @@ namespace sg
 					{
 						if (active_binding.get_uavs(i) != Binding::INVALID_BINDING)
 						{
-							barriers_out[barrier_count_out] = CD3DX12_RESOURCE_BARRIER::Transition(active_binding.d3d12_uavs[i].buffer_resource->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, bind.d3d12_uavs[i].buffer_resource->get_read_resource_state());
+							barriers_out[barrier_count_out] = CD3DX12_RESOURCE_BARRIER::Transition(active_binding.d3d12_uavs[i].buffer_resource->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, active_binding.d3d12_uavs[i].buffer_resource->get_read_resource_state());
 							barrier_count_out++;
 						}
 
 						if (bind.get_uavs(i) != Binding::INVALID_BINDING)
 						{
-							barriers_in[barrier_count_in] = CD3DX12_RESOURCE_BARRIER::Transition(active_binding.d3d12_uavs[i].buffer_resource->get().Get(),bind.d3d12_uavs[i].buffer_resource->get_read_resource_state(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+							barriers_in[barrier_count_in] = CD3DX12_RESOURCE_BARRIER::Transition(bind.d3d12_uavs[i].buffer_resource->get().Get(), bind.d3d12_uavs[i].buffer_resource->get_read_resource_state(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 							barrier_count_in++;
 						}
 					}
@@ -199,7 +227,7 @@ namespace sg
 		
 			//To allow bound resources to be transitioned back to a read state.
 			Binding default_binding;
-			bind(default_binding);
+			bind(default_binding, PipelineType::Geometry);
 
 			active_geometry_pass = {};
 		}

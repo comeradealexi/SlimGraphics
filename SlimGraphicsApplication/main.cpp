@@ -217,6 +217,17 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		GPUTimestampPool::Index gpu_timestamp_idx = timestamp_pool->allocate_new_timestamp();
 		timestamp_pool->begin_timestamp(gpu_timestamp_idx, command_buffer.get());
 		{
+
+			//Compute Dispatch
+			{
+				Binding b;
+				b.uav_binding_count = 1;
+				b.set_uav(uav_uav, 0);
+				command_buffer->set_pipeline(pipeline_compute.get());
+				command_buffer->bind(b, PipelineType::Compute);
+				command_buffer->dispatch();
+			}
+
 			command_buffer->start_geometry_pass(1, &rtvs[current_frame_idx], vp, sc, true);
 			{
 				float4 colour = { 0.0f,1.0f,0.0f,1.0f };
@@ -234,7 +245,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				Binding b;
 				b.cbv_binding_count = 1;
 				b.set_cbv(cbv, 0);
-				command_buffer->bind(b);
+				command_buffer->bind(b, PipelineType::Geometry);
 				command_buffer->draw_instanced(6, 1, 0, 0);
 			}
 			{

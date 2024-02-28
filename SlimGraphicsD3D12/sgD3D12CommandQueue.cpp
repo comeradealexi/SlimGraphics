@@ -19,12 +19,12 @@ namespace sg
 
 		void CommandQueue::fence_signal(QueueFence* fence, u64 value)
 		{
-			queue->Signal(fence, value);
+			CHECKHR(queue->Signal(fence, value));
 		}
 		
 		void CommandQueue::fence_wait_gpu(QueueFence* fence, u64 value)
 		{
-			queue->Wait(fence, value);
+			CHECKHR(queue->Wait(fence, value));
 		}
 		void CommandQueue::fence_wait_cpu(QueueFence* fence, u64 value)
 		{

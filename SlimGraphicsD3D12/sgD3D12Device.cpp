@@ -361,7 +361,7 @@ namespace sg
                 cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
                 cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
                 CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
-                heap->SetName(L"CBV SRV UAV Heap");
+                heap->SetName(L"Command List: CBV SRV UAV Heap");
                 u32 increment_size = device->GetDescriptorHandleIncrementSize(cbvSrvHeapDesc.Type);
                 out_command_list->descriptor_heap_increment = increment_size;
                 out_command_list->descriptor_heap_maximum = cbvSrvHeapDesc.NumDescriptors;
@@ -400,7 +400,7 @@ namespace sg
 
 		Ptr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
         {
-            Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline());
+            Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline(false));
 
             seAssert(pipeline_desc.input_layout.num_elements == 0, "not supported yet");
 
@@ -438,7 +438,7 @@ namespace sg
 
 		se::Ptr<sg::Pipeline> Device::create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc)
 		{
-			Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline());
+			Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline(true));
 
 			D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
             psoDesc.CS = pipeline_desc.compute_shader->shader_code;
@@ -465,7 +465,7 @@ namespace sg
             const D3D12_RESOURCE_STATES resource_state = get_d3d12_resource_read_state(type);
 			ComPtr<ID3D12Resource> d3d12_buffer;
 			CHECKHR(device6->CreatePlacedResource(alloc->GetHeap(), alloc->GetOffset(), &ResourceDesc, resource_state, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
-
+            
             sg::SharedPtr<sg::Buffer> buffer(new sg::Buffer(type, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
             buffer->memory = memory;
             buffer->resource = d3d12_buffer;
@@ -575,7 +575,7 @@ namespace sg
 
         u32 Device::present_swap_chain(CommandQueue* command_queue)
         {
-            swap_chain->Present(1, 0);
+            CHECKHR(swap_chain->Present(1, 0));
 
             swap_chain_current_index++;
             swap_chain_current_index = swap_chain_current_index % swap_chain_buffer_count;
@@ -601,9 +601,9 @@ namespace sg
 		ComPtr<ID3D12RootSignature> Device::create_root_signature(const BindingDesc& binding_desc, bool compute)
 		{
 			CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
-			ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, binding_desc.cbv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);    // Diffuse texture + array of materials.
-			ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, binding_desc.srv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-			ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, binding_desc.uav_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+			ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, binding_desc.cbv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);    // Diffuse texture + array of materials.
+			ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, binding_desc.srv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);
+			ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, binding_desc.uav_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);
 			ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, binding_desc.sampler_binding_count, 0);
 
 			CD3DX12_ROOT_PARAMETER1 rootParameters[4];
@@ -656,7 +656,7 @@ namespace sg
 				{
 					ComPtr<ID3D12DescriptorHeap> heap;
 					CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
-					heap->SetName(L"CBV SRV UAV Heap");
+					heap->SetName(L"Device CBV SRV UAV Heap");
 					u32 increment_size = device->GetDescriptorHandleIncrementSize(cbvSrvHeapDesc.Type);
 					cbv_srv_uav_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, cbvSrvHeapDesc.NumDescriptors, increment_size));
 				}
@@ -664,7 +664,7 @@ namespace sg
 					cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 					ComPtr<ID3D12DescriptorHeap> heap;
 					CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
-					heap->SetName(L"CBV SRV UAV Heap");
+					heap->SetName(L"Imgui CBV SRV UAV Heap");
 					u32 increment_size = device->GetDescriptorHandleIncrementSize(cbvSrvHeapDesc.Type);
 					imgui_cbv_srv_uav_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, cbvSrvHeapDesc.NumDescriptors, increment_size));
 				}
@@ -677,7 +677,7 @@ namespace sg
                 rtvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
                 rtvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
                 CHECKHR(device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&heap)));
-                heap->SetName(L"RTV Heap");
+                heap->SetName(L"Device RTV Heap");
                 u32 increment_size = device->GetDescriptorHandleIncrementSize(rtvDesc.Type);
                 rtv_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, rtvDesc.NumDescriptors, increment_size));
             }
@@ -689,7 +689,7 @@ namespace sg
                 dsvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
                 dsvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
                 CHECKHR(device->CreateDescriptorHeap(&dsvDesc, IID_PPV_ARGS(&heap)));
-                heap->SetName(L"DSV Heap");
+                heap->SetName(L"Device DSV Heap");
                 u32 increment_size = device->GetDescriptorHandleIncrementSize(dsvDesc.Type);
                 dsv_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, dsvDesc.NumDescriptors, increment_size));
             }
@@ -701,7 +701,7 @@ namespace sg
                 splrDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
                 splrDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
                 CHECKHR(device->CreateDescriptorHeap(&splrDesc, IID_PPV_ARGS(&heap)));
-                heap->SetName(L"Sampler Heap");
+                heap->SetName(L"Device Sampler Heap");
                 u32 increment_size = device->GetDescriptorHandleIncrementSize(splrDesc.Type);
                 sampler_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, splrDesc.NumDescriptors, increment_size));
             }
