@@ -85,6 +85,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	Ptr<VertexShader> vs;
 	Ptr<PixelShader> ps;
 	Ptr<PixelShader> ps_cb;
+	Ptr<PixelShader> ps_b;
 	Ptr<ComputeShader> cs;
 	{
 		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_VertexShader.cso");
@@ -97,6 +98,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ps_cb = device->create_pixel_shader(pixel_data);
 	}
 	{
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_Buffer_PixelShader.cso");
+		ps_b = device->create_pixel_shader(pixel_data);
+	}
+	{
 		std::vector<uint8_t> compute_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_ComputeShader.cso");
 		cs = device->create_compute_shader(compute_data);
 	}
@@ -107,6 +112,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	//Pipeline
 	Ptr<Pipeline> pipeline;
 	Ptr<Pipeline> pipeline_cb;
+	Ptr<Pipeline> pipeline_b;
 	Ptr<Pipeline> pipeline_compute;
 	{
 		BindingDesc bd;
@@ -124,6 +130,11 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		bd.cbv_binding_count = 1;
 		desc.pixel_shader = ps_cb.get();
 		pipeline_cb = device->create_pipeline(desc, bd);
+
+		bd.cbv_binding_count = 0;
+		bd.srv_binding_count = 1;
+		desc.pixel_shader = ps_b.get();
+		pipeline_b = device->create_pipeline(desc, bd);
 	}
 	{
 		BindingDesc bd;
@@ -245,6 +256,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				Binding b;
 				b.cbv_binding_count = 1;
 				b.set_cbv(cbv, 0);
+				command_buffer->bind(b, PipelineType::Geometry);
+				command_buffer->draw_instanced(6, 1, 0, 0);
+			}
+			{
+				command_buffer->set_pipeline(pipeline_b.get());
+				Binding b;
+				b.srv_binding_count = 1;
+				b.set_srv(srv_uav, 0);
 				command_buffer->bind(b, PipelineType::Geometry);
 				command_buffer->draw_instanced(6, 1, 0, 0);
 			}

@@ -19,6 +19,7 @@ namespace sg
 
 		void CommandList::start_recording()
 		{
+			CHECKHR(command_allocator->Reset());
 			CHECKHR(command_list->Reset(command_allocator.Get(), nullptr));
 			descriptor_heap_index = 0;
 

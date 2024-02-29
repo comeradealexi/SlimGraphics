@@ -16,6 +16,10 @@ cbuffer ConstantBufferData : register(b0)
 };
 #endif
 
+#ifdef ADD_BUFFER
+StructuredBuffer<float4> buffer : register(t0);
+#endif
+
 struct PS_INPUT
 {
     float4 Position : SV_POSITION;
@@ -64,6 +68,8 @@ float4 PSMain(PS_INPUT input) : SV_TARGET
 {
 #ifdef ADD_CONSTANT_BUFFER
         return float4(input.UVs.x * cb_colour.x, input.UVs.y * cb_colour.y, cb_colour.z, 1);
+#elif defined(ADD_BUFFER)
+        return float4(input.UVs.x * buffer[0].x, input.UVs.y * buffer[0].y, buffer[0].z, 1);
 #else    
     return float4(input.UVs.x, input.UVs.y, 0, 1);
 #endif
