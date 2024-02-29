@@ -600,8 +600,8 @@ namespace sg
 
 		ComPtr<ID3D12RootSignature> Device::create_root_signature(const BindingDesc& binding_desc, bool compute)
 		{
-			CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
-			ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, binding_desc.cbv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);    // Diffuse texture + array of materials.
+            CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
+			ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, binding_desc.cbv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);
 			ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, binding_desc.srv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);
 			ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, binding_desc.uav_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);
 			ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, binding_desc.sampler_binding_count, 0);

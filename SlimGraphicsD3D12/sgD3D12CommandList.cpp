@@ -47,6 +47,44 @@ namespace sg
 
 		void CommandList::bind(Binding& bind, PipelineType type)
 		{
+			//Transition old UAVs back to read state and new UAVs to write state
+			const u32 highest_bind_count = std::max<u32>(active_binding.uav_binding_count, bind.uav_binding_count);
+			if (highest_bind_count)
+			{
+				u32 barrier_count_out = 0;
+				u32 barrier_count_in = 0;
+				CD3DX12_RESOURCE_BARRIER barriers_out[Binding::MAX_UAVS];
+				CD3DX12_RESOURCE_BARRIER barriers_in[Binding::MAX_UAVS];
+
+				for (size_t i = 0; i < highest_bind_count; i++)
+				{
+					if (active_binding.get_uavs(i) != bind.get_uavs(i))
+					{
+						if (active_binding.get_uavs(i) != Binding::INVALID_BINDING)
+						{
+							barriers_out[barrier_count_out] = CD3DX12_RESOURCE_BARRIER::Transition(active_binding.d3d12_uavs[i].buffer_resource->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, active_binding.d3d12_uavs[i].buffer_resource->get_read_resource_state());
+							barrier_count_out++;
+						}
+
+						if (bind.get_uavs(i) != Binding::INVALID_BINDING)
+						{
+							barriers_in[barrier_count_in] = CD3DX12_RESOURCE_BARRIER::Transition(bind.d3d12_uavs[i].buffer_resource->get().Get(), bind.d3d12_uavs[i].buffer_resource->get_read_resource_state(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+							barrier_count_in++;
+						}
+					}
+				}
+
+				if (barrier_count_out)
+				{
+					command_list->ResourceBarrier(barrier_count_out, barriers_out);
+				}
+
+				if (barrier_count_in)
+				{
+					command_list->ResourceBarrier(barrier_count_in, barriers_in);
+				}
+			}
+
 			//Binding contains the global list indices.
 			//ID3D12Device::CopyDescriptorsSimple method (d3d12.h)
 			u32 root_parameter_index = 0;
@@ -134,44 +172,6 @@ namespace sg
 			{
 				root_parameter_index++;
 				seAssert(false, "todo");
-			}
-
-			//Transition old UAVs back to read state and new UAVs to write state
-			const u32 highest_bind_count = std::max<u32>(active_binding.uav_binding_count, bind.uav_binding_count);
-			if (highest_bind_count)
-			{
-				u32 barrier_count_out = 0;
-				u32 barrier_count_in = 0;
-				CD3DX12_RESOURCE_BARRIER barriers_out[Binding::MAX_UAVS];
-				CD3DX12_RESOURCE_BARRIER barriers_in[Binding::MAX_UAVS];
-
-				for (size_t i = 0; i < highest_bind_count; i++)
-				{
-					if (active_binding.get_uavs(i) != bind.get_uavs(i))
-					{
-						if (active_binding.get_uavs(i) != Binding::INVALID_BINDING)
-						{
-							barriers_out[barrier_count_out] = CD3DX12_RESOURCE_BARRIER::Transition(active_binding.d3d12_uavs[i].buffer_resource->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, active_binding.d3d12_uavs[i].buffer_resource->get_read_resource_state());
-							barrier_count_out++;
-						}
-
-						if (bind.get_uavs(i) != Binding::INVALID_BINDING)
-						{
-							barriers_in[barrier_count_in] = CD3DX12_RESOURCE_BARRIER::Transition(bind.d3d12_uavs[i].buffer_resource->get().Get(), bind.d3d12_uavs[i].buffer_resource->get_read_resource_state(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-							barrier_count_in++;
-						}
-					}
-				}
-
-				if (barrier_count_out)
-				{
-					command_list->ResourceBarrier(barrier_count_out, barriers_out);
-				}
-
-				if (barrier_count_in)
-				{
-					command_list->ResourceBarrier(barrier_count_in, barriers_in);
-				}
 			}
 
 			bind.set_not_dirty();
