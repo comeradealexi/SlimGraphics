@@ -156,6 +156,19 @@ namespace sg
 
             ComPtr<IDXGIAdapter1> hardware_adapter;
             GetHardwareAdapter(factory.Get(), &hardware_adapter, true, feature_level);
+			
+            //DXGI3 Info
+            {
+				ComPtr<IDXGIAdapter3> hardware_adapter_3;
+				hardware_adapter->QueryInterface(IID_PPV_ARGS(&hardware_adapter_3));
+                DXGI_QUERY_VIDEO_MEMORY_INFO memory_information = {};
+                CHECKHR(hardware_adapter_3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &memory_information));
+                seWriteLine("DXGI_QUERY_VIDEO_MEMORY_INFO:");
+                seWriteLine(" - Budget: %lluMiB", memory_information.Budget / 1024llu / 1024llu); //Specifies the OS-provided video memory budget, in bytes, that the application should target. If CurrentUsage is greater than Budget, the application may incur stuttering or performance penalties due to background activity by the OS to provide other applications with a fair usage of video memory.
+				seWriteLine(" - CurrentUsage: %lluMiB", memory_information.CurrentUsage / 1024llu / 1024llu); //Specifies the application's current video memory usage, in bytes.
+				seWriteLine(" - AvailableForReservation: %lluMiB", memory_information.AvailableForReservation / 1024llu / 1024llu); //The amount of video memory, in bytes, that the application has available for reservation. To reserve this video memory, the application should call IDXGIAdapter3::SetVideoMemoryReservation.
+				seWriteLine(" - CurrentReservation: %lluMiB", memory_information.CurrentReservation / 1024llu / 1024llu); //The amount of video memory, in bytes, that is reserved by the application. The OS uses the reservation as a hint to determine the application’s minimum working set. Applications should attempt to ensure that their video memory usage can be trimmed to meet this requirement.
+			}
 
             CHECKHR(D3D12CreateDevice(hardware_adapter.Get(), feature_level, IID_PPV_ARGS(&device)));
             CHECKHR(device->QueryInterface(IID_PPV_ARGS(&device6)));
@@ -486,7 +499,7 @@ namespace sg
 
 			D3D12_CONSTANT_BUFFER_VIEW_DESC desc;
 			desc.BufferLocation = buffer->get()->GetGPUVirtualAddress() + offset;
-			desc.SizeInBytes = size;
+			desc.SizeInBytes = (UINT)size;
 
 			device->CreateConstantBufferView(&desc, cpu_handle);
 
@@ -504,8 +517,8 @@ namespace sg
 				desc.Format = DXGI_FORMAT_UNKNOWN;
 				desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
-				desc.Buffer.NumElements = element_count;
-				desc.Buffer.StructureByteStride = element_size;
+				desc.Buffer.NumElements = (UINT) element_count;
+				desc.Buffer.StructureByteStride = (UINT) element_size;
 				desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 			}
 
@@ -528,8 +541,8 @@ namespace sg
 				desc.Format = DXGI_FORMAT_UNKNOWN;
 				desc.Buffer.CounterOffsetInBytes = 0;
 
-				desc.Buffer.NumElements = element_count;
-				desc.Buffer.StructureByteStride = element_size;
+				desc.Buffer.NumElements = (UINT) element_count;
+				desc.Buffer.StructureByteStride = (UINT) element_size;
 				desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 			}
 

@@ -271,7 +271,7 @@ namespace sg
 
 		struct ElementDesc
 		{
-			char semantic_name[32] = {};
+			const char* semantic_name = nullptr;
 			u32 semantic_index = 0;
 			DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
 			u32 input_slot = 0;

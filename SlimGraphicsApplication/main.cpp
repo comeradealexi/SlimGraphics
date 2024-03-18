@@ -8,6 +8,9 @@
 #include <DirectXMath.h>
 #include "AverageTimer.h"
 
+//Application headers
+#include "model.h"
+
 /*
 TODO:
 Compute
@@ -17,21 +20,6 @@ Texture Bindings
 UAV
 */
 using namespace sg;
-
-struct Simple3DModel
-{
-	Simple3DModel(Device* device)
-	{
-
-	}
-	
-	void render(CommandList* command_list)
-	{
-
-	}
-
-	Ptr<Buffer> vb;
-};
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {

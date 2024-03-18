@@ -104,7 +104,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -115,8 +115,8 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>dxgi.lib;d3d12.lib;WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\bin\x64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>assimp-vc143-mt.lib;dxgi.lib;d3d12.lib;WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\bin\x64;..\External\assimp-5.3.1\lib\RelWithDebInfo</AdditionalLibraryDirectories>
     </Link>
     <FxCompile>
       <ObjectFileOutput>$(SolutionDir)ShadersD3D12\$(Configuration)\%(Filename).cso</ObjectFileOutput>
@@ -124,6 +124,9 @@
       <AllResourcesBound>true</AllResourcesBound>
       <AdditionalOptions>-Qembed_debug %(AdditionalOptions)</AdditionalOptions>
     </FxCompile>
+    <PostBuildEvent>
+      <Command>xcopy $(SolutionDir)..\External\assimp-5.3.1\bin\RelWithDebInfo\assimp-vc143-mt.dll $(LocalDebuggerWorkingDirectory) /y</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -133,7 +136,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -145,8 +148,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>dxgi.lib;d3d12.lib;WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\bin\x64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>assimp-vc143-mt.lib;dxgi.lib;d3d12.lib;WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\bin\x64;..\External\assimp-5.3.1\lib\RelWithDebInfo</AdditionalLibraryDirectories>
     </Link>
     <FxCompile>
       <ShaderModel>6.1</ShaderModel>
@@ -155,6 +158,9 @@
       <AssemblerOutput>NoListing</AssemblerOutput>
       <AdditionalOptions>-Qembed_debug %(AdditionalOptions)</AdditionalOptions>
     </FxCompile>
+    <PostBuildEvent>
+      <Command>xcopy $(SolutionDir)..\External\assimp-5.3.1\bin\RelWithDebInfo\assimp-vc143-mt.dll $(LocalDebuggerWorkingDirectory) /y</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ProjectReference Include="..\ImGui\ImGui.vcxproj">
@@ -169,10 +175,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Model.cpp" />
+    <ClCompile Include="UploadHeap.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\SlimEngine\seEngine.h" />
     <ClInclude Include="AverageTimer.h" />
+    <ClInclude Include="Model.h" />
+    <ClInclude Include="UploadHeap.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Basic3D_PixelShader.hlsl">

@@ -57,7 +57,7 @@ namespace sg
 				CD3DX12_RESOURCE_BARRIER barriers_out[Binding::MAX_UAVS];
 				CD3DX12_RESOURCE_BARRIER barriers_in[Binding::MAX_UAVS];
 
-				for (size_t i = 0; i < highest_bind_count; i++)
+				for (u32 i = 0; i < highest_bind_count; i++)
 				{
 					if (active_binding.get_uavs(i) != bind.get_uavs(i))
 					{
