@@ -66,6 +66,7 @@ void UploadHeap::write_upload_memory(UploadHeap::Offset offset, const void* memo
 void UploadHeap::upload_to_buffer(sg::Buffer* dest_buffer, sg::u32 dest_byte_offset, Offset upload_heap_offset, sg::u32 size)
 {
 	PerFrameData& data = frame_data();
+	data.command_list->copy_buffer_to_buffer(size, dest_buffer, dest_byte_offset, data.buffer.get(), upload_heap_offset);
 }
 
 void UploadHeap::end_frame(CommandQueue* queue)
