@@ -26,6 +26,7 @@ namespace sg
 			void dispatch(u32 x = 1, u32 y = 1, u32 z = 1);
 
 			void copy_buffer_to_buffer(Buffer* dest, Buffer* source);
+			void copy_buffer_to_buffer(u32 size, Buffer* dest, u32 dest_offset, Buffer* source, u32 source_offset);
 
 			void clear_render_target_view(RenderTargetView rtv, float4 colour);
 
