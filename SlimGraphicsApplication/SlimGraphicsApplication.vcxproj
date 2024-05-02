@@ -155,8 +155,8 @@
       <ShaderModel>6.1</ShaderModel>
       <AllResourcesBound>true</AllResourcesBound>
       <ObjectFileOutput>$(SolutionDir)ShadersD3D12\$(Configuration)\%(Filename).cso</ObjectFileOutput>
-      <AssemblerOutput>NoListing</AssemblerOutput>
-      <AdditionalOptions>-Qembed_debug %(AdditionalOptions)</AdditionalOptions>
+      <AssemblerOutput>
+      </AssemblerOutput>
     </FxCompile>
     <PostBuildEvent>
       <Command>xcopy $(SolutionDir)..\External\assimp-5.3.1\bin\RelWithDebInfo\assimp-vc143-mt.dll $(LocalDebuggerWorkingDirectory) /y</Command>
@@ -189,7 +189,7 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PSMain</EntryPointName>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PSMain</EntryPointName>
     </FxCompile>
