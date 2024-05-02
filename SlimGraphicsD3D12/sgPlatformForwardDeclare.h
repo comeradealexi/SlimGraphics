@@ -5,6 +5,11 @@ struct ID3D12Fence;
 
 namespace sg
 {
+	namespace DefaultAlignment
+	{
+		static constexpr size_t BUFFER_ALIGNMENT = 1024llu * 64llu;
+	}
+
 	namespace D3D12
 	{
 		class Buffer;
@@ -60,4 +65,6 @@ namespace D3D12MA
 	class Allocation;
 	class Allocator;
 	class Pool;
+	class VirtualBlock;
+	struct VirtualAllocation;
 }

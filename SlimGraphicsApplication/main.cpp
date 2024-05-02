@@ -9,7 +9,8 @@
 #include "AverageTimer.h"
 
 //Application headers
-#include "model.h"
+#include "Model.h"
+#include "UploadHeap.h"
 
 /*
 TODO:
@@ -151,6 +152,16 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	UnorderedAccessView uav_uav = device->create_unordered_access_view(bfr_uav, sizeof(float) * 4, 1);
 	ShaderResourceView srv_uav = device->create_shader_resource_view(bfr_uav.get(), sizeof(float) * 4, 1);
 
+	Ptr<UploadHeap> frame_upload_heap(new UploadHeap(device.get(), frame_count, 1024 * 1024 * 32));
+
+	Ptr<Model> model;
+
+	//Loading frame
+	{
+		frame_upload_heap->begin_frame(queue.get());
+		model = Ptr<Model>(new Model(device.get(), frame_upload_heap.get(), "../SlimGraphicsAssets/DebugModels/teapot.obj"));
+		frame_upload_heap->end_frame(queue.get());
+	}
 
 	volatile bool run = true;
 
@@ -265,7 +276,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		timestamp_pool->end_timestamp(gpu_timestamp_idx, command_buffer.get());
 		timestamp_pool->end_frame(command_buffer.get());
 		command_buffer->end_recording();
-
+		
 		queue->submit_command_list(command_buffer.get());
 		current_frame_idx = device->present_swap_chain(queue.get());
 		queue->fence_signal(fence.Get(), total_frame_idx);

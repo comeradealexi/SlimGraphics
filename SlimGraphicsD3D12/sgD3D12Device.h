@@ -9,26 +9,16 @@ namespace sg
 {
 	namespace D3D12
 	{
-		struct AllocatorPIMPL
-		{
-			AllocatorPIMPL();
-			~AllocatorPIMPL();
-			inline D3D12MA::Allocator* operator->()
-			{
-				return ptr.Get();
-			}
-			ComPtr<D3D12MA::Allocator> ptr;
-		};
-
 		struct PoolPIMPL
 		{
 			PoolPIMPL();
 			~PoolPIMPL();
-			inline D3D12MA::Pool* operator->()
+			inline ID3D12Heap* operator->()
 			{
-				return ptr.Get();
+				return heap.Get();
 			}
-			ComPtr<D3D12MA::Pool> ptr;
+			ComPtr<D3D12MA::VirtualBlock> virtual_block;
+			ComPtr<ID3D12Heap> heap;
 		};
 
 		class Device
@@ -94,7 +84,6 @@ namespace sg
 			u32 swap_chain_buffer_count = 0;
 			CD3DX12FeatureSupport features;
 
-			AllocatorPIMPL allocator;
 			PoolPIMPL mempool_textures;
 			PoolPIMPL mempool_targets;
 			PoolPIMPL mempool_buffers;

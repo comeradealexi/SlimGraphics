@@ -17,8 +17,6 @@ namespace sg
 	namespace D3D12
 	{
         //https://learn.microsoft.com/en-us/cpp/cpp/pimpl-for-compile-time-encapsulation-modern-cpp?view=msvc-170
-        AllocatorPIMPL::AllocatorPIMPL() = default;
-        AllocatorPIMPL::~AllocatorPIMPL() = default;
         PoolPIMPL::PoolPIMPL() = default;
         PoolPIMPL::~PoolPIMPL() = default;
 
@@ -187,52 +185,49 @@ namespace sg
                 seAssert(adapter_desc.DedicatedVideoMemory > 0, "Expecting DedicatedVideoMemory");
                 const u64 total_memory_to_use = (adapter_desc.DedicatedVideoMemory * ADAPTER_MEMORY_TO_CONSUME_PERCENTAGE) / 100;
 
-                D3D12MA::ALLOCATOR_DESC desc = {};
-                desc.Flags = (D3D12MA::ALLOCATOR_FLAGS) (D3D12MA::ALLOCATOR_FLAG_DEFAULT_POOLS_NOT_ZEROED | D3D12MA::ALLOCATOR_FLAG_SINGLETHREADED);
-                desc.pDevice = device.Get();
-                desc.pAdapter = hardware_adapter.Get();
-                CHECKHR(D3D12MA::CreateAllocator(&desc, &allocator.ptr));
-
                 //mempool_textures
                 {
-                    D3D12MA::POOL_DESC desc = {};
-                    desc.HeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-                    desc.HeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-                    desc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
-                    desc.BlockSize = ((total_memory_to_use * TEXTURE_POOL_PERCENTAGE) / 100);
-                    desc.MinBlockCount = 1;
-                    desc.MaxBlockCount = 1;
-                    desc.MinAllocationAlignment = D3D12_SMALL_RESOURCE_PLACEMENT_ALIGNMENT;
-                    CHECKHR(allocator.ptr->CreatePool(&desc, mempool_textures.ptr.GetAddressOf()));
-                    mempool_textures->SetName(L"Texture Heap");
+                    D3D12_HEAP_DESC desc = {};
+                    desc.Properties.Type = D3D12_HEAP_TYPE_DEFAULT;
+                    desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+                    desc.Flags = D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+                    desc.SizeInBytes = ((total_memory_to_use * TEXTURE_POOL_PERCENTAGE) / 100);
+                    device->CreateHeap(&desc, IID_PPV_ARGS(mempool_textures.heap.GetAddressOf()));
+
+                    D3D12MA::VIRTUAL_BLOCK_DESC vbd = {};
+                    vbd.Size = desc.SizeInBytes;
+                    CHECKHR(D3D12MA::CreateVirtualBlock(&vbd, mempool_textures.virtual_block.GetAddressOf()));
+                    mempool_textures.heap->SetName(L"Texture Heap");
                 }
 
                 //mempool_targets
                 {
-                    D3D12MA::POOL_DESC desc = {};
-                    desc.HeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-                    desc.HeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-                    desc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
-                    desc.BlockSize = ((total_memory_to_use * TARGET_POOL_PERCENTAGE) / 100);
-                    desc.MinBlockCount = 1;
-                    desc.MaxBlockCount = 1;
-                    desc.MinAllocationAlignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-                    CHECKHR(allocator.ptr->CreatePool(&desc, mempool_targets.ptr.GetAddressOf()));
-                    mempool_targets->SetName(L"Render & Depth Target Heap");
+					D3D12_HEAP_DESC desc = {};
+					desc.Properties.Type = D3D12_HEAP_TYPE_DEFAULT;
+					desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+					desc.Flags = D3D12_HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+					desc.SizeInBytes = ((total_memory_to_use * TARGET_POOL_PERCENTAGE) / 100);
+					device->CreateHeap(&desc, IID_PPV_ARGS(mempool_targets.heap.GetAddressOf()));
+
+					D3D12MA::VIRTUAL_BLOCK_DESC vbd = {};
+					vbd.Size = desc.SizeInBytes;
+					CHECKHR(D3D12MA::CreateVirtualBlock(&vbd, mempool_targets.virtual_block.GetAddressOf()));
+                    mempool_targets.heap->SetName(L"Render & Depth Target Heap");
                 }
 
                 //mempool_buffers
                 {
-                    D3D12MA::POOL_DESC desc = {};
-                    desc.HeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-                    desc.HeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-                    desc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
-                    desc.BlockSize = ((total_memory_to_use * BUFFER_POOL_PERCENTAGE) / 100);
-                    desc.MinBlockCount = 1;
-                    desc.MaxBlockCount = 1;
-                    desc.MinAllocationAlignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-                    CHECKHR(allocator.ptr->CreatePool(&desc, mempool_buffers.ptr.GetAddressOf()));
-                    mempool_buffers->SetName(L"Buffer Heap");
+					D3D12_HEAP_DESC desc = {};
+					desc.Properties.Type = D3D12_HEAP_TYPE_DEFAULT;
+					desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+					desc.Flags = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+					desc.SizeInBytes = ((total_memory_to_use * BUFFER_POOL_PERCENTAGE) / 100);
+					device->CreateHeap(&desc, IID_PPV_ARGS(mempool_buffers.heap.GetAddressOf()));
+
+					D3D12MA::VIRTUAL_BLOCK_DESC vbd = {};
+					vbd.Size = desc.SizeInBytes;
+					CHECKHR(D3D12MA::CreateVirtualBlock(&vbd, mempool_buffers.virtual_block.GetAddressOf()));
+                    mempool_buffers.heap->SetName(L"Buffer Heap");
                 }
                 seWriteLine("Created all allocators.");
             }
@@ -285,50 +280,46 @@ namespace sg
         {
             if (type == MemoryType::Upload)
             {
-                ComPtr<D3D12MA::Pool> pool;
-                //Upload heaps should be managed by the application, so it always creates a new pool.
-				D3D12MA::POOL_DESC desc = {};
-				desc.HeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
-				desc.HeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-				desc.HeapFlags = D3D12_HEAP_FLAG_NONE | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
-				desc.BlockSize = size;
-				desc.MinBlockCount = 1;
-				desc.MaxBlockCount = 1;
-				desc.MinAllocationAlignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-				CHECKHR(allocator.ptr->CreatePool(&desc, pool.GetAddressOf()));
-                pool->SetName(L"Upload Heap");
+				PoolPIMPL pool;
+				D3D12_HEAP_DESC desc = {};
+				desc.Properties.Type = D3D12_HEAP_TYPE_UPLOAD;
+				desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				desc.Flags = D3D12_HEAP_FLAG_NONE | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+				desc.SizeInBytes = size;
+				device->CreateHeap(&desc, IID_PPV_ARGS(pool.heap.GetAddressOf()));
+				pool->SetName(L"Upload Heap");
 
-				D3D12MA::ALLOCATION_DESC ad = {};
-				ad.CustomPool = pool.Get();
+				D3D12MA::VIRTUAL_BLOCK_DESC vbd = {};
+				vbd.Size = desc.SizeInBytes;
+				CHECKHR(D3D12MA::CreateVirtualBlock(&vbd, pool.virtual_block.GetAddressOf()));
 
-				D3D12_RESOURCE_ALLOCATION_INFO alloc_info{ size, alignment };
+				Allocation out_alloc;
+				D3D12MA::VIRTUAL_ALLOCATION_DESC vad = { D3D12MA::VIRTUAL_ALLOCATION_FLAG_NONE, size, alignment };
+				CHECKHR(pool.virtual_block->Allocate(&vad, out_alloc.virtual_allocation_cast(), &out_alloc.offset));
+				out_alloc.virtual_block = pool.virtual_block;
+				out_alloc.heap = pool.heap;
 
-				ComPtr<D3D12MA::Allocation> out_alloc;
-				CHECKHR(allocator->AllocateMemory(&ad, &alloc_info, out_alloc.GetAddressOf()));
-				SharedPtr<Memory> out_mem = SharedPtr<Memory>(new Memory(type, out_alloc.Get()));
-                out_mem->memory_ptr.ptr_pool = pool;
-                return out_mem;
+				return SharedPtr<Memory>(new Memory(type, out_alloc));
             }
             else //if (type == MemoryType::GPUOptimal)
             {
-				D3D12MA::Pool* pool = nullptr;
+                PoolPIMPL* pool = nullptr;
                 switch (sub_type)
                 {
-                case MemorySubType::Texture: pool = mempool_textures.ptr.Get(); break;
-                case MemorySubType::Target: pool = mempool_targets.ptr.Get(); break;
-                case MemorySubType::Buffer: pool = mempool_buffers.ptr.Get(); break;
+                case MemorySubType::Texture: pool = &mempool_textures; break;
+                case MemorySubType::Target: pool = &mempool_targets; break;
+                case MemorySubType::Buffer: pool = &mempool_buffers; break;
                 default:
                     seAssert(false, "Missing Pool Type");
                 }
-				D3D12MA::ALLOCATION_DESC ad = {};
-				ad.CustomPool = pool;
 
-				D3D12_RESOURCE_ALLOCATION_INFO alloc_info{ size, alignment };
+                Allocation out_alloc;
+                D3D12MA::VIRTUAL_ALLOCATION_DESC vad = { D3D12MA::VIRTUAL_ALLOCATION_FLAG_NONE, size, alignment };
+                CHECKHR(pool->virtual_block->Allocate(&vad, out_alloc.virtual_allocation_cast(), &out_alloc.offset));
+                out_alloc.virtual_block = pool->virtual_block;
+                out_alloc.heap = pool->heap;
 
-				ComPtr<D3D12MA::Allocation> out_alloc;
-				CHECKHR(allocator->AllocateMemory(&ad, &alloc_info, out_alloc.GetAddressOf()));
-
-				return SharedPtr<Memory>(new Memory(type, out_alloc.Get()));
+				return SharedPtr<Memory>(new Memory(type, out_alloc));
             }
         }
 
@@ -473,11 +464,10 @@ namespace sg
             const D3D12_RESOURCE_ALLOCATION_INFO rai = { size, alignment };
 			const CD3DX12_RESOURCE_DESC ResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(rai, flags);
 
-			D3D12MA::Allocation* alloc = memory->memory_ptr.ptr.Get();
-
+            Allocation& d3d12_alloc = memory->memory.alloc;
             const D3D12_RESOURCE_STATES resource_state = get_d3d12_resource_read_state(type);
 			ComPtr<ID3D12Resource> d3d12_buffer;
-			CHECKHR(device6->CreatePlacedResource(alloc->GetHeap(), alloc->GetOffset(), &ResourceDesc, resource_state, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
+			CHECKHR(device6->CreatePlacedResource(d3d12_alloc.heap.Get(), d3d12_alloc.offset, &ResourceDesc, resource_state, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
             
             sg::SharedPtr<sg::Buffer> buffer(new sg::Buffer(type, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
             buffer->memory = memory;

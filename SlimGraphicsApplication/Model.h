@@ -2,6 +2,7 @@
 #include <sgPlatformInclude.h>
 #include <seEngineBasicFileIO.h>
 #include <DirectXMath.h>
+#include "UploadHeap.h"
 
 class Model
 {
@@ -36,10 +37,26 @@ public:
 	};
 
 public:
-	Model(sg::Device* device, const std::string& file);
+	Model(sg::Device* device, UploadHeap* upload_heap, const std::string_view file);
+
+	struct MeshPart
+	{
+		uint32_t material_index = 0;
+		uint32_t vb_offset = 0;
+		uint32_t ib_offset = 0;
+		uint32_t draw_count = 0;
+	};
+
+	struct Material
+	{
+
+	};
 
 private:
 	sg::Ptr<sg::Pipeline> pipeline;
-	sg::Ptr<sg::Buffer> vb;
+	sg::SharedPtr<sg::Buffer> vb;
+	sg::SharedPtr<sg::Buffer> ib;
+	std::vector<MeshPart> mesh_parts;
+	std::vector<Material> materials;
 };
 

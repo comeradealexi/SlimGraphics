@@ -24,7 +24,6 @@ UploadHeap::UploadHeap(sg::Device* device, sg::u32 buffer_count, sg::u32 size_pe
 
 void UploadHeap::begin_frame(CommandQueue* queue)
 {
-	counter++;
 	PerFrameData& data = frame_data();
 	
 	data.upload_heap_offset = 0;
@@ -77,4 +76,5 @@ void UploadHeap::end_frame(CommandQueue* queue)
 	queue->submit_command_list(data.command_list.get());
 	queue->fence_signal(data.fence.Get(), counter);
 	data.fence_signalled = true;
+	counter++;
 }

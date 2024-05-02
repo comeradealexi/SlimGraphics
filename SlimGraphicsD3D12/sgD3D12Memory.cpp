@@ -9,9 +9,9 @@ namespace sg
 		AllocationPIMPL::AllocationPIMPL() = default;
 		AllocationPIMPL::~AllocationPIMPL() = default;
 
-		Memory::Memory(MemoryType type_, D3D12MA::Allocation* ptr) : type(type_)
+		Memory::Memory(MemoryType type_, Allocation alloc) : type(type_)
 		{
-			memory_ptr.ptr = ptr;
+			memory.alloc = alloc;
 		}
 	}
 }
