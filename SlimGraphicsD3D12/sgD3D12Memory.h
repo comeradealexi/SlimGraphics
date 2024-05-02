@@ -1,6 +1,5 @@
 #pragma once
 #include "sgTypes.h"
-#include "sgD3D12Include.h"
 
 namespace sg
 {
@@ -8,6 +7,7 @@ namespace sg
 	{
 		struct Allocation
 		{
+
 			uint64_t offset = 0;
 			uint64_t virtual_allocation = {};
 			ComPtr<D3D12MA::VirtualBlock> virtual_block;
@@ -18,17 +18,6 @@ namespace sg
 			}
 		};
 
-		struct AllocationPIMPL
-		{
-			AllocationPIMPL();
-			~AllocationPIMPL();
-			inline Allocation& operator->()
-			{
-				return alloc;
-			}
-			Allocation alloc;
-		};
-
 		class Memory
 		{
 			friend class Device;
@@ -37,7 +26,7 @@ namespace sg
 			MemoryType get_type() const { return type; }
 		private:
 			const MemoryType type;
-			AllocationPIMPL memory;
+			Allocation alloc;
 		};
 	}
 }

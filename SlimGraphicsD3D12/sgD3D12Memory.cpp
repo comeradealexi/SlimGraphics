@@ -6,12 +6,10 @@ namespace sg
 {
 	namespace D3D12
 	{
-		AllocationPIMPL::AllocationPIMPL() = default;
-		AllocationPIMPL::~AllocationPIMPL() = default;
 
-		Memory::Memory(MemoryType type_, Allocation alloc) : type(type_)
+
+		Memory::Memory(MemoryType type_, Allocation alloc_) : type(type_), alloc(alloc_)
 		{
-			memory.alloc = alloc;
 		}
 	}
 }

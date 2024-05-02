@@ -17,8 +17,8 @@ namespace sg
 	namespace D3D12
 	{
         //https://learn.microsoft.com/en-us/cpp/cpp/pimpl-for-compile-time-encapsulation-modern-cpp?view=msvc-170
-        PoolPIMPL::PoolPIMPL() = default;
-        PoolPIMPL::~PoolPIMPL() = default;
+		PoolPIMPL::PoolPIMPL() = default;
+		PoolPIMPL::~PoolPIMPL() = default;
 
         // Helper function for acquiring the first available hardware adapter that supports Direct3D 12.
         // If no such adapter can be found, *ppAdapter will be set to nullptr.
@@ -138,13 +138,13 @@ namespace sg
                         // Enable additional debug layers.
                         dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
 
-#if false
-						ComPtr<ID3D12Debug1> debugController1;
-						if (SUCCEEDED(debugController->QueryInterface(IID_PPV_ARGS(&debugController1))))
-						{
-                            debugController1->SetEnableGPUBasedValidation(true);
-						}
-#endif
+                        #if false
+						    ComPtr<ID3D12Debug1> debugController1;
+						    if (SUCCEEDED(debugController->QueryInterface(IID_PPV_ARGS(&debugController1))))
+						    {
+                                debugController1->SetEnableGPUBasedValidation(true);
+						    }
+                        #endif
                     }
 
                 }
@@ -155,12 +155,17 @@ namespace sg
             ComPtr<IDXGIAdapter1> hardware_adapter;
             GetHardwareAdapter(factory.Get(), &hardware_adapter, true, feature_level);
 			
-            //DXGI3 Info
+            //DXGI Info
             {
-				ComPtr<IDXGIAdapter3> hardware_adapter_3;
-				hardware_adapter->QueryInterface(IID_PPV_ARGS(&hardware_adapter_3));
+				ComPtr<IDXGIAdapter4> hardware_adapter_4;
+				hardware_adapter->QueryInterface(IID_PPV_ARGS(&hardware_adapter_4));
+
+				DXGI_ADAPTER_DESC3 desc3;
+				CHECKHR(hardware_adapter_4->GetDesc3(&desc3));
+				seWriteLine("%ls", desc3.Description);
+
                 DXGI_QUERY_VIDEO_MEMORY_INFO memory_information = {};
-                CHECKHR(hardware_adapter_3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &memory_information));
+                CHECKHR(hardware_adapter_4->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &memory_information));
                 seWriteLine("DXGI_QUERY_VIDEO_MEMORY_INFO:");
                 seWriteLine(" - Budget: %lluMiB", memory_information.Budget / 1024llu / 1024llu); //Specifies the OS-provided video memory budget, in bytes, that the application should target. If CurrentUsage is greater than Budget, the application may incur stuttering or performance penalties due to background activity by the OS to provide other applications with a fair usage of video memory.
 				seWriteLine(" - CurrentUsage: %lluMiB", memory_information.CurrentUsage / 1024llu / 1024llu); //Specifies the application's current video memory usage, in bytes.
@@ -171,6 +176,14 @@ namespace sg
             CHECKHR(D3D12CreateDevice(hardware_adapter.Get(), feature_level, IID_PPV_ARGS(&device)));
             CHECKHR(device->QueryInterface(IID_PPV_ARGS(&device6)));
             seWriteLine("D3D12 Device created.");
+
+#if defined(_DEBUG)
+			{
+                HRESULT hr_power_state = device6->SetStablePowerState(true);
+                CHECKHR(hr_power_state);
+				seWriteLine("D3D12 SetStablePowerState: %s", hr_power_state == S_OK ? "ENABLED" : "FAILED");
+			}
+#endif
 
             setup_debug_filters(device.Get());
 
@@ -464,7 +477,7 @@ namespace sg
             const D3D12_RESOURCE_ALLOCATION_INFO rai = { size, alignment };
 			const CD3DX12_RESOURCE_DESC ResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(rai, flags);
 
-            Allocation& d3d12_alloc = memory->memory.alloc;
+            Allocation& d3d12_alloc = memory->alloc;
             const D3D12_RESOURCE_STATES resource_state = get_d3d12_resource_read_state(type);
 			ComPtr<ID3D12Resource> d3d12_buffer;
 			CHECKHR(device6->CreatePlacedResource(d3d12_alloc.heap.Get(), d3d12_alloc.offset, &ResourceDesc, resource_state, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
