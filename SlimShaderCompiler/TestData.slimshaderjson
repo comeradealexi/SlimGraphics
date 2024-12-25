@@ -1,0 +1,11 @@
+[
+    {
+        "profile":"ps_6_1", "type":"pixel", "entrypoint":"main", "defines":["PARENT_1", "PARENT_2"],
+        "shaders":
+        [
+    {"name":"shader1", "defines":["DEFINE_NO_1", "DEFINE_NO_2"]},
+    {"name":"shader2", "defines":["DEFINE_NO_1"]},
+    {"name":"shader3", "defines":["DEFINE_NO_1", "DEFINE_NO_3"]}
+        ]
+    }   
+]

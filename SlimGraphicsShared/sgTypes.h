@@ -29,6 +29,9 @@ namespace sg
 	template <typename T>
 	using SharedPtr = std::shared_ptr<T>;
 
+	template <typename T>
+	using WeakPtr = std::weak_ptr<T>;
+
 	using u8 = uint8_t;
 	using u16 = uint16_t;
 	using u32 = uint32_t;
@@ -65,10 +68,10 @@ namespace sg
 	enum class BufferType
 	{
 		GeneralDataBuffer, //UAV / Structured Buffer for example
-		Vertex, 
-		Index, 
-		Constant, 
-		Texture, 
+		Vertex,
+		Index,
+		Constant,
+		Texture,
 		Upload
 	};
 

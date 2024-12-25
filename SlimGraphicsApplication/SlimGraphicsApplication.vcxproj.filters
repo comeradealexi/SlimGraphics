@@ -27,6 +27,12 @@
     <ClCompile Include="UploadHeap.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Camera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LinearConstantBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\SlimEngine\seEngine.h">
@@ -41,29 +47,12 @@
     <ClInclude Include="UploadHeap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="Basic_VertexShader.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Basic_PixelShader.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Basic_ConstantBuffer_PixelShader.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Basic3D_PixelShader.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Basic3D_VertexShader.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Basic_ComputeShader.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Basic_Buffer_PixelShader.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
+    <ClInclude Include="Camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LinearConstantBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Basic_Header.hlsli">
@@ -72,5 +61,31 @@
     <None Include="Basic3D_Header.hlsli">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="SlimGraphicsShaders.slimshaderjson">
+      <Filter>Shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="Basic_Buffer_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="Basic_ComputeShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="Basic_ConstantBuffer_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="Basic_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="Basic_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="Basic3D_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="Basic3D_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
   </ItemGroup>
 </Project>

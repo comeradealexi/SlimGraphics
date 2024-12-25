@@ -1,12 +1,7 @@
 #include "UploadHeap.h"
+#include <sgUtils.h>
 
 using namespace sg;
-
-template <typename T>
-static inline constexpr T AlignUp(T val, T align)
-{
-	return (val + align - 1) / align * align;
-}
 
 UploadHeap::UploadHeap(sg::Device* device, sg::u32 buffer_count, sg::u32 size_per_frame)
 {

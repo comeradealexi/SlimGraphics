@@ -4,6 +4,8 @@
 #include "sgD3D12CommandList.h"
 #include "sgD3D12RenderTargetView.h"
 #include "sgD3D12ConstantBufferView.h"
+#include "sgD3D12VertexBufferView.h"
+#include "sgD3D12IndexBufferView.h"
 #include "sgD3D12Pipeline.h"
 #include "sgD3D12TypesTranslator.h"
 #include "sgD3D12GPUTimestampPool.h"
@@ -419,8 +421,6 @@ namespace sg
         {
             Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline(false));
 
-            seAssert(pipeline_desc.input_layout.num_elements == 0, "not supported yet");
-
             out_pipeline->topology = translate(pipeline_desc.primitive_topology);
 
             D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
@@ -440,6 +440,29 @@ namespace sg
                 }
                 psoDesc.DSVFormat = pipeline_desc.depth_stencil_format;
                 psoDesc.SampleDesc.Count = 1;
+            }
+
+            D3D12_INPUT_ELEMENT_DESC ied_array[sg::InputLayout::Desc::MAX_ELEMENTS] = {};
+            D3D12_INPUT_LAYOUT_DESC ild = {};
+            if (pipeline_desc.input_layout.num_elements > 0)
+            {
+				seAssert(pipeline_desc.input_layout.num_elements <= sg::InputLayout::Desc::MAX_ELEMENTS, "Too many elements");
+                ild.pInputElementDescs = ied_array;
+                ild.NumElements = pipeline_desc.input_layout.num_elements;
+                for (size_t i = 0; i < pipeline_desc.input_layout.num_elements; i++)
+                {
+                    D3D12_INPUT_ELEMENT_DESC& ied = ied_array[i];
+                    const sg::InputLayout::ElementDesc& ed = pipeline_desc.input_layout.elements[i];
+
+                    ied.SemanticName = ed.semantic_name;
+                    ied.SemanticIndex = ed.semantic_index;
+                    ied.Format = ed.format;
+                    ied.InputSlot = ed.input_slot;
+                    ied.AlignedByteOffset = ed.aligned_byte_offset;
+                    ied.InputSlotClass = translate(ed.input_classification);
+                    ied.InstanceDataStepRate = ed.instance_data_step_rate;
+                }
+                psoDesc.InputLayout = ild;
             }
             
             //Root Signature Generation
@@ -558,6 +581,34 @@ namespace sg
             uav.uav = idx;
             uav.buffer_resource = buffer;
 			return uav;
+		}
+
+
+		VertexBufferView Device::create_vertex_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, u64 stride)
+		{
+            VertexBufferView vbv;
+            vbv.buffer_resource = buffer;
+
+            D3D12_VERTEX_BUFFER_VIEW& d3d12_vbv = vbv.vbv;
+            d3d12_vbv.BufferLocation = buffer->get()->GetGPUVirtualAddress() + offset;
+            d3d12_vbv.SizeInBytes = size;
+            d3d12_vbv.StrideInBytes = stride;
+
+            return vbv;
+		}
+
+
+		IndexBufferView Device::create_index_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, DXGI_FORMAT format)
+		{
+            IndexBufferView ibv;
+			ibv.buffer_resource = buffer;
+
+			D3D12_INDEX_BUFFER_VIEW& d3d12_ibv = ibv.ibv;
+            d3d12_ibv.BufferLocation = buffer->get()->GetGPUVirtualAddress() + offset;
+            d3d12_ibv.SizeInBytes = size;
+            d3d12_ibv.Format = format;
+
+            return ibv;
 		}
 
 		u32 Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list)

@@ -1,20 +1,20 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|Win32">
-      <Configuration>Debug</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|Win32">
-      <Configuration>Release</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug|x64">
-      <Configuration>Debug</Configuration>
+    <ProjectConfiguration Include="D3D12_Debug|x64">
+      <Configuration>D3D12_Debug</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|x64">
-      <Configuration>Release</Configuration>
+    <ProjectConfiguration Include="D3D12_Release|x64">
+      <Configuration>D3D12_Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Vulkan_Debug|x64">
+      <Configuration>Vulkan_Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Vulkan_Release|x64">
+      <Configuration>Vulkan_Release</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
@@ -26,26 +26,26 @@
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
@@ -57,48 +57,22 @@
   </ImportGroup>
   <ImportGroup Label="Shared">
   </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\SlimGraphicsVulkan\Vulkan.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\SlimGraphicsVulkan\Vulkan.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
@@ -115,8 +89,8 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>assimp-vc143-mt.lib;dxgi.lib;d3d12.lib;WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\bin\x64;..\External\assimp-5.3.1\lib\RelWithDebInfo</AdditionalLibraryDirectories>
+      <AdditionalDependencies>GameInput.lib;assimp-vc143-mt.lib;dxgi.lib;d3d12.lib;WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\bin\x64;..\External\assimp-5.3.1\lib\RelWithDebInfo;..\External\GameInput\lib\x64</AdditionalLibraryDirectories>
     </Link>
     <FxCompile>
       <ObjectFileOutput>$(SolutionDir)ShadersD3D12\$(Configuration)\%(Filename).cso</ObjectFileOutput>
@@ -127,8 +101,44 @@
     <PostBuildEvent>
       <Command>xcopy $(SolutionDir)..\External\assimp-5.3.1\bin\RelWithDebInfo\assimp-vc143-mt.dll $(LocalDebuggerWorkingDirectory) /y</Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>$(SolutionDir)../Binaries/SlimShaderCompiler.exe $(SolutionDir) $(SolutionDir)ShaderBin$(Configuration) PC_DXC</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalUsingDirectories>
+      </AdditionalUsingDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <SupportJustMyCode>false</SupportJustMyCode>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>GameInput.lib;assimp-vc143-mt.lib;dxgi.lib;d3d12.lib;WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\bin\x64;..\External\assimp-5.3.1\lib\RelWithDebInfo;..\External\GameInput\lib\x64</AdditionalLibraryDirectories>
+    </Link>
+    <FxCompile>
+      <ObjectFileOutput>$(SolutionDir)ShadersD3D12\$(Configuration)\%(Filename).cso</ObjectFileOutput>
+      <ShaderModel>6.1</ShaderModel>
+      <AllResourcesBound>true</AllResourcesBound>
+      <AdditionalOptions>-Qembed_debug %(AdditionalOptions)</AdditionalOptions>
+    </FxCompile>
+    <PostBuildEvent>
+      <Command>xcopy $(SolutionDir)..\External\assimp-5.3.1\bin\RelWithDebInfo\assimp-vc143-mt.dll $(LocalDebuggerWorkingDirectory) /y</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>$(SolutionDir)../Binaries/SlimShaderCompiler.exe $(SolutionDir) $(SolutionDir)ShaderBin$(Configuration) PC_DXC_SPIRV</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -148,8 +158,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>assimp-vc143-mt.lib;dxgi.lib;d3d12.lib;WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\bin\x64;..\External\assimp-5.3.1\lib\RelWithDebInfo</AdditionalLibraryDirectories>
+      <AdditionalDependencies>GameInput.lib;assimp-vc143-mt.lib;dxgi.lib;d3d12.lib;WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\bin\x64;..\External\assimp-5.3.1\lib\RelWithDebInfo;..\External\GameInput\lib\x64</AdditionalLibraryDirectories>
     </Link>
     <FxCompile>
       <ShaderModel>6.1</ShaderModel>
@@ -161,6 +171,46 @@
     <PostBuildEvent>
       <Command>xcopy $(SolutionDir)..\External\assimp-5.3.1\bin\RelWithDebInfo\assimp-vc143-mt.dll $(LocalDebuggerWorkingDirectory) /y</Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>$(SolutionDir)../Binaries/SlimShaderCompiler.exe $(SolutionDir) $(SolutionDir)ShaderBin$(Configuration) PC_DXC</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalUsingDirectories>
+      </AdditionalUsingDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>GameInput.lib;assimp-vc143-mt.lib;dxgi.lib;d3d12.lib;WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\bin\x64;..\External\assimp-5.3.1\lib\RelWithDebInfo;..\External\GameInput\lib\x64</AdditionalLibraryDirectories>
+    </Link>
+    <FxCompile>
+      <ShaderModel>6.1</ShaderModel>
+      <AllResourcesBound>true</AllResourcesBound>
+      <ObjectFileOutput>$(SolutionDir)ShadersD3D12\$(Configuration)\%(Filename).cso</ObjectFileOutput>
+      <AssemblerOutput>
+      </AssemblerOutput>
+    </FxCompile>
+    <PostBuildEvent>
+      <Command>xcopy $(SolutionDir)..\External\assimp-5.3.1\bin\RelWithDebInfo\assimp-vc143-mt.dll $(LocalDebuggerWorkingDirectory) /y</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>$(SolutionDir)../Binaries/SlimShaderCompiler.exe $(SolutionDir) $(SolutionDir)ShaderBin$(Configuration) PC_DXC_SPIRV</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ProjectReference Include="..\ImGui\ImGui.vcxproj">
@@ -174,6 +224,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="LinearConstantBuffer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="UploadHeap.cpp" />
@@ -181,76 +233,110 @@
   <ItemGroup>
     <ClInclude Include="..\SlimEngine\seEngine.h" />
     <ClInclude Include="AverageTimer.h" />
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="LinearConstantBuffer.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="UploadHeap.h" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Basic3D_PixelShader.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PSMain</EntryPointName>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PSMain</EntryPointName>
-    </FxCompile>
-    <FxCompile Include="Basic3D_VertexShader.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VSMain</EntryPointName>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">VSMain</EntryPointName>
-    </FxCompile>
-    <FxCompile Include="Basic_Buffer_PixelShader.hlsl">
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PSMain</EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PSMain</EntryPointName>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
-    </FxCompile>
-    <FxCompile Include="Basic_ComputeShader.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.1</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4.0</ShaderModel>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.1</ShaderModel>
-    </FxCompile>
-    <FxCompile Include="Basic_ConstantBuffer_PixelShader.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PSMain</EntryPointName>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.1</ShaderModel>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PSMain</EntryPointName>
-    </FxCompile>
-    <FxCompile Include="Basic_PixelShader.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">PSMain</EntryPointName>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.1</ShaderModel>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">PSMain</EntryPointName>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.1</ShaderModel>
-      <AllResourcesBound Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</AllResourcesBound>
-      <AllResourcesBound Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</AllResourcesBound>
-    </FxCompile>
-    <FxCompile Include="Basic_VertexShader.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VSMain</EntryPointName>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.1</ShaderModel>
-      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">VSMain</EntryPointName>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.1</ShaderModel>
-      <AllResourcesBound Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</AllResourcesBound>
-    </FxCompile>
+    <Text Include="Basic3D_PixelShader.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">PSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">PSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">PSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">PSMain</EntryPointName>
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Basic3D_VertexShader.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">Vertex</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">VSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">VSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">VSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">VSMain</EntryPointName>
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Basic_Buffer_PixelShader.hlsl">
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">PSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">PSMain</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">PSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">PSMain</EntryPointName>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">Pixel</ShaderType>
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Basic_ComputeShader.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">Compute</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">6.1</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">6.1</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">Compute</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">6.1</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">6.1</ShaderModel>
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Basic_ConstantBuffer_PixelShader.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">PSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">PSMain</EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">6.1</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">6.1</ShaderModel>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">PSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">PSMain</EntryPointName>
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Basic_PixelShader.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">Pixel</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">PSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">PSMain</EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">6.1</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">6.1</ShaderModel>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">PSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">PSMain</EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">6.1</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">6.1</ShaderModel>
+      <AllResourcesBound Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">true</AllResourcesBound>
+      <AllResourcesBound Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">true</AllResourcesBound>
+      <AllResourcesBound Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">true</AllResourcesBound>
+      <AllResourcesBound Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">true</AllResourcesBound>
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="Basic_VertexShader.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">Vertex</ShaderType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">VSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">VSMain</EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='D3D12_Debug|x64'">6.1</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Vulkan_Debug|x64'">6.1</ShaderModel>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">VSMain</EntryPointName>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">VSMain</EntryPointName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">6.1</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">6.1</ShaderModel>
+      <AllResourcesBound Condition="'$(Configuration)|$(Platform)'=='D3D12_Release|x64'">true</AllResourcesBound>
+      <AllResourcesBound Condition="'$(Configuration)|$(Platform)'=='Vulkan_Release|x64'">true</AllResourcesBound>
+      <FileType>Document</FileType>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="Basic3D_Header.hlsli" />
     <None Include="Basic_Header.hlsli" />
+    <None Include="SlimGraphicsShaders.slimshaderjson" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

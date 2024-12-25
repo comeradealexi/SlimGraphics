@@ -3,6 +3,9 @@
 #include "sgD3D12Binding.h"
 #include "sgD3D12RenderTargetView.h"
 #include "sgD3D12DepthStencilView.h"
+#include "sgD3D12VertexBufferView.h"
+#include "sgD3D12IndexBufferView.h"
+
 namespace sg
 {
 	namespace D3D12
@@ -16,7 +19,13 @@ namespace sg
 			void start_recording();
 			void end_recording();
 			void set_pipeline(Pipeline* pipeline);
+			
 			void bind(Binding& bind, PipelineType type);
+			void bind_vertex_buffer(VertexBufferView view);
+			void bind_index_buffer(IndexBufferView view);
+			void unbind_vertex_buffer();
+			void unbind_index_buffer();
+
 			void draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location);
 			void draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i8 base_vertex_location, u32 start_instance_location);
 
@@ -59,7 +68,9 @@ namespace sg
 			{
 				RenderTargetView rtvs[8];
 				DepthStencilView dsv;
-				bool rtv0_is_swap_chain = false;;
+				bool rtv0_is_swap_chain = false;
+				VertexBufferView vbv;
+				IndexBufferView ibv;
 			} active_geometry_pass;
 		};
 	}

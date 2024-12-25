@@ -87,6 +87,12 @@
     <ClInclude Include="sgD3D12Binding.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="sgD3D12VertexBufferView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sgD3D12IndexBufferView.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SlimGraphicsD3D12.cpp">

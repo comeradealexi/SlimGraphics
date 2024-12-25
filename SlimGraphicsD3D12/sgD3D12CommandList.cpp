@@ -194,7 +194,8 @@ namespace sg
 		void CommandList::start_geometry_pass(u32 render_target_count, RenderTargetView* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain, DepthStencilView* depth_stencil)
 		{
 			seAssert(render_target_count == 1, "Only 1 supported atm TODO"); //TODO DON'T FORGET VIEWPORTS AND SCISSORS
-			
+			seAssert(rtv0_is_swap_chain == true, "need to add barrier support for this.");
+
 			const D3D12_VIEWPORT d3d_viewport = translate(viewport);
 			const D3D12_RECT d3d_scissor = translate(scissor);
 
@@ -218,8 +219,35 @@ namespace sg
 			command_list->RSSetScissorRects(1, &d3d_scissor);
 		}
 
+
+		void CommandList::bind_vertex_buffer(VertexBufferView view)
+		{
+			unbind_vertex_buffer();
+			command_list->IASetVertexBuffers(0, 1, &view.vbv);
+		}
+
+		void CommandList::bind_index_buffer(IndexBufferView view)
+		{
+			unbind_index_buffer();
+			command_list->IASetIndexBuffer(&view.ibv);
+		}
+
+
+		void CommandList::unbind_vertex_buffer()
+		{
+			// No need to transition? Always assume read state.
+		}
+
+		void CommandList::unbind_index_buffer()
+		{
+			// No need to transition? Always assume read state.
+		}
+
 		void CommandList::end_geometry_pass()
 		{
+			unbind_vertex_buffer();
+			unbind_index_buffer();
+
 			if (active_geometry_pass.rtv0_is_swap_chain)
 			{
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(active_geometry_pass.rtvs[0].texture_resource->get().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);

@@ -33,6 +33,9 @@
     <ClInclude Include="Win32\seWindow.h">
       <Filter>Win32</Filter>
     </ClInclude>
+    <ClInclude Include="Win32\seGameInput.h">
+      <Filter>Win32</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="se_engine_pch.cpp">
@@ -45,6 +48,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Win32\seWindow.cpp">
+      <Filter>Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32\seGameInput.cpp">
       <Filter>Win32</Filter>
     </ClCompile>
   </ItemGroup>

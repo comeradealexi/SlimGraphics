@@ -382,5 +382,19 @@ namespace sg
 			}			
 			return bd;
 		}
+
+		static D3D12_INPUT_CLASSIFICATION translate(const sg::InputLayout::InputClassification& input_class)
+		{
+			switch (input_class)
+			{
+			case sg::InputLayout::InputClassification::PerVertex:
+				return D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+			case sg::InputLayout::InputClassification::PerInstance:
+				return D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA;
+			default:
+				seAssert(false, "missing input class");
+				return D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+			}
+		}
 	}
 }

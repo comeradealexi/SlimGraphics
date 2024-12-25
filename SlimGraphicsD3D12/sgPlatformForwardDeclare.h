@@ -8,6 +8,7 @@ namespace sg
 	namespace DefaultAlignment
 	{
 		static constexpr size_t BUFFER_ALIGNMENT = 1024llu * 64llu;
+		static constexpr size_t CONSTANT_BUFFER_ALIGNMENT = 256u;
 	}
 
 	namespace D3D12
@@ -32,6 +33,8 @@ namespace sg
 		class UnorderedAccessView;
 		class VertexShader;
 		class Binding;
+		class VertexBufferView;
+		class IndexBufferView;
 	}
 }
 
@@ -44,6 +47,8 @@ namespace sg
 	using ComputeShader = D3D12::ComputeShader;
 	using ConstantBufferView = D3D12::ConstantBufferView;
 	using DepthStencilView = D3D12::DepthStencilView;
+	using VertexBufferView = D3D12::VertexBufferView;
+	using IndexBufferView = D3D12::IndexBufferView;
 	using Device = D3D12::Device;
 	using GPUTimestampPool = D3D12::GPUTimestampPool;
 	using Memory = D3D12::Memory;

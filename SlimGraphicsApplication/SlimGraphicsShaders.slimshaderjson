@@ -1,0 +1,27 @@
+[
+    {
+        "profile":"ps_6_1", "entrypoint":"PSMain" ,
+        "shaders":
+        [
+            {"name":"Basic_Buffer_PixelShader", "input_file":"Basic_Buffer_PixelShader.hlsl"},
+            {"name":"Basic_ConstantBuffer_PixelShader", "input_file":"Basic_ConstantBuffer_PixelShader.hlsl"},
+            {"name":"Basic_PixelShader", "input_file":"Basic_PixelShader.hlsl"},
+            {"name":"Basic3D_PixelShader", "input_file":"Basic3D_PixelShader.hlsl"}
+        ]
+    }, 
+    {
+        "profile":"vs_6_1", "entrypoint":"VSMain" ,
+        "shaders":
+        [
+            {"name":"Basic_VertexShader", "input_file":"Basic_VertexShader.hlsl"},
+            {"name":"Basic3D_VertexShader", "input_file":"Basic3D_VertexShader.hlsl"}
+        ]
+    }, 
+    {
+        "profile":"cs_6_1", "entrypoint":"main" ,
+        "shaders":
+        [
+            {"name":"Basic_ComputeShader", "input_file":"Basic_ComputeShader.hlsl"}
+        ]
+    }
+]

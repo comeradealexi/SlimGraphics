@@ -1,6 +1,7 @@
 #include <sgPlatformInclude.h>
 #include <seEngineBasicFileIO.h>
 #include <Win32/seWindow.h>
+#include <Win32/seGameInput.h>
 #include <imgui.h>
 #include <implot.h>
 #include <imgui_impl_dx12.h>
@@ -41,6 +42,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		w = cr.right;
 		h = cr.bottom;
 	}
+	se::Ptr<se::GameInput> input(new se::GameInput());
 
 	SharedPtr<Device> device(new Device());
 	Ptr<CommandQueue> queue = device->create_command_queue();
@@ -77,21 +79,21 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	Ptr<PixelShader> ps_b;
 	Ptr<ComputeShader> cs;
 	{
-		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_VertexShader.cso");
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_PixelShader.cso");
+		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic_VertexShader.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic_PixelShader.PC_DXC");
 		vs = device->create_vertex_shader(vertex_data);
 		ps = device->create_pixel_shader(pixel_data);
 	}
 	{
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_ConstantBuffer_PixelShader.cso");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic_ConstantBuffer_PixelShader.PC_DXC");
 		ps_cb = device->create_pixel_shader(pixel_data);
 	}
 	{
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_Buffer_PixelShader.cso");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic_Buffer_PixelShader.PC_DXC");
 		ps_b = device->create_pixel_shader(pixel_data);
 	}
 	{
-		std::vector<uint8_t> compute_data = se::BasicFileIO::LoadFile("ShadersD3D12\\Debug\\Basic_ComputeShader.cso");
+		std::vector<uint8_t> compute_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic_ComputeShader.PC_DXC");
 		cs = device->create_compute_shader(compute_data);
 	}
 
@@ -157,10 +159,33 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	Ptr<Model> model;
 
 	//Loading frame
+	Ptr<VertexShader> model_vs;
+	Ptr<PixelShader> model_ps;
+	Ptr<Pipeline> model_pipeline;
 	{
 		frame_upload_heap->begin_frame(queue.get());
 		model = Ptr<Model>(new Model(device.get(), frame_upload_heap.get(), "../SlimGraphicsAssets/DebugModels/teapot.obj"));
 		frame_upload_heap->end_frame(queue.get());
+
+		// Make model pipeline
+		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic3D_VertexShader.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic3D_PixelShader.PC_DXC");
+		model_vs = device->create_vertex_shader(vertex_data);
+		model_ps = device->create_pixel_shader(pixel_data);
+		
+		BindingDesc bd;
+		bd.cbv_binding_count = 1;
+
+		PipelineDesc::Graphics desc;
+		desc.input_layout = Model::Vertex::make_input_layout();
+		desc.pixel_shader = model_ps.get();
+		desc.vertex_shader = model_vs.get();
+		desc.render_target_count = 1;
+		desc.render_target_format_list[0] = back_buffer_format;
+		desc.depth_stencil_desc.depth_enable = true;
+		desc.depth_stencil_desc.depth_write = true;
+		model_pipeline = device->create_pipeline(desc, bd);
+		model->SetPipeline(std::move(model_pipeline));
 	}
 
 	volatile bool run = true;
@@ -181,6 +206,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	while (run)
 	{
 		auto cpu_start_time = std::chrono::high_resolution_clock::now();
+		input->Update();
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
@@ -265,6 +291,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				b.set_srv(srv_uav, 0);
 				command_buffer->bind(b, PipelineType::Geometry);
 				command_buffer->draw_instanced(6, 1, 0, 0);
+			}
+			{ // Model
+
 			}
 			{
 				ImGui::End();
