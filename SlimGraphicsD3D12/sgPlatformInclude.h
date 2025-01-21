@@ -4,7 +4,6 @@
 #include "sgD3D12Device.h"
 #include "sgD3D12Shader.h"
 #include "sgD3D12Memory.h"
-#include "sgD3D12Shader.h"
 #include "sgD3D12Binding.h"
 #include "sgD3D12CommandList.h"
 #include "sgD3D12CommandQueue.h"

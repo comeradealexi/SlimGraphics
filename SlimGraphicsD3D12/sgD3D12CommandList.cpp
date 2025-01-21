@@ -96,11 +96,9 @@ namespace sg
 				CD3DX12_GPU_DESCRIPTOR_HANDLE dest_gpu(descriptor_heap->GetGPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
 				CD3DX12_CPU_DESCRIPTOR_HANDLE dest_cpu(descriptor_heap->GetCPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
 
-				ComPtr<ID3D12DescriptorHeap> global_heap = global_cbv_srv_uav_descriptor_heap;
 				for (u32 i = 0; i < bind.cbv_binding_count; i++)
 				{
-					CD3DX12_CPU_DESCRIPTOR_HANDLE src_cpu(global_heap->GetCPUDescriptorHandleForHeapStart(), bind.get_cbvs(i), descriptor_heap_increment);
-					device->CopyDescriptorsSimple(1, dest_cpu, src_cpu, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+					device->CreateConstantBufferView(&bind.d3d12_cbvs[i].desc, dest_cpu);
 					dest_cpu.Offset(descriptor_heap_increment);
 				}
 				
@@ -122,12 +120,11 @@ namespace sg
 				CD3DX12_GPU_DESCRIPTOR_HANDLE dest_gpu(descriptor_heap->GetGPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
 				CD3DX12_CPU_DESCRIPTOR_HANDLE dest_cpu(descriptor_heap->GetCPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
 
-				ComPtr<ID3D12DescriptorHeap> global_heap = global_cbv_srv_uav_descriptor_heap;
 
 				for (u32 i = 0; i < bind.srv_binding_count; i++)
 				{
-					CD3DX12_CPU_DESCRIPTOR_HANDLE src_cpu(global_heap->GetCPUDescriptorHandleForHeapStart(), bind.get_srvs(i), descriptor_heap_increment);
-					device->CopyDescriptorsSimple(1, dest_cpu, src_cpu, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+					ShaderResourceView& srv = bind.d3d12_srvs[i];
+					device->CreateShaderResourceView(srv.buffer_resource->get().Get(), &srv.desc, dest_cpu);
 					dest_cpu.Offset(descriptor_heap_increment);
 				}
 
@@ -149,11 +146,10 @@ namespace sg
 				CD3DX12_GPU_DESCRIPTOR_HANDLE dest_gpu(descriptor_heap->GetGPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
 				CD3DX12_CPU_DESCRIPTOR_HANDLE dest_cpu(descriptor_heap->GetCPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
 
-				ComPtr<ID3D12DescriptorHeap> global_heap = global_cbv_srv_uav_descriptor_heap;
 				for (u32 i = 0; i < bind.uav_binding_count; i++)
 				{
-					CD3DX12_CPU_DESCRIPTOR_HANDLE src_cpu(global_heap->GetCPUDescriptorHandleForHeapStart(), bind.get_uavs(i), descriptor_heap_increment);
-					device->CopyDescriptorsSimple(1, dest_cpu, src_cpu, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+					UnorderedAccessView& uav = bind.d3d12_uavs[i];
+					device->CreateUnorderedAccessView(uav.buffer_resource->get().Get(), nullptr, &uav.desc, dest_cpu);
 					dest_cpu.Offset(descriptor_heap_increment);					
 				}
 

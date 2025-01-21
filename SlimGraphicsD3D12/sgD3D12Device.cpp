@@ -520,22 +520,16 @@ namespace sg
 			seAssert(buffer->get().Get() != nullptr, "Invalid buffer");
             seAssert(buffer->type == BufferType::Constant, "expecting constant buffer");
 
-			u32 idx = cbv_srv_uav_descriptor_heap->allocate();
-			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap->get_increment_size());
-
-			D3D12_CONSTANT_BUFFER_VIEW_DESC desc;
+			ConstantBufferView cbv;
+			D3D12_CONSTANT_BUFFER_VIEW_DESC& desc = cbv.desc;
 			desc.BufferLocation = buffer->get()->GetGPUVirtualAddress() + offset;
 			desc.SizeInBytes = (UINT)size;
 
-			device->CreateConstantBufferView(&desc, cpu_handle);
-
-            ConstantBufferView cbv;
-            cbv.cbv = idx;
 			return cbv;
 		}
 
 
-		sg::D3D12::ShaderResourceView Device::create_shader_resource_view(Buffer* buffer, u64 element_size, u64 element_count)
+		sg::D3D12::ShaderResourceView Device::create_shader_resource_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count)
 		{
             D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
 			{
@@ -548,16 +542,16 @@ namespace sg
 				desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 			}
 
-			u32 idx = cbv_srv_uav_descriptor_heap->allocate();
-			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap->get_increment_size());
-
-			device->CreateShaderResourceView(buffer->get().Get(), &desc, cpu_handle);
+			//u32 idx = cbv_srv_uav_descriptor_heap->allocate();
+			//CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, //cbv_srv_uav_descriptor_heap->get_increment_size());
+            //
+			//device->CreateShaderResourceView(buffer->get().Get(), &desc, cpu_handle);
 
             ShaderResourceView srv;
-            srv.srv = idx;
+            srv.desc = desc;
+            srv.buffer_resource = buffer;
             return srv;
 		}
-
 
 		sg::D3D12::UnorderedAccessView Device::create_unordered_access_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count)
 		{
@@ -572,13 +566,13 @@ namespace sg
 				desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 			}
 
-			u32 idx = cbv_srv_uav_descriptor_heap->allocate();
-			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap->get_increment_size());
-
-			device->CreateUnorderedAccessView(buffer->get().Get(),nullptr, &desc, cpu_handle);
+			//u32 idx = cbv_srv_uav_descriptor_heap->allocate();
+			//CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, //cbv_srv_uav_descriptor_heap->get_increment_size());
+            //
+			//device->CreateUnorderedAccessView(buffer->get().Get(),nullptr, &desc, cpu_handle);
 
             UnorderedAccessView uav;
-            uav.uav = idx;
+            uav.desc = desc;
             uav.buffer_resource = buffer;
 			return uav;
 		}

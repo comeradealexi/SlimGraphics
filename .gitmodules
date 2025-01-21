@@ -13,3 +13,6 @@
 [submodule "SubModules/DirectXMath"]
 	path = SubModules/DirectXMath
 	url = https://github.com/microsoft/DirectXMath
+[submodule "SubModules/VulkanMemoryAllocator"]
+	path = SubModules/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator

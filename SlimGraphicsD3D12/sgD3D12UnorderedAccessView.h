@@ -9,8 +9,8 @@ namespace sg
 		class UnorderedAccessView
 		{
 		public:
-			UAVBinding uav;
 			SharedPtr<Buffer> buffer_resource;
+			D3D12_UNORDERED_ACCESS_VIEW_DESC desc;
 		};
 	}
 }

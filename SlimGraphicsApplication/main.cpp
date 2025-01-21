@@ -152,7 +152,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	SharedPtr<Memory> mem_uav = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
 	SharedPtr<Buffer> bfr_uav = device->create_buffer(mem_uav, 64ull * 1024, 64ull * 1024, BufferType::GeneralDataBuffer, true);
 	UnorderedAccessView uav_uav = device->create_unordered_access_view(bfr_uav, sizeof(float) * 4, 1);
-	ShaderResourceView srv_uav = device->create_shader_resource_view(bfr_uav.get(), sizeof(float) * 4, 1);
+	ShaderResourceView srv_uav = device->create_shader_resource_view(bfr_uav, sizeof(float) * 4, 1);
 
 	Ptr<UploadHeap> frame_upload_heap(new UploadHeap(device.get(), frame_count, 1024 * 1024 * 32));
 

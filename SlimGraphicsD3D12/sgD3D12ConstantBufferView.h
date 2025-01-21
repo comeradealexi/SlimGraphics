@@ -8,7 +8,7 @@ namespace sg
 		class ConstantBufferView
 		{
 		public:
-			CBVBinding cbv;
+			D3D12_CONSTANT_BUFFER_VIEW_DESC desc;
 		};
 	}
 }
