@@ -248,12 +248,33 @@ namespace sg
             }
 		}
 
-        void Device::imgui_init(u32 num_frames, DXGI_FORMAT format)
+        void Device::imgui_init(u32 num_frames, DXGI_FORMAT format, DXGI_FORMAT depth_format, CommandQueue* command_queue)
         {
-            u32 idx = imgui_cbv_srv_uav_descriptor_heap->allocate();
-            CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(imgui_cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, imgui_cbv_srv_uav_descriptor_heap->get_increment_size());
-            CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle(imgui_cbv_srv_uav_descriptor_heap->get_gpu_handle_heap_start(), idx, imgui_cbv_srv_uav_descriptor_heap->get_increment_size());
-            if (!ImGui_ImplDX12_Init(device.Get(), num_frames, format, imgui_cbv_srv_uav_descriptor_heap->get_heap().Get(), cpu_handle, gpu_handle))
+            ImGui_ImplDX12_InitInfo init_info = {};
+            init_info.Device = device.Get();
+            init_info.CommandQueue = command_queue->get().Get();
+            init_info.NumFramesInFlight = num_frames;
+            init_info.RTVFormat = format;
+            init_info.DSVFormat = depth_format;
+            init_info.SrvDescriptorHeap = imgui_cbv_srv_uav_descriptor_heap->get_heap().Get();
+            init_info.UserData = this;
+            init_info.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo* info, D3D12_CPU_DESCRIPTOR_HANDLE* out_cpu_desc_handle, D3D12_GPU_DESCRIPTOR_HANDLE* out_gpu_desc_handle)
+                {
+                    Device* device = (Device*)info->UserData;
+
+					u32 idx = device->imgui_cbv_srv_uav_descriptor_heap->allocate();
+					CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(device->imgui_cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, device->imgui_cbv_srv_uav_descriptor_heap->get_increment_size());
+					CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle(device->imgui_cbv_srv_uav_descriptor_heap->get_gpu_handle_heap_start(), idx, device->imgui_cbv_srv_uav_descriptor_heap->get_increment_size());
+                    *out_cpu_desc_handle = cpu_handle;
+                    *out_gpu_desc_handle = gpu_handle;
+                };
+            init_info.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo* info, D3D12_CPU_DESCRIPTOR_HANDLE cpu_desc_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_desc_handle)
+                {
+					Device* device = (Device*)info->UserData;
+                    seAssert(false, "TODO");
+                };
+
+            if (!ImGui_ImplDX12_Init(&init_info))
             {
                 seAssert(false, "Error: ImGui_ImplDX12_Init failed!" );
             }

@@ -33,7 +33,7 @@ namespace sg
 
 		public:
 			Device();
-			void imgui_init(u32 num_frames, DXGI_FORMAT format);
+			void imgui_init(u32 num_frames, DXGI_FORMAT format, DXGI_FORMAT depth_format, CommandQueue* command_queue);
 			void imgui_render(CommandList* command_list);
 
 			SizeAndAlignment calculate_resource_size_alignment(const ResourceCreateDesc& desc);

@@ -60,7 +60,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImGui::StyleColorsDark();
 		ImGui_ImplWin32_Init(wnd->g_hWnd);
 		ShowWindow(wnd->g_hWnd, SW_SHOWNORMAL);
-		device->imgui_init(frame_count, back_buffer_format);
+		device->imgui_init(frame_count, back_buffer_format, DXGI_FORMAT_UNKNOWN, queue.get());
 	}
 	
 	{//Res size test
