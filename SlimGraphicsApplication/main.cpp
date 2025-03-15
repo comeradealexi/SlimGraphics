@@ -12,6 +12,8 @@
 //Application headers
 #include "Model.h"
 #include "UploadHeap.h"
+#include "LinearConstantBuffer.h"
+#include "Camera.h"
 
 /*
 TODO:
@@ -155,13 +157,20 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	ShaderResourceView srv_uav = device->create_shader_resource_view(bfr_uav, sizeof(float) * 4, 1);
 
 	Ptr<UploadHeap> frame_upload_heap(new UploadHeap(device.get(), frame_count, 1024 * 1024 * 32));
+	Ptr<SimpleLinearConstantBuffer> linear_cb(new SimpleLinearConstantBuffer(device, 1024 * 1024));
 
 	Ptr<Model> model;
+
+	Camera camera;
+	camera.SetWidthHeight((float)w, (float)h);
 
 	//Loading frame
 	Ptr<VertexShader> model_vs;
 	Ptr<PixelShader> model_ps;
 	Ptr<Pipeline> model_pipeline;
+	SharedPtr<Memory> model_cb_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
+	SharedPtr<Buffer> model_cb = device->create_buffer(model_cb_mem, 64ull * 1024, 64ull * 1024, BufferType::Constant, false);
+	ConstantBufferView model_cbv = device->create_constant_buffer_view(model_cb.get(), 0, 256);
 	{
 		frame_upload_heap->begin_frame(queue.get());
 		model = Ptr<Model>(new Model(device.get(), frame_upload_heap.get(), "../SlimGraphicsAssets/DebugModels/teapot.obj"));
@@ -174,7 +183,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		model_ps = device->create_pixel_shader(pixel_data);
 		
 		BindingDesc bd;
-		bd.cbv_binding_count = 1;
+		bd.cbv_binding_count = 2;
 
 		PipelineDesc::Graphics desc;
 		desc.input_layout = Model::Vertex::make_input_layout();
@@ -203,15 +212,26 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	AverageTimer cpu_timer;
 
 	bool bOpen = true;
+	float delta_time; // seconds
+	float total_time; // seconds
+	auto total_time_start = std::chrono::high_resolution_clock::now();
+	auto last_frame_start = std::chrono::high_resolution_clock::now();
 	while (run)
 	{
 		auto cpu_start_time = std::chrono::high_resolution_clock::now();
+		total_time = std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - total_time_start).count();
+		delta_time = std::chrono::duration<float>(cpu_start_time - last_frame_start).count();
+		last_frame_start = cpu_start_time;
+		
 		input->Update();
+		
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
 		ImPlot::ShowDemoWindow();
 		ImGui::Begin("Slim Graphics", &bOpen, 0);
+
+		camera.Update(delta_time, total_time, *input);
 		if (ImGui::CollapsingHeader("Performance"))
 		{
 			// Plots can display overlay texts
@@ -246,7 +266,16 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			}
 		}
 
-		//if (bOpen) { ImGui::ShowDemoWindow(&show_demo_window); }
+		// 
+		{
+			frame_upload_heap->begin_frame(queue.get());
+			linear_cb->BeginFrame(frame_upload_heap.get());
+
+
+
+			linear_cb->EndFrame();
+			frame_upload_heap->end_frame(queue.get());
+		}
 
 		command_buffer->start_recording();
 		timestamp_pool->begin_frame();
@@ -293,7 +322,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				command_buffer->draw_instanced(6, 1, 0, 0);
 			}
 			{ // Model
-
+				model->Render(command_buffer.get());
 			}
 			{
 				ImGui::End();

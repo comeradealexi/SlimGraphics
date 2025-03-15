@@ -26,6 +26,7 @@ namespace se
 
 se::GameInput::GameInput()
 {
+	active_keys.reserve(256);
 	HRESULT hr = GameInputCreate(&igame_input);
 	if (FAILED(hr))
 	{
@@ -45,6 +46,8 @@ se::GameInput::~GameInput()
 
 void se::GameInput::Update()
 {
+	frame_counter++;
+
 	if (i_keyboard)
 	{
 		IGameInputReading* gir = nullptr;
@@ -55,8 +58,54 @@ void se::GameInput::Update()
 			uint32_t states = gir->GetKeyState(32, key_states);
 			for (uint32_t i = 0; i < states; i++)
 			{
-				seWriteLine("%i %i %c", key_states[i].scanCode, key_states[i].codePoint, key_states[i].virtualKey);
+				auto& keySatus = active_keys[key_states[i].virtualKey];
+				if (keySatus.down == false)
+				{
+					seWriteLine("Key Down: %i %i %c", key_states[i].scanCode, key_states[i].codePoint, key_states[i].virtualKey);
+				}
+				keySatus.down = true;
+				keySatus.key_pressed = false;
+				keySatus.frame_counter = frame_counter;
 			}
 		}
 	}
+
+	for (auto it = active_keys.begin(); it != active_keys.end();)
+	{
+		if (it->second.frame_counter != frame_counter)
+		{
+			it->second.down = false;
+			if (it->second.key_pressed == false)
+			{
+				seWriteLine("Key Up: %c", it->first);
+				it->second.key_pressed = true;
+			}
+			else
+			{
+				it = active_keys.erase(it);
+				continue;
+			}
+		}
+		it++;
+	}
+}
+
+bool se::GameInput::IsKeyDown(wchar_t key) const
+{
+	auto it = active_keys.find(key);
+	if (it != active_keys.end())
+	{
+		return it->second.down;
+	}
+	return false;
+}
+
+bool se::GameInput::IsKeyUp(wchar_t key) const
+{
+	auto it = active_keys.find(key);
+	if (it != active_keys.end())
+	{
+		return it->second.key_pressed;
+	}
+	return false;
 }

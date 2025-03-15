@@ -1,7 +1,13 @@
+#include "ShaderSharedStructures.h"
 
 cbuffer ConstantBufferData : register(b0)
 {
-    float4x4 model_view_projection_matrix;
+    CameraData camera;
+};
+
+cbuffer ModelBufferData : register(b1)
+{
+    ModelData model;
 };
 
 struct VS_INPUT
@@ -20,7 +26,9 @@ PS_INPUT VSMain(VS_INPUT vs_in, uint id : SV_VertexID)
 {
     PS_INPUT result;
     
-    result.position = mul(float4(vs_in.position, 1.0f), model_view_projection_matrix);
+    result.position = mul(float4(vs_in.position, 1.0f), model.model_matrix);
+    result.position = mul(result.position, camera.view_projection_matrix);
+
     result.colour = vs_in.colour;
     
     return result;
