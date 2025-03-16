@@ -296,7 +296,7 @@ namespace sg
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), state_dest, D3D12_RESOURCE_STATE_COPY_DEST);
 				command_list->ResourceBarrier(1, &barrier);
 			}
-
+			
 			command_list->CopyBufferRegion(dest->get().Get(), dest_offset, source->get().Get(), source_offset, size);
 
 			//Barrier transition

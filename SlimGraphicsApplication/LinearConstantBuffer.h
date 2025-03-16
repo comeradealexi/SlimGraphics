@@ -18,7 +18,7 @@ public:
 	template <typename T>
 	sg::ConstantBufferView AllocateAndWrite(const T& var)
 	{
-		AllocateAndWrite((void*)&var, sizeof(T));
+		return AllocateAndWrite((void*)&var, sizeof(T));
 	}
 
 private:

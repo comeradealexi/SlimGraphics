@@ -104,11 +104,18 @@ void Model::SetPipeline(sg::Ptr<sg::Pipeline> new_pipeline)
 	pipeline = std::move(new_pipeline);
 }
 
-void Model::Render(sg::CommandList* command_list)
+void Model::Render(sg::CommandList* command_list, sg::ConstantBufferView& cbv_camera, sg::ConstantBufferView& cbv_model)
 {
 	seAssert(pipeline != nullptr, "Can't render model without pipeline.");
 
 	command_list->set_pipeline(pipeline.get());
+
+	Binding b;
+	b.cbv_binding_count = 2;
+	b.set_cbv(cbv_camera, 0);
+	b.set_cbv(cbv_model, 1);
+	command_list->bind(b, PipelineType::Geometry);
+
 	command_list->bind_vertex_buffer(vbv);
 	command_list->bind_index_buffer(ibv);
 	for (MeshPart mesh_part : mesh_parts)

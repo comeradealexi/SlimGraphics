@@ -222,6 +222,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		total_time = std::chrono::duration<float>(std::chrono::high_resolution_clock::now() - total_time_start).count();
 		delta_time = std::chrono::duration<float>(cpu_start_time - last_frame_start).count();
 		last_frame_start = cpu_start_time;
+
+		frame_upload_heap->begin_frame(queue.get());
+		linear_cb->BeginFrame(frame_upload_heap.get());
 		
 		input->Update();
 		
@@ -264,17 +267,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				}
 #endif
 			}
-		}
-
-		// 
-		{
-			frame_upload_heap->begin_frame(queue.get());
-			linear_cb->BeginFrame(frame_upload_heap.get());
-
-
-
-			linear_cb->EndFrame();
-			frame_upload_heap->end_frame(queue.get());
 		}
 
 		command_buffer->start_recording();
@@ -322,7 +314,13 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				command_buffer->draw_instanced(6, 1, 0, 0);
 			}
 			{ // Model
-				model->Render(command_buffer.get());
+				sg::ConstantBufferView cbv_cam = linear_cb->AllocateAndWrite<ShaderStructs::CameraData>(camera.GetCameraShaderData());
+
+				ShaderStructs::ModelData model_data;
+				model_data.model_matrix = DirectX::XMMatrixIdentity();
+				sg::ConstantBufferView cbv_model = linear_cb->AllocateAndWrite<ShaderStructs::ModelData>(model_data);
+
+				model->Render(command_buffer.get(), cbv_cam, cbv_model);
 			}
 			{
 				ImGui::End();
@@ -334,6 +332,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		timestamp_pool->end_timestamp(gpu_timestamp_idx, command_buffer.get());
 		timestamp_pool->end_frame(command_buffer.get());
 		command_buffer->end_recording();
+
+		linear_cb->EndFrame();
+		frame_upload_heap->end_frame(queue.get());
 		
 		queue->submit_command_list(command_buffer.get());
 		current_frame_idx = device->present_swap_chain(queue.get());

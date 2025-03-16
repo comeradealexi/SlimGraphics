@@ -61,7 +61,7 @@ public:
 	};
 
 	void SetPipeline(sg::Ptr<sg::Pipeline> new_pipeline);
-	void Render(sg::CommandList* command_list);
+	void Render(sg::CommandList* command_list, sg::ConstantBufferView& cbv_camera, sg::ConstantBufferView& cbv_model);
 
 private:
 	sg::Ptr<sg::Pipeline> pipeline;
