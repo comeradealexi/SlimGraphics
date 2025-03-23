@@ -9,7 +9,7 @@ namespace sg
 		{
 			friend class Device;
 		public:
-			Texture(bool uav_access) : Buffer(BufferType::Texture, uav_access, false, false) { }
+			Texture(bool uav_access) : Buffer(BufferType::Texture, 0, uav_access, false, false) { }
 			
 		};
 	}

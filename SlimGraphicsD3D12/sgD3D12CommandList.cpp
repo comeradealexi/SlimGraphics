@@ -265,6 +265,7 @@ namespace sg
 
 		void CommandList::copy_buffer_to_buffer(Buffer* dest, Buffer* source)
 		{
+			seAssert(dest->get_size_bytes() >= source->get_size_bytes(), "Dest too small for source size");
 			seAssert(dest && source, "no valid buffers");
 			seAssert(source->get_type() == BufferType::Upload, "only upload supported. Need to add different barrier transition for other types (to copy src)");
 			const D3D12_RESOURCE_STATES state_dest = dest->get_read_resource_state();
@@ -287,6 +288,8 @@ namespace sg
 
 		void CommandList::copy_buffer_to_buffer(u32 size, Buffer* dest, u32 dest_offset, Buffer* source, u32 source_offset)
 		{
+			seAssert((dest->get_size_bytes() - dest_offset) >= size, "Dest buffer not big enough\n");
+			seAssert((source->get_size_bytes() - source_offset) >= size, "Source buffer not big enough\n");
 			seAssert(dest && source, "no valid buffers");
 			seAssert(source->get_type() == BufferType::Upload, "only upload supported. Need to add different barrier transition for other types (to copy src)");
 			const D3D12_RESOURCE_STATES state_dest = dest->get_read_resource_state();

@@ -526,7 +526,7 @@ namespace sg
 			ComPtr<ID3D12Resource> d3d12_buffer;
 			CHECKHR(device6->CreatePlacedResource(d3d12_alloc.heap.Get(), d3d12_alloc.offset, &ResourceDesc, resource_state, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
             
-            sg::SharedPtr<sg::Buffer> buffer(new sg::Buffer(type, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
+            sg::SharedPtr<sg::Buffer> buffer(new sg::Buffer(type, size, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
             buffer->memory = memory;
             buffer->resource = d3d12_buffer;
             return buffer;
