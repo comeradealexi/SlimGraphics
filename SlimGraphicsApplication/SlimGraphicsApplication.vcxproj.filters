@@ -76,6 +76,9 @@
     <None Include="SlimGraphicsShaders.slimshaderjson">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="ModelViewer_Header.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Basic_ComputeShader.hlsl">
@@ -103,6 +106,12 @@
       <Filter>Shaders</Filter>
     </Text>
     <Text Include="MeshletMS.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="ModelViewer_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="ModelViewer_VertexShader.hlsl">
       <Filter>Shaders</Filter>
     </Text>
   </ItemGroup>

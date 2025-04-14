@@ -82,7 +82,9 @@ public:
 
 	void SetPipeline(sg::Ptr<sg::Pipeline> new_pipeline);
 	void Render(sg::CommandList* command_list, sg::ConstantBufferView& cbv_camera, sg::ConstantBufferView& cbv_model);
-
+	sg::VertexBufferView& GetVertexBufferView() { return vbv; }
+	sg::IndexBufferView& GetIndexBufferView() { return ibv; }
+	std::vector<MeshPart>& GetMeshParts() { return mesh_parts; }
 private:
 	InitData init_data;
 	sg::Ptr<sg::Pipeline> pipeline;

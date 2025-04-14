@@ -343,6 +343,7 @@
   <ItemGroup>
     <None Include="Basic3D_Header.hlsli" />
     <None Include="Basic_Header.hlsli" />
+    <None Include="ModelViewer_Header.hlsli" />
     <None Include="SlimGraphicsShaders.slimshaderjson" />
   </ItemGroup>
   <ItemGroup>
@@ -350,6 +351,14 @@
       <FileType>Document</FileType>
     </Text>
     <Text Include="MeshletPS.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ModelViewer_PixelShader.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+    <Text Include="ModelViewer_VertexShader.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

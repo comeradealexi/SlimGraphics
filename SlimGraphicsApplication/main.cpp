@@ -14,6 +14,7 @@
 #include "UploadHeap.h"
 #include "LinearConstantBuffer.h"
 #include "Camera.h"
+#include "ModelViewer.h"
 
 /*
 TODO:
@@ -199,6 +200,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		model->SetPipeline(std::move(model_pipeline));
 	}
 
+	Ptr<ModelViewer> model_viewer = Ptr<ModelViewer>(new ModelViewer(device));
+
 	volatile bool run = true;
 
 	u32 total_frame_idx = 0;
@@ -235,6 +238,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImGui::NewFrame();
 		ImPlot::ShowDemoWindow();
 		ImGui::Begin("Slim Graphics", &bOpen, 0);
+
+		model_viewer->Update(delta_time, total_time);
 
 		camera.Update(delta_time, total_time, *input);
 		if (ImGui::CollapsingHeader("Performance"))
@@ -317,6 +322,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				command_buffer->draw_instanced(6, 1, 0, 0);
 			}
 			{ // Model
+#if false
 				sg::ConstantBufferView cbv_cam = linear_cb->AllocateAndWrite<ShaderStructs::CameraData>(camera.GetCameraShaderData());
 
 				ShaderStructs::ModelData model_data;
@@ -324,6 +330,12 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				sg::ConstantBufferView cbv_model = linear_cb->AllocateAndWrite<ShaderStructs::ModelData>(model_data);
 
 				model->Render(command_buffer.get(), cbv_cam, cbv_model);
+#endif
+			}
+			{ // Model Viewer
+				sg::ConstantBufferView cbv_cam = linear_cb->AllocateAndWrite<ShaderStructs::CameraData>(camera.GetCameraShaderData());
+
+				model_viewer->Render(*command_buffer, cbv_cam, frame_upload_heap, *linear_cb);
 			}
 			{
 				ImGui::Render();

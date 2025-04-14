@@ -18,6 +18,10 @@
       {
         "name": "Basic3D_PixelShader",
         "input_file": "Basic3D_PixelShader.hlsl"
+      },
+      {
+        "name": "ModelViewer_PixelShader",
+        "input_file": "ModelViewer_PixelShader.hlsl"
       }
     ]
   },
@@ -32,6 +36,10 @@
       {
         "name": "Basic3D_VertexShader",
         "input_file": "Basic3D_VertexShader.hlsl"
+      },
+      {
+        "name": "ModelViewer_VertexShader",
+        "input_file": "ModelViewer_VertexShader.hlsl"
       }
     ]
   },
