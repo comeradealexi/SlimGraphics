@@ -105,7 +105,7 @@ namespace sg
 
 	enum class ShaderType
 	{
-		Compute, Pixel, Vertex
+		Compute, Pixel, Vertex, Mesh, Amplification
 	};
 	
 	struct Viewport
@@ -309,6 +309,25 @@ namespace sg
 			Rasterizer::Desc rasterizer_desc;
 			DepthStencil::Desc depth_stencil_desc;
 			InputLayout::Desc input_layout;
+			Blend::Desc blend_desc;
+
+			DXGI_FORMAT render_target_format_list[8] = {};
+			u32 render_target_count = 0;
+
+			DXGI_FORMAT depth_stencil_format = {};
+		};
+
+		struct Mesh
+		{
+			AmplificationShader* amp_shader = nullptr;
+			MeshShader* mesh_shader = nullptr;
+			PixelShader* pixel_shader = nullptr;
+
+			Topology topology = Topology::Triangle;
+			PrimitiveTopology primitive_topology = PrimitiveTopology::Trianglelist;
+
+			Rasterizer::Desc rasterizer_desc;
+			DepthStencil::Desc depth_stencil_desc;
 			Blend::Desc blend_desc;
 
 			DXGI_FORMAT render_target_format_list[8] = {};

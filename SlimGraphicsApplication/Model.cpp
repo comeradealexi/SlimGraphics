@@ -4,16 +4,19 @@
 #include <assimp\Importer.hpp>
 #include <assimp\scene.h>
 #include <assimp\postprocess.h>
+
 #include <limits>
 #include <vector>
 #include <DirectXMath.h>
 
 #include <sgPlatformInclude.h>
 
+#include <meshoptimizer.h>
+
 using namespace DirectX;
 using namespace sg;
 
-Model::Model(Device* device, UploadHeap* upload_heap, const std::string_view file)
+Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data) : init_data(_init_data)
 {
 	Assimp::Importer ai_importer;
 	const int flags = aiProcess_Triangulate
@@ -23,8 +26,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const std::string_view fil
 		| aiProcess_JoinIdenticalVertices
 		| aiProcess_SplitLargeMeshes;
 
-	const aiScene* aScene = ai_importer.ReadFile(file.data(), flags); //By passing file path, allows assimp to auto load material files.
-	seAssert(aScene != nullptr, "Failed To Load Assimp Scene %s\n", file.data());
+	const aiScene* aScene = ai_importer.ReadFile(init_data.file_path.data(), flags); //By passing file path, allows assimp to auto load material files.
+	seAssert(aScene != nullptr, "Failed To Load Assimp Scene %s\n", init_data.file_path.data());
 	if (aScene)
 	{
 		u32 stride;

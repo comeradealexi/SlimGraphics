@@ -173,7 +173,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	ConstantBufferView model_cbv = device->create_constant_buffer_view(model_cb.get(), 0, 256);
 	{
 		frame_upload_heap->begin_frame(queue.get());
-		model = Ptr<Model>(new Model(device.get(), frame_upload_heap.get(), "../SlimGraphicsAssets/DebugModels/teapot.obj"));
+		Model::InitData mode_initdata;
+		mode_initdata.file_path = "../SlimGraphicsAssets/DebugModels/teapot.obj";
+		model = Ptr<Model>(new Model(device.get(), frame_upload_heap.get(), mode_initdata));
 		frame_upload_heap->end_frame(queue.get());
 
 		// Make model pipeline
@@ -268,6 +270,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 #endif
 			}
 		}
+		ImGui::End();
 
 		command_buffer->start_recording();
 		timestamp_pool->begin_frame();
@@ -323,7 +326,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				model->Render(command_buffer.get(), cbv_cam, cbv_model);
 			}
 			{
-				ImGui::End();
 				ImGui::Render();
 				device->imgui_render(command_buffer.get());
 			}

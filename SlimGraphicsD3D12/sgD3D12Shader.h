@@ -35,5 +35,17 @@ namespace sg
 		public:
 			PixelShader(const std::vector<uint8_t>& shader) : Shader(shader) { }
 		};
+
+		class MeshShader : public Shader
+		{
+		public:
+			MeshShader(const std::vector<uint8_t>& shader) : Shader(shader) { }
+		};
+
+		class AmplificationShader : public Shader
+		{
+		public:
+			AmplificationShader(const std::vector<uint8_t>& shader) : Shader(shader) { }
+		};
 	}
 }

@@ -16,3 +16,8 @@
 [submodule "SubModules/VulkanMemoryAllocator"]
 	path = SubModules/VulkanMemoryAllocator
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+[submodule "SubModules/meshoptimizer"]
+	path = SubModules/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer/
+[submodule "SubModulesmeshoptimizer"]
+	branch = v0.23

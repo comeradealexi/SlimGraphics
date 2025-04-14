@@ -33,6 +33,12 @@
     <ClCompile Include="LinearConstantBuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MeshShaderTest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ModelViewer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\SlimEngine\seEngine.h">
@@ -56,6 +62,9 @@
     <ClInclude Include="ShaderSharedStructures.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ModelViewer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Basic_Header.hlsli">
@@ -69,9 +78,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="Basic_Buffer_PixelShader.hlsl">
-      <Filter>Shaders</Filter>
-    </Text>
     <Text Include="Basic_ComputeShader.hlsl">
       <Filter>Shaders</Filter>
     </Text>
@@ -88,6 +94,15 @@
       <Filter>Shaders</Filter>
     </Text>
     <Text Include="Basic3D_VertexShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="Basic_Buffer_PixelShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="MeshletPS.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="MeshletMS.hlsl">
       <Filter>Shaders</Filter>
     </Text>
   </ItemGroup>

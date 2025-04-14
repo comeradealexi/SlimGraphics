@@ -44,8 +44,28 @@ public:
 		}
 	};
 
+	struct InitData
+	{
+		std::string file_path;
+
+		// Mesh Optimizer settings
+		bool meshopt_vertex_cache = false;
+		bool meshopt_overdraw = false;
+		bool meshopt_vertex_fetch = false;
+		bool meshopt_vertex_quantization = false;
+		bool meshopt_simplification = false;
+		float meshopt_simplification_threshold = 0.2f;
+		float meshopt_simplification_target_error = 0.01f;
+
+		bool meshopt_meshlets = false;
+		size_t meshopt_meshlets_max_vertices = 64;
+		size_t meshopt_meshlets_max_triangles = 126;
+		float meshopt_meshlets_cone_weight = 0.0f;
+		bool meshopt_meshlet_optimize = true;
+	};
+
 public:
-	Model(sg::Device* device, UploadHeap* upload_heap, const std::string_view file);
+	Model(sg::Device* device, UploadHeap* upload_heap, const InitData& _init_data);
 
 	struct MeshPart
 	{
@@ -64,6 +84,7 @@ public:
 	void Render(sg::CommandList* command_list, sg::ConstantBufferView& cbv_camera, sg::ConstantBufferView& cbv_model);
 
 private:
+	InitData init_data;
 	sg::Ptr<sg::Pipeline> pipeline;
 	sg::SharedPtr<sg::Buffer> vb;
 	sg::SharedPtr<sg::Buffer> ib;
