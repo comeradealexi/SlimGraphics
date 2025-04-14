@@ -18,8 +18,7 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 void ModelViewer::Update(float delta_time, float total_time)
 {
-	bool bRecreatePipeline = false;
-	bool bRecreateModel = false;
+	bool recreate_pipeline = false;
 
 	ImGui::Begin("Model Viewer", nullptr, 0);
 
@@ -42,19 +41,20 @@ void ModelViewer::Update(float delta_time, float total_time)
 	// Model constant buffer
 	model_data.model_matrix = DirectX::XMMatrixScaling(model_scale, model_scale, model_scale);
 
-	if (bRecreatePipeline)
+	if (recreate_pipeline)
 	{ 
 		CreatePipeline();
 	}
-	if (bRecreateModel)
-	{
-		CreateModel();
-	}
+
 }
 
 void ModelViewer::Render(CommandList& command_list, ConstantBufferView& cbv_camera, Ptr<UploadHeap>& upload_heap)
 {
-
+	if (recreate_model)
+	{
+		CreateModel();
+		recreate_model = false;
+	}
 }
 
 void ModelViewer::CreatePipeline()

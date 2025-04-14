@@ -21,7 +21,7 @@ private:
 	sg::SharedPtr<sg::Device> device;
 	sg::Ptr<sg::Pipeline> pipeline;
 	sg::BindingDesc pipeline_binding_desc;
-	PipelineDesc::Graphics pipeline_desc;
+	sg::PipelineDesc::Graphics pipeline_desc;
 	sg::Ptr<sg::VertexShader> shader_vertex;
 	sg::Ptr<sg::PixelShader> shader_pixel;
 	sg::Ptr<Model> model;
@@ -31,6 +31,7 @@ private:
 	float model_scale = 1.0f;
 
 	// ImGui toggles
+	bool recreate_model = true;
 	bool render_wireframe = false;
 };
 
