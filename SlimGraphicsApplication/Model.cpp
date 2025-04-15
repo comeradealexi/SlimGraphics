@@ -64,6 +64,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 				}
 
 				mesh.draw_count = aMesh->mNumFaces * 3;
+				mesh.vertex_count = aMesh->mNumVertices;
 
 				uint32_t uStartIndex = Indices.size();
 				for (uint32_t face_idx = 0; face_idx < aMesh->mNumFaces; face_idx++)

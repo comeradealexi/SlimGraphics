@@ -51,7 +51,11 @@ void ModelViewer::Update(float delta_time, float total_time)
 		
 		ImGui::SliderFloat("Scale", &model_scale, 0.0f, 10.0f);
 		ImGui::SliderFloat("Render Percent", &render_percentage, 0.0f, 1.0f);
-		ImGui::Checkbox("Shade Primitive Order", &render_primitive_order);		
+
+		ImGui::Text("Render Mode:");
+		ImGui::RadioButton("Default", (int*)&render_mode, 0);
+		ImGui::RadioButton("Primitive Order", (int*)&render_mode, 1);
+		ImGui::RadioButton("Vertex Order", (int*)&render_mode, 2);
 	}
 
 	// Mesh opt etc
@@ -69,7 +73,8 @@ void ModelViewer::Update(float delta_time, float total_time)
 	model_data.model_matrix = DirectX::XMMatrixScaling(model_scale, model_scale, model_scale);
 	model_data.time_frame_delta = delta_time;
 	model_data.time_total = total_time;
-	model_data.shade_primitive_order = render_primitive_order;
+	model_data.shade_primitive_order = render_mode == RenderMode::PrimitiveOrder;
+	model_data.shade_vertex_order = render_mode == RenderMode::VertexOrder;
 
 	if (recreate_pipeline)
 	{ 
@@ -100,6 +105,7 @@ void ModelViewer::Render(CommandList& command_list, ConstantBufferView& cbv_came
 		for (Model::MeshPart mesh_part : model->GetMeshParts())
 		{
 			model_data.primitive_count = mesh_part.draw_count / 3;
+			model_data.vertex_count = mesh_part.vertex_count;
 			sg::ConstantBufferView cbv_model = cbuffer.AllocateAndWrite(model_data);
 			b.set_cbv(cbv_model, 1);
 			command_list.bind(b, PipelineType::Geometry);

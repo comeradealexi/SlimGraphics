@@ -36,10 +36,15 @@ private:
 	float model_scale = 1.0f;
 
 	// ImGui toggles
+	enum class RenderMode : int
+	{
+		Default,
+		PrimitiveOrder,
+		VertexOrder
+	} render_mode;
 	int cull_mode = 0;
 	bool recreate_model = true;
 	bool render_wireframe = false;
-	bool render_primitive_order = false;
 	float render_percentage = 1.0f;
 };
 

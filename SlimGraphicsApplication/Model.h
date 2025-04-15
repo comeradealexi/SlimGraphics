@@ -73,6 +73,7 @@ public:
 		sg::u32 vb_offset = 0; // Offset in stride count (not bytes)
 		sg::u32 ib_offset = 0; // Offset in element count (not bytes)
 		sg::u32 draw_count = 0;
+		sg::u32 vertex_count = 0;
 	};
 
 	struct Material
