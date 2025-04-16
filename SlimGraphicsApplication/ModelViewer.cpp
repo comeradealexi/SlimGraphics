@@ -2,6 +2,7 @@
 #include <sgPlatformInclude.h>
 #include <imgui.h>
 #include <seEngineBasicFileIO.h>
+#include "Camera.h"
 
 using namespace sg;
 
@@ -9,11 +10,18 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 {
 	pipeline_binding_desc = {};
 	pipeline_binding_desc.cbv_binding_count = 2;
+	pipeline_binding_desc.uav_binding_count = 1;
 
 	std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShader.PC_DXC");
 	std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_PixelShader.PC_DXC");
 	shader_vertex = device->create_vertex_shader(vertex_data);
 	shader_pixel = device->create_pixel_shader(pixel_data);
+
+	vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShaderTriangle.PC_DXC");
+	shader_vertex_triangle = device->create_vertex_shader(vertex_data);
+
+	vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShaderQuad.PC_DXC");
+	shader_vertex_quad = device->create_vertex_shader(vertex_data);
 
 	CreatePipeline();
 
@@ -21,9 +29,16 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 
 	model_init_data.file_path = model_file_list[0];
+
+
+	uav_memory = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
+	uav_buffer = device->create_buffer(uav_memory, 64ull * 1024, 64ull * 1024, BufferType::GeneralDataBuffer, true);
+	uav = device->create_unordered_access_view(uav_buffer, 64ull * 1024, 1);
+	srv = device->create_shader_resource_view(uav_buffer, 64ull * 1024, 1);
+
 }
 
-void ModelViewer::Update(float delta_time, float total_time)
+void ModelViewer::Update(float delta_time, float total_time, const Camera& camera)
 {
 	bool recreate_pipeline = false;
 
@@ -49,6 +64,8 @@ void ModelViewer::Update(float delta_time, float total_time)
 		}
 		if (model_file_list_current != list_changed) recreate_model = true;
 		
+		ImGui::Checkbox("Render Fullscreen Triangle", &render_fullscreen_triangle);
+		ImGui::Checkbox("Render Fullscreen Quad", &render_fullscreen_quad);
 		ImGui::SliderFloat("Scale", &model_scale, 0.0f, 10.0f);
 		ImGui::SliderFloat("Render Percent", &render_percentage, 0.0f, 1.0f);
 
@@ -56,6 +73,44 @@ void ModelViewer::Update(float delta_time, float total_time)
 		ImGui::RadioButton("Default", (int*)&render_mode, 0);
 		ImGui::RadioButton("Primitive Order", (int*)&render_mode, 1);
 		ImGui::RadioButton("Vertex Order", (int*)&render_mode, 2);
+		ImGui::RadioButton("Pixel Order", (int*)&render_mode, 3);
+
+
+		if (render_mode == RenderMode::PixelOrder)
+		{
+			const float pixel_to_shade_maximum = camera.GetCameraShaderData().screen_dimensions_and_depth_info.x * camera.GetCameraShaderData().screen_dimensions_and_depth_info.y;
+			ImGui::PushID("Pixel Order ID IMGUI");
+			if (ImGui::CollapsingHeader("Pixel Order"))
+			{
+				ImGui::SliderFloat("Pixel Order Scale", &model_data.pixel_order_data1.x, 0.0f, 4.0f);
+				ImGui::SliderFloat("Modulus", &model_data.pixel_order_data1.y, 0.0f, 1.0f);
+				ImGui::Checkbox("Coloured", &pixel_shade_order_coloured);
+
+				ImGui::Checkbox("Show Range Over Time", &pixel_shade_order_ranged_colour);
+				ImGui::Checkbox("Automated Over Time", &pixel_shade_order_automatic);
+				ImGui::SliderFloat("Pixel To Show", &pixel_shade_order_pixel_to_shade, 0.0f, pixel_to_shade_maximum);
+				ImGui::SliderFloat("Range Around Pixel", &pixel_shade_order_range, 0.0f, pixel_to_shade_maximum);
+				ImGui::SliderFloat("Automated Speed", &pixel_shade_order_automated_speed, 0.0f, pixel_to_shade_maximum);
+			}
+			ImGui::PopID();
+
+			if (pixel_shade_order_automatic)
+			{
+				pixel_shade_order_pixel_to_shade += (delta_time * pixel_shade_order_automated_speed);
+				if (pixel_shade_order_pixel_to_shade > pixel_to_shade_maximum)
+					pixel_shade_order_pixel_to_shade = 0.0f;
+			}
+
+			if (pixel_shade_order_ranged_colour) pixel_shade_order_coloured = false;
+
+			//cb_data.scale[0] = scale;
+			//cb_data.scale[1] = mod;
+			model_data.pixel_order_data1.z = pixel_shade_order_coloured ? 1.0f : 0.0f;
+			model_data.pixel_order_data1.w = pixel_shade_order_ranged_colour ? 1.0f : 0.0f;
+
+			model_data.pixel_order_data2.x = pixel_shade_order_pixel_to_shade;
+			model_data.pixel_order_data2.y = pixel_shade_order_range;
+		}
 	}
 
 	// Mesh opt etc
@@ -73,8 +128,7 @@ void ModelViewer::Update(float delta_time, float total_time)
 	model_data.model_matrix = DirectX::XMMatrixScaling(model_scale, model_scale, model_scale);
 	model_data.time_frame_delta = delta_time;
 	model_data.time_total = total_time;
-	model_data.shade_primitive_order = render_mode == RenderMode::PrimitiveOrder;
-	model_data.shade_vertex_order = render_mode == RenderMode::VertexOrder;
+	model_data.shading_mode = (int)render_mode;
 
 	if (recreate_pipeline)
 	{ 
@@ -98,17 +152,27 @@ void ModelViewer::Render(CommandList& command_list, ConstantBufferView& cbv_came
 		Binding b;
 		b.cbv_binding_count = 2;
 		b.set_cbv(cbv_camera, 0);
-
+		b.uav_binding_count = 1;
+		b.set_uav(uav, 0);
 
 		command_list.bind_vertex_buffer(model->GetVertexBufferView());
 		command_list.bind_index_buffer(model->GetIndexBufferView());
-		for (Model::MeshPart mesh_part : model->GetMeshParts())
+
+		for (Model::MeshPart& mesh_part : model->GetMeshParts())
 		{
 			model_data.primitive_count = mesh_part.draw_count / 3;
 			model_data.vertex_count = mesh_part.vertex_count;
 			sg::ConstantBufferView cbv_model = cbuffer.AllocateAndWrite(model_data);
 			b.set_cbv(cbv_model, 1);
-			command_list.bind(b, PipelineType::Geometry);
+			command_list.bind(b, PipelineType::Geometry);		
+			command_list.clear_buffer_uint(uav, srv, 0);
+
+			if (render_fullscreen_triangle || render_fullscreen_quad)
+			{
+				command_list.set_pipeline(render_fullscreen_triangle ? pipeline_fullscreen_triangle.get() : pipeline_fullscreen_quad.get());
+				command_list.draw_instanced(render_fullscreen_triangle ? 3 : 6, 1, 0, 0);
+				break;
+			}
 
 			command_list.draw_indexed_instanced(static_cast<sg::u32>(mesh_part.draw_count * render_percentage), 1, mesh_part.ib_offset, mesh_part.vb_offset, 0);
 		}
@@ -130,6 +194,17 @@ void ModelViewer::CreatePipeline()
 	pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
 	pipeline = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
 	seAssert(pipeline != nullptr, "Failed to create model view pipeline");
+
+	pipeline_desc.input_layout = {};
+
+	pipeline_desc.vertex_shader = shader_vertex_triangle.get();
+	pipeline_fullscreen_triangle = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
+	seAssert(pipeline_fullscreen_triangle != nullptr, "Failed to create model view pipeline");
+
+	pipeline_desc.vertex_shader = shader_vertex_quad.get();
+	pipeline_fullscreen_quad = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
+	seAssert(pipeline_fullscreen_quad != nullptr, "Failed to create model view pipeline");
+
 }
 
 void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap)

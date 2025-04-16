@@ -18,15 +18,22 @@ struct ModelData
 {
 	row_major float4x4 model_matrix;
 
-	bool shade_vertex_order;
-	bool shade_primitive_order;
-	bool unused1;
-	bool unused2;
+	#define SHADING_MODE_DEFAULT  0 
+	#define SHADING_MODE_PRIMITIVEORDER  1 
+	#define SHADING_MODE_VERTEXORDER  2 
+	#define SHADING_MODE_PIXELORDER  3 
+	int shading_mode;
+	int unused1;
+	int unused2;
+	int unused3;
 
 	uint vertex_count; // Total vertices in current draw call
 	uint primitive_count; // Total primitives in current draw all
 	float time_total; // Continuous increasing time in seconds
 	float time_frame_delta; // Frame time delta in seconds
+
+	float4 pixel_order_data1; //x=multiplier, y=mod, z=use_colours, w=shade_over_time	
+	float4 pixel_order_data2;  //x=pixel_to_shade, y=colour_range
 };
 
 struct CameraData

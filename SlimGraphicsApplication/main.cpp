@@ -239,7 +239,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImPlot::ShowDemoWindow();
 		ImGui::Begin("Slim Graphics", &bOpen, 0);
 
-		model_viewer->Update(delta_time, total_time);
+		model_viewer->Update(delta_time, total_time, camera);
 
 		camera.Update(delta_time, total_time, *input);
 		if (ImGui::CollapsingHeader("Performance"))
