@@ -11,7 +11,7 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	pipeline_binding_desc = {};
 	pipeline_binding_desc.cbv_binding_count = 2;
 	pipeline_binding_desc.uav_binding_count = 1;
-
+	
 	std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShader.PC_DXC");
 	std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_PixelShader.PC_DXC");
 	shader_vertex = device->create_vertex_shader(vertex_data);
@@ -51,6 +51,17 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/anims_with_full_rotations_between_keys.fbx");
 	model_file_list.push_back("../External/assimp-5.3.1/test/models/IFC/AC14-FZK-Haus.ifc");
 	model_file_list.push_back("../External/assimp-5.3.1/test/models/MDC/spider.mdc");
+
+	model_file_list.push_back("../SlimGraphicsAssets/GL/bunny.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/GL/ChessKing.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/GL/ChessPawn.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/GL/dragon.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/GL/elephant.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/GL/monkey.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/GL/teapot.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/GL/three_objects.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/GL/venusm.obj");
+
 
 	model_init_data.file_path = model_file_list[0];
 
@@ -99,6 +110,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::SliderFloat("Render Scale", &model_scale, 0.0f, 10.0f);
 		ImGui::SliderFloat("Render Percent", &render_percentage, 0.0f, 1.0f);
 		recreate_model = ImGui::Checkbox("Scale model size -1/+1", &model_init_data.scalemodel1to1) || recreate_model;
+		ImGui::Checkbox("Rotate Model", &rotate_model);
 		ImGui::SeparatorText("Model Info:");
 		{
 			size_t model_info_idx = 0;
@@ -201,6 +213,14 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	model_data.time_frame_delta = delta_time;
 	model_data.time_total = total_time;
 	model_data.shading_mode = (int)render_mode;
+
+	if (rotate_model)
+	{
+		rotate_value += delta_time * 35.0f;
+		rotate_value = fmodf(rotate_value, 360.0f);
+		DirectX::XMMATRIX rotation_matrix = DirectX::XMMatrixRotationRollPitchYaw(0.0f, DirectX::XMConvertToRadians(rotate_value), 0.0f);
+		model_data.model_matrix = DirectX::XMMatrixMultiply(model_data.model_matrix, rotation_matrix);
+	}
 
 	if (recreate_pipeline)
 	{ 

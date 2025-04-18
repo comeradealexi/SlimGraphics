@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Submodules-DirectX">
+      <UniqueIdentifier>{3b7d5578-94fb-4879-9a35-ea87faa8ea1d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="sgD3D12Include.h">
@@ -92,6 +95,75 @@
     </ClInclude>
     <ClInclude Include="sgD3D12IndexBufferView.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3d12compatibility.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3d12sdklayers.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3d12shader.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\D3D12TokenizedProgramFormat.hpp">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3d12video.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dcommon.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_barriers.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_check_feature_support.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_core.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_default.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_pipeline_state_stream.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_property_format_table.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_render_pass.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_resource_helpers.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_root_signature.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_state_object.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\DirectML.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\dxcore.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\dxcore_interface.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\dxgicommon.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\dxgiformat.h">
+      <Filter>Submodules-DirectX</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3d12.h">
+      <Filter>Submodules-DirectX</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

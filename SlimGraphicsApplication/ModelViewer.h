@@ -69,5 +69,9 @@ private:
 	float pixel_shade_order_automated_speed = 1.0f;
 	float pixel_shade_order_pixel_to_shade = 1.0f;
 	float pixel_shade_order_range = 0.0f;
+
+	// rotate
+	bool rotate_model = false;
+	float rotate_value = 0.0f;
 };
 

@@ -237,6 +237,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\SlimEngine\seEngine.h" />
+    <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXCollision.h" />
+    <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXColors.h" />
+    <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXMath.h" />
+    <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXPackedVector.h" />
     <ClInclude Include="AverageTimer.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="LinearConstantBuffer.h" />
@@ -341,6 +345,12 @@
     </Text>
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\SubModules\DirectXMath\Inc\DirectXCollision.inl" />
+    <None Include="..\SubModules\DirectXMath\Inc\DirectXMathConvert.inl" />
+    <None Include="..\SubModules\DirectXMath\Inc\DirectXMathMatrix.inl" />
+    <None Include="..\SubModules\DirectXMath\Inc\DirectXMathMisc.inl" />
+    <None Include="..\SubModules\DirectXMath\Inc\DirectXMathVector.inl" />
+    <None Include="..\SubModules\DirectXMath\Inc\DirectXPackedVector.inl" />
     <None Include="Basic3D_Header.hlsli" />
     <None Include="Basic_Header.hlsli" />
     <None Include="ModelViewer_Header.hlsli" />

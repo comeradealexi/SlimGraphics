@@ -148,6 +148,29 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3d12.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3d12compatibility.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3d12sdklayers.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3d12shader.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\D3D12TokenizedProgramFormat.hpp" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3d12video.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dcommon.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_barriers.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_check_feature_support.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_core.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_default.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_pipeline_state_stream.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_property_format_table.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_render_pass.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_resource_helpers.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_root_signature.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\d3dx12_state_object.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\DirectML.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\dxcore.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\dxcore_interface.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\dxgicommon.h" />
+    <ClInclude Include="..\SubModules\DirectX-Headers\include\directx\dxgiformat.h" />
     <ClInclude Include="sgD3D12Binding.h" />
     <ClInclude Include="sgD3D12Buffer.h" />
     <ClInclude Include="sgD3D12BufferView.h" />

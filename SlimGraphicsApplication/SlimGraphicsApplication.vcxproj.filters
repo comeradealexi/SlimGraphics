@@ -16,6 +16,12 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{4a444bf5-efd5-4028-8405-73c1d1a2b8f6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Submodules">
+      <UniqueIdentifier>{bf4ca238-32ac-4fda-9d9a-73e39215b043}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Submodules\DirectXMath">
+      <UniqueIdentifier>{70c03369-9b20-4a54-be66-ab0bcbef35eb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -65,6 +71,18 @@
     <ClInclude Include="ModelViewer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXCollision.h">
+      <Filter>Submodules\DirectXMath</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXColors.h">
+      <Filter>Submodules\DirectXMath</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXMath.h">
+      <Filter>Submodules\DirectXMath</Filter>
+    </ClInclude>
+    <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXPackedVector.h">
+      <Filter>Submodules\DirectXMath</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Basic_Header.hlsli">
@@ -78,6 +96,24 @@
     </None>
     <None Include="ModelViewer_Header.hlsli">
       <Filter>Shaders</Filter>
+    </None>
+    <None Include="..\SubModules\DirectXMath\Inc\DirectXCollision.inl">
+      <Filter>Submodules\DirectXMath</Filter>
+    </None>
+    <None Include="..\SubModules\DirectXMath\Inc\DirectXMathConvert.inl">
+      <Filter>Submodules\DirectXMath</Filter>
+    </None>
+    <None Include="..\SubModules\DirectXMath\Inc\DirectXMathMatrix.inl">
+      <Filter>Submodules\DirectXMath</Filter>
+    </None>
+    <None Include="..\SubModules\DirectXMath\Inc\DirectXMathMisc.inl">
+      <Filter>Submodules\DirectXMath</Filter>
+    </None>
+    <None Include="..\SubModules\DirectXMath\Inc\DirectXMathVector.inl">
+      <Filter>Submodules\DirectXMath</Filter>
+    </None>
+    <None Include="..\SubModules\DirectXMath\Inc\DirectXPackedVector.inl">
+      <Filter>Submodules\DirectXMath</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
