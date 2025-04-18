@@ -25,7 +25,7 @@ struct ModelData
 	int shading_mode;
 	int unused1;
 	int unused2;
-	int unused3;
+	float vertex_shading_mod;
 
 	uint vertex_count; // Total vertices in current draw call
 	uint primitive_count; // Total primitives in current draw all

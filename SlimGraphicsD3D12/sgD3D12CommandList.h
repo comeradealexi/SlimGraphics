@@ -10,6 +10,7 @@ namespace sg
 {
 	namespace D3D12
 	{
+		class DescriptorHeap;
 		class CommandList
 		{
 			friend class Device;
@@ -27,12 +28,15 @@ namespace sg
 			void unbind_index_buffer();
 
 			void draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location);
-			void draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i8 base_vertex_location, u32 start_instance_location);
+			void draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i32 base_vertex_location, u32 start_instance_location);
 
 			void start_geometry_pass(u32 render_target_count, RenderTargetView* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain = false, DepthStencilView* depth_stencil = nullptr);
 			void end_geometry_pass();
 
 			void dispatch(u32 x = 1, u32 y = 1, u32 z = 1);
+
+			void clear_buffer_float(UnorderedAccessView& uav, ShaderResourceView& srv, float value);
+			void clear_buffer_uint(UnorderedAccessView& uav, ShaderResourceView& srv, sg::u32 value);
 
 			void copy_buffer_to_buffer(Buffer* dest, Buffer* source);
 			void copy_buffer_to_buffer(u32 size, Buffer* dest, u32 dest_offset, Buffer* source, u32 source_offset);
@@ -53,7 +57,7 @@ namespace sg
 			u32 descriptor_heap_maximum = 0;
 
 			ComPtr<ID3D12Device> device;
-			ComPtr<ID3D12DescriptorHeap> global_cbv_srv_uav_descriptor_heap;
+			sg::SharedPtr<DescriptorHeap> global_cbv_srv_uav_descriptor_heap;
 			ComPtr<ID3D12DescriptorHeap> global_rtv_descriptor_heap;
 			ComPtr<ID3D12DescriptorHeap> global_dsv_descriptor_heap;
 			ComPtr<ID3D12DescriptorHeap> global_sampler_descriptor_heap;

@@ -49,6 +49,7 @@ public:
 		std::string file_path;
 
 		// Mesh Optimizer settings
+		bool scalemodel1to1 = false;
 		bool meshopt_vertex_cache = false;
 		bool meshopt_overdraw = false;
 		bool meshopt_vertex_fetch = false;
@@ -74,6 +75,9 @@ public:
 		sg::u32 ib_offset = 0; // Offset in element count (not bytes)
 		sg::u32 draw_count = 0;
 		sg::u32 vertex_count = 0;
+		DirectX::XMFLOAT3 max_extent = {};
+		std::vector<Vertex> vertices;
+		std::vector<uint32_t> indices;
 	};
 
 	struct Material
@@ -95,5 +99,6 @@ private:
 	sg::IndexBufferView ibv;
 	std::vector<MeshPart> mesh_parts;
 	std::vector<Material> materials;
+	DirectX::XMFLOAT3 max_extent = {};
 };
 

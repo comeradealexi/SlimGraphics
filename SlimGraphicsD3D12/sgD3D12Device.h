@@ -90,11 +90,11 @@ namespace sg
 			PoolPIMPL mempool_targets;
 			PoolPIMPL mempool_buffers;
 
-			Ptr<DescriptorHeap> cbv_srv_uav_descriptor_heap;
-			Ptr<DescriptorHeap> rtv_descriptor_heap;
-			Ptr<DescriptorHeap> dsv_descriptor_heap;
-			Ptr<DescriptorHeap> sampler_descriptor_heap;
-			Ptr<DescriptorHeap> imgui_cbv_srv_uav_descriptor_heap;
+			SharedPtr<DescriptorHeap> cbv_srv_uav_descriptor_heap;
+			SharedPtr<DescriptorHeap> cbv_srv_uav_descriptor_heap_imgui;
+			SharedPtr<DescriptorHeap> rtv_descriptor_heap;
+			SharedPtr<DescriptorHeap> dsv_descriptor_heap;
+			SharedPtr<DescriptorHeap> sampler_descriptor_heap;
 		};
 	}
 }

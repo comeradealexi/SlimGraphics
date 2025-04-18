@@ -16,6 +16,17 @@
 using namespace DirectX;
 using namespace sg;
 
+static DirectX::XMFLOAT3 SetMaxIndividual(const DirectX::XMFLOAT3& a, DirectX::XMFLOAT3& b)
+{
+	DirectX::XMFLOAT3 o;
+
+	o.x = (fabsf(a.x) > fabsf(b.x)) ? fabsf(a.x) : fabsf(b.x);
+	o.y = (fabsf(a.y) > fabsf(b.y)) ? fabsf(a.y) : fabsf(b.y);
+	o.z = (fabsf(a.z) > fabsf(b.z)) ? fabsf(a.z) : fabsf(b.z);
+
+	return o;
+}
+
 Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data) : init_data(_init_data)
 {
 	Assimp::Importer ai_importer;
@@ -27,7 +38,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 		| aiProcess_SplitLargeMeshes;
 
 	const aiScene* aScene = ai_importer.ReadFile(init_data.file_path.data(), flags); //By passing file path, allows assimp to auto load material files.
-	seAssert(aScene != nullptr, "Failed To Load Assimp Scene %s\n", init_data.file_path.data());
+	seAssert(aScene != nullptr, "Failed To Load Assimp Scene %s\n", init_data.file_path.c_str());
 	if (aScene)
 	{
 		u32 stride;
@@ -35,9 +46,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 
 		//Mesh Data
 		{
-			std::vector<Vertex> Vertices;
-			std::vector<uint32_t> Indices;
-
+			mesh_parts.clear();
 			mesh_parts.resize(aScene->mNumMeshes);
 			for (uint32_t mesh_idx = 0; mesh_idx < mesh_parts.size(); mesh_idx++)
 			{
@@ -45,8 +54,6 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 				aiMesh* aMesh = aScene->mMeshes[mesh_idx];
 
 				mesh.material_index = aMesh->mMaterialIndex;
-				mesh.vb_offset = (uint32_t)Vertices.size();
-				mesh.ib_offset = (uint32_t)Indices.size();
 
 				const bool use_color = aMesh->mColors[0] != nullptr;
 
@@ -59,43 +66,107 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					v.UV = aMesh->mTextureCoords[0] ? XMFLOAT2(&aMesh->mTextureCoords[0][vert_idx].x) : XMFLOAT2(0, 0);
 					v.Normal = XMFLOAT3(&aMesh->mNormals[vert_idx].x);
 					v.Tangent = aMesh->mTangents ? XMFLOAT3(&aMesh->mTangents[vert_idx].x) : XMFLOAT3(0, 0, 0);
-					Vertices.push_back(v);
+					mesh.vertices.push_back(v);
 					//mesh.m_verticesCPU.push_back(v);
+					max_extent = SetMaxIndividual(max_extent, v.Position);
+					mesh.max_extent = SetMaxIndividual(mesh.max_extent, v.Position);
 				}
 
-				mesh.draw_count = aMesh->mNumFaces * 3;
 				mesh.vertex_count = aMesh->mNumVertices;
 
-				uint32_t uStartIndex = Indices.size();
 				for (uint32_t face_idx = 0; face_idx < aMesh->mNumFaces; face_idx++)
 				{
-					Indices.push_back(aMesh->mFaces[face_idx].mIndices[0]);
-					Indices.push_back(aMesh->mFaces[face_idx].mIndices[1]);
-					Indices.push_back(aMesh->mFaces[face_idx].mIndices[2]);
+					mesh.indices.push_back(aMesh->mFaces[face_idx].mIndices[0]);
+					mesh.indices.push_back(aMesh->mFaces[face_idx].mIndices[1]);
+					mesh.indices.push_back(aMesh->mFaces[face_idx].mIndices[2]);
 				}
+
+				if (init_data.meshopt_simplification)
+				{
+					float threshold = init_data.meshopt_simplification_threshold;
+					size_t target_index_count = size_t(mesh.indices.size() * threshold);
+					float target_error = init_data.meshopt_simplification_target_error;
+
+					std::vector<uint32_t> new_indices;
+					new_indices.resize(mesh.indices.size());
+					float lod_error = 0.f;
+					new_indices.resize(meshopt_simplify(new_indices.data(), mesh.indices.data(), mesh.indices.size(), (const float*)mesh.vertices.data(), mesh.vertices.size(), sizeof(Vertex), target_index_count, target_error, /* options= */ 0, &lod_error));
+					mesh.indices = new_indices;
+				}
+
+				if (init_data.meshopt_vertex_cache)
+				{
+					std::vector<uint32_t> new_indices;
+					new_indices.resize(mesh.indices.size());
+					meshopt_optimizeVertexCache(new_indices.data(), mesh.indices.data(), mesh.indices.size(), mesh.vertices.size());
+					mesh.indices = new_indices;
+				}
+
+				//if (init_data.meshopt_overdraw)
+				//{
+				//	std::vector<uint32_t> new_indices;
+				//	new_indices.resize(mesh.indices.size());
+				//	meshopt_optimizeVertexCache(new_indices.data(), mesh.indices.data(), mesh.indices.size(), mesh.vertices.size());
+				//	mesh.indices = new_indices;
+				//}
+
+				mesh.draw_count = mesh.indices.size();
+			}
+
+			if (init_data.scalemodel1to1)
+			{
+				float position_multiplier = 1.0f / std::max(std::max(max_extent.x, max_extent.y), max_extent.z);
+				max_extent = {};
+				for (uint32_t mesh_idx = 0; mesh_idx < mesh_parts.size(); mesh_idx++)
+				{
+					MeshPart& mesh = mesh_parts[mesh_idx];
+					mesh.max_extent = {};
+
+					for (Vertex& v : mesh.vertices)
+					{
+						v.Position.x *= position_multiplier;
+						v.Position.y *= position_multiplier;
+						v.Position.z *= position_multiplier;
+
+						max_extent = SetMaxIndividual(max_extent, v.Position);
+						mesh.max_extent = SetMaxIndividual(mesh.max_extent, v.Position);
+					}
+				}
+			}
+
+			std::vector<Vertex> vertices;
+			std::vector<uint32_t> indices;
+			for (uint32_t mesh_idx = 0; mesh_idx < mesh_parts.size(); mesh_idx++)
+			{
+				MeshPart& mesh = mesh_parts[mesh_idx];
+				mesh.vb_offset = (uint32_t)vertices.size();
+				mesh.ib_offset = (uint32_t)indices.size();
+				vertices.insert(vertices.end(), mesh.vertices.begin(), mesh.vertices.end());
+				indices.insert(indices.end(), mesh.indices.begin(), mesh.indices.end());
+
 			}
 
 			//Vertex Buffer
 			{
-				const size_t vertex_byte_size = Vertices.size() * sizeof(Vertex);
+				const size_t vertex_byte_size = vertices.size() * sizeof(Vertex);
 				SharedPtr<Memory> vb_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, vertex_byte_size, 1024 * 64);
 				vb = device->create_buffer(vb_mem, vertex_byte_size, 1024 * 64, BufferType::Vertex, false);
 				vbv = device->create_vertex_buffer_view(vb, 0, vertex_byte_size, stride);
 				
 				UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(vertex_byte_size, 256);
-				upload_heap->write_upload_memory(upload_offset, Vertices.data(), vertex_byte_size);
+				upload_heap->write_upload_memory(upload_offset, vertices.data(), vertex_byte_size);
 				upload_heap->upload_to_buffer(vb.get(), 0, upload_offset, vertex_byte_size);
 			}
 
 			//Index Buffer
 			{
-				const size_t index_byte_size = Indices.size() * sizeof(uint32_t);
+				const size_t index_byte_size = indices.size() * sizeof(uint32_t);
 				SharedPtr<Memory> ib_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, index_byte_size, 1024 * 64);
 				ib = device->create_buffer(ib_mem, index_byte_size, 1024 * 64, BufferType::Index, false);
 				ibv = device->create_index_buffer_view(ib, 0, index_byte_size, DXGI_FORMAT_R32_UINT);
 
 				UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(index_byte_size, 256);
-				upload_heap->write_upload_memory(upload_offset, Indices.data(), index_byte_size);
+				upload_heap->write_upload_memory(upload_offset, indices.data(), index_byte_size);
 				upload_heap->upload_to_buffer(ib.get(), 0, upload_offset, index_byte_size);
 			}			
 		}

@@ -89,7 +89,8 @@ PS_INPUT VSMain(VS_INPUT vs_in, uint id : SV_VertexID)
     
     if (model.shading_mode == SHADING_MODE_VERTEXORDER)
     {
-        result.colour = ((float) id) / (float) (model.primitive_count * 3);
+        float total_prims = (model.primitive_count * 3) * model.vertex_shading_mod;
+        result.colour = (((float) id) % total_prims) / total_prims;
     }
     
     return result;
@@ -152,7 +153,8 @@ float4 PSMain(PS_INPUT input, uint vid : SV_PrimitiveID) : SV_TARGET
     if (model.shading_mode == SHADING_MODE_PRIMITIVEORDER)
     {
         float vid_f = vid;
-        float col = vid_f / model.primitive_count;
+        float total_prims = (model.primitive_count) * model.vertex_shading_mod;
+        float col = (vid_f % model.primitive_count) / total_prims;
         return float4(col.xxx, 1);
     }
     else if (model.shading_mode == SHADING_MODE_VERTEXORDER)

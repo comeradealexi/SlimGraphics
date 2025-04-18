@@ -38,6 +38,7 @@ private:
 	sg::Ptr<sg::PixelShader> shader_pixel;
 	sg::Ptr<Model> model;
 	Model::InitData model_init_data;
+	bool* render_model_bool_array = nullptr;
 
 	// constant data
 	ShaderStructs::ModelData model_data = {};

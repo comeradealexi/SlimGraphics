@@ -14,6 +14,7 @@ public:
 
 	void Update(float fTimeDelta, float fTotalTime, const se::GameInput& input);
 	void SetWidthHeight(float _width, float _height);
+	void SetPosition(DirectX::XMFLOAT3A pos) { position = pos; }
 	const ShaderStructs::CameraData& GetCameraShaderData() const { return shader_data; }
 
 private:

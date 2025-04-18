@@ -256,15 +256,15 @@ namespace sg
             init_info.NumFramesInFlight = num_frames;
             init_info.RTVFormat = format;
             init_info.DSVFormat = depth_format;
-            init_info.SrvDescriptorHeap = imgui_cbv_srv_uav_descriptor_heap->get_heap().Get();
+            init_info.SrvDescriptorHeap = cbv_srv_uav_descriptor_heap_imgui->get_heap().Get();
             init_info.UserData = this;
             init_info.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo* info, D3D12_CPU_DESCRIPTOR_HANDLE* out_cpu_desc_handle, D3D12_GPU_DESCRIPTOR_HANDLE* out_gpu_desc_handle)
                 {
                     Device* device = (Device*)info->UserData;
 
-					u32 idx = device->imgui_cbv_srv_uav_descriptor_heap->allocate();
-					CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(device->imgui_cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, device->imgui_cbv_srv_uav_descriptor_heap->get_increment_size());
-					CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle(device->imgui_cbv_srv_uav_descriptor_heap->get_gpu_handle_heap_start(), idx, device->imgui_cbv_srv_uav_descriptor_heap->get_increment_size());
+					u32 idx = device->cbv_srv_uav_descriptor_heap_imgui->allocate();
+					CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(device->cbv_srv_uav_descriptor_heap_imgui->get_cpu_handle_heap_start(), idx, device->cbv_srv_uav_descriptor_heap_imgui->get_increment_size());
+					CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle(device->cbv_srv_uav_descriptor_heap_imgui->get_gpu_handle_heap_start(), idx, device->cbv_srv_uav_descriptor_heap_imgui->get_increment_size());
                     *out_cpu_desc_handle = cpu_handle;
                     *out_gpu_desc_handle = gpu_handle;
                 };
@@ -284,7 +284,7 @@ namespace sg
         {
             ID3D12GraphicsCommandList6* d3d_cmd_list = command_list->get().Get();
 
-            ID3D12DescriptorHeap* heap = imgui_cbv_srv_uav_descriptor_heap->get_heap().Get();
+            ID3D12DescriptorHeap* heap = cbv_srv_uav_descriptor_heap_imgui->get_heap().Get();
             d3d_cmd_list->SetDescriptorHeaps(1, &heap);
             ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), d3d_cmd_list);
         }
@@ -410,7 +410,7 @@ namespace sg
 
             out_command_list->device = device;
 
-            out_command_list->global_cbv_srv_uav_descriptor_heap = cbv_srv_uav_descriptor_heap->get_heap();
+            out_command_list->global_cbv_srv_uav_descriptor_heap = cbv_srv_uav_descriptor_heap;
             out_command_list->global_rtv_descriptor_heap = rtv_descriptor_heap->get_heap();
             out_command_list->global_dsv_descriptor_heap = dsv_descriptor_heap->get_heap();
             out_command_list->global_sampler_descriptor_heap = sampler_descriptor_heap->get_heap();
@@ -587,6 +587,18 @@ namespace sg
 				desc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 			}
 
+            // Functions such as ClearUnorderedAccessViewUint cannot clear normal structured buffers so we must create different views when clearing them..
+			D3D12_UNORDERED_ACCESS_VIEW_DESC desc_uint = {};
+			{
+				desc_uint.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+				desc_uint.Format = DXGI_FORMAT_R32_TYPELESS;
+				desc_uint.Buffer.CounterOffsetInBytes = 0;
+
+				desc_uint.Buffer.NumElements = (UINT)(element_count * element_size) / 4; // DXGI_FORMAT_R32_TYPELESS is 4 bytes 
+                desc_uint.Buffer.StructureByteStride = 0;// (UINT)element_size;
+				desc_uint.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+			}
+
 			//u32 idx = cbv_srv_uav_descriptor_heap->allocate();
 			//CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, //cbv_srv_uav_descriptor_heap->get_increment_size());
             //
@@ -594,6 +606,7 @@ namespace sg
 
             UnorderedAccessView uav;
             uav.desc = desc;
+            uav.desc_uint = desc_uint;
             uav.buffer_resource = buffer;
 			return uav;
 		}
@@ -742,7 +755,7 @@ namespace sg
 					CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
 					heap->SetName(L"Device CBV SRV UAV Heap");
 					u32 increment_size = device->GetDescriptorHandleIncrementSize(cbvSrvHeapDesc.Type);
-					cbv_srv_uav_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, cbvSrvHeapDesc.NumDescriptors, increment_size));
+					cbv_srv_uav_descriptor_heap = SharedPtr<DescriptorHeap>(new DescriptorHeap(heap, cbvSrvHeapDesc.NumDescriptors, increment_size));
 				}
 				{
 					cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
@@ -750,7 +763,7 @@ namespace sg
 					CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
 					heap->SetName(L"Imgui CBV SRV UAV Heap");
 					u32 increment_size = device->GetDescriptorHandleIncrementSize(cbvSrvHeapDesc.Type);
-					imgui_cbv_srv_uav_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, cbvSrvHeapDesc.NumDescriptors, increment_size));
+                    cbv_srv_uav_descriptor_heap_imgui = SharedPtr<DescriptorHeap>(new DescriptorHeap(heap, cbvSrvHeapDesc.NumDescriptors, increment_size));
 				}
             }
             //rtv
@@ -763,7 +776,7 @@ namespace sg
                 CHECKHR(device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&heap)));
                 heap->SetName(L"Device RTV Heap");
                 u32 increment_size = device->GetDescriptorHandleIncrementSize(rtvDesc.Type);
-                rtv_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, rtvDesc.NumDescriptors, increment_size));
+                rtv_descriptor_heap = SharedPtr<DescriptorHeap>(new DescriptorHeap(heap, rtvDesc.NumDescriptors, increment_size));
             }
             //dsv
             {
@@ -775,7 +788,7 @@ namespace sg
                 CHECKHR(device->CreateDescriptorHeap(&dsvDesc, IID_PPV_ARGS(&heap)));
                 heap->SetName(L"Device DSV Heap");
                 u32 increment_size = device->GetDescriptorHandleIncrementSize(dsvDesc.Type);
-                dsv_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, dsvDesc.NumDescriptors, increment_size));
+                dsv_descriptor_heap = SharedPtr<DescriptorHeap>(new DescriptorHeap(heap, dsvDesc.NumDescriptors, increment_size));
             }
             //sampler
             {
@@ -787,7 +800,7 @@ namespace sg
                 CHECKHR(device->CreateDescriptorHeap(&splrDesc, IID_PPV_ARGS(&heap)));
                 heap->SetName(L"Device Sampler Heap");
                 u32 increment_size = device->GetDescriptorHandleIncrementSize(splrDesc.Type);
-                sampler_descriptor_heap = Ptr<DescriptorHeap>(new DescriptorHeap(heap, splrDesc.NumDescriptors, increment_size));
+                sampler_descriptor_heap = SharedPtr<DescriptorHeap>(new DescriptorHeap(heap, splrDesc.NumDescriptors, increment_size));
             }
         }
 	}

@@ -26,7 +26,31 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	CreatePipeline();
 
 	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/teapot.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/cow.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/stanford-bunny.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/suzanne.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/bunny.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/bunny_patched.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/bunny_decimated.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/orb.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/tree.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/column.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/hollowcube.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/platform.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/cube.obj");
 
+	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/duck.fbx");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/Cinema4D.fbx");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/COLLADA.fbx");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/ConcavePolygon.fbx");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/Granate.fbx");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/jeep1.fbx");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/mar_rifle.fbx");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/mp5_sil.fbx");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/pyramob.fbx");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/anims_with_full_rotations_between_keys.fbx");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models/IFC/AC14-FZK-Haus.ifc");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models/MDC/spider.mdc");
 
 	model_init_data.file_path = model_file_list[0];
 
@@ -35,6 +59,10 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	uav_buffer = device->create_buffer(uav_memory, 64ull * 1024, 64ull * 1024, BufferType::GeneralDataBuffer, true);
 	uav = device->create_unordered_access_view(uav_buffer, 64ull * 1024, 1);
 	srv = device->create_shader_resource_view(uav_buffer, 64ull * 1024, 1);
+
+	// Defaults
+	model_data.vertex_shading_mod = 1.0f;
+	model_data.pixel_order_data1.y = 1.0f;
 
 }
 
@@ -62,12 +90,48 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			}
 			ImGui::EndCombo();
 		}
-		if (model_file_list_current != list_changed) recreate_model = true;
-		
+		if (model_file_list_current != list_changed) 
+		{
+			model_init_data.file_path = model_file_list[model_file_list_current];
+			recreate_model = true;
+		}
+		ImGui::SeparatorText("Model Settings");
+		ImGui::SliderFloat("Render Scale", &model_scale, 0.0f, 10.0f);
+		ImGui::SliderFloat("Render Percent", &render_percentage, 0.0f, 1.0f);
+		recreate_model = ImGui::Checkbox("Scale model size -1/+1", &model_init_data.scalemodel1to1) || recreate_model;
+		ImGui::SeparatorText("Model Info:");
+		{
+			size_t model_info_idx = 0;
+			for (Model::MeshPart& mesh_part : model->GetMeshParts())
+			{
+				ImGui::PushID("ModelInfo");
+				ImGui::PushID(model_info_idx);
+				ImGui::SeparatorText("Mesh Part:"); ImGui::SameLine(); ImGui::Text("%i", model_info_idx + 1);
+				ImGui::Checkbox("Render", render_model_bool_array + model_info_idx);
+				ImGui::Text("Triangles: %u", mesh_part.draw_count / 3);
+				ImGui::Text("Vertex Count: %u", mesh_part.vertex_count);
+				ImGui::Text("Bounds: %3.3f, %3.3f, %3.3f", mesh_part.max_extent.x, mesh_part.max_extent.y, mesh_part.max_extent.z);
+				ImGui::PopID();
+				ImGui::PopID();
+				model_info_idx++;
+			}
+		}
+
+		ImGui::SeparatorText("Mesh Optimizer");
+		ImGui::BeginGroup();
+		recreate_model = ImGui::Checkbox("Vertex Cache", &model_init_data.meshopt_vertex_cache) || recreate_model;
+		ImGui::EndGroup();
+		ImGui::Text("Mesh Simplification (LOD)");
+		recreate_model = ImGui::Checkbox("Simplify", &model_init_data.meshopt_simplification) || recreate_model;
+		ImGui::BeginDisabled(!model_init_data.meshopt_simplification);
+		recreate_model = ImGui::SliderFloat("Threshold", &model_init_data.meshopt_simplification_threshold, 0.0f, 1.0f) || recreate_model;
+		recreate_model = ImGui::SliderFloat("Target Error", &model_init_data.meshopt_simplification_target_error, 0.0f, 1.0f) || recreate_model;
+		//ImGui::Text("Reported LOD Error: %f", )
+		ImGui::EndDisabled();
+
+		ImGui::SeparatorText("Render Mode");
 		ImGui::Checkbox("Render Fullscreen Triangle", &render_fullscreen_triangle);
 		ImGui::Checkbox("Render Fullscreen Quad", &render_fullscreen_quad);
-		ImGui::SliderFloat("Scale", &model_scale, 0.0f, 10.0f);
-		ImGui::SliderFloat("Render Percent", &render_percentage, 0.0f, 1.0f);
 
 		ImGui::Text("Render Mode:");
 		ImGui::RadioButton("Default", (int*)&render_mode, 0);
@@ -75,8 +139,16 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::RadioButton("Vertex Order", (int*)&render_mode, 2);
 		ImGui::RadioButton("Pixel Order", (int*)&render_mode, 3);
 
-
-		if (render_mode == RenderMode::PixelOrder)
+		if (render_mode == RenderMode::VertexOrder || render_mode == RenderMode::PrimitiveOrder)
+		{
+			ImGui::PushID("Vert/Prim Shading ID IMGUI");
+			if (ImGui::CollapsingHeader("Vert/Prim Shading"))
+			{
+				ImGui::SliderFloat("Modulus", &model_data.vertex_shading_mod, 0.0f, 1.0f);
+			}
+			ImGui::PopID();
+		}
+		else if (render_mode == RenderMode::PixelOrder)
 		{
 			const float pixel_to_shade_maximum = camera.GetCameraShaderData().screen_dimensions_and_depth_info.x * camera.GetCameraShaderData().screen_dimensions_and_depth_info.y;
 			ImGui::PushID("Pixel Order ID IMGUI");
@@ -158,6 +230,7 @@ void ModelViewer::Render(CommandList& command_list, ConstantBufferView& cbv_came
 		command_list.bind_vertex_buffer(model->GetVertexBufferView());
 		command_list.bind_index_buffer(model->GetIndexBufferView());
 
+		int render_idx = 0;
 		for (Model::MeshPart& mesh_part : model->GetMeshParts())
 		{
 			model_data.primitive_count = mesh_part.draw_count / 3;
@@ -174,7 +247,11 @@ void ModelViewer::Render(CommandList& command_list, ConstantBufferView& cbv_came
 				break;
 			}
 
-			command_list.draw_indexed_instanced(static_cast<sg::u32>(mesh_part.draw_count * render_percentage), 1, mesh_part.ib_offset, mesh_part.vb_offset, 0);
+			if (render_model_bool_array[render_idx])
+			{
+				command_list.draw_indexed_instanced(static_cast<sg::u32>(mesh_part.draw_count * render_percentage), 1, mesh_part.ib_offset, mesh_part.vb_offset, 0);
+			}
+			render_idx++;
 		}
 	}
 }
@@ -209,5 +286,20 @@ void ModelViewer::CreatePipeline()
 
 void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap)
 {
+	if (render_model_bool_array)
+	{
+		delete render_model_bool_array;
+		render_model_bool_array = nullptr;
+	}
+
 	model = Ptr<Model>(new Model(device.get(), upload_heap.get(), model_init_data));
+
+	if (model)
+	{
+		render_model_bool_array = new bool[model->GetMeshParts().size()];
+		for (size_t i = 0; i < model->GetMeshParts().size(); i++)
+		{
+			render_model_bool_array[i] = true;
+		}
+	}
 }

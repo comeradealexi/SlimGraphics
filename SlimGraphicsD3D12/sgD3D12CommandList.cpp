@@ -181,7 +181,7 @@ namespace sg
 			flush_bound_uavs();
 		}
 
-		void CommandList::draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i8 base_vertex_location, u32 start_instance_location)
+		void CommandList::draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i32 base_vertex_location, u32 start_instance_location)
 		{
 			command_list->DrawIndexedInstanced(index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location);
 			flush_bound_uavs();
@@ -261,6 +261,67 @@ namespace sg
 		{
 			command_list->Dispatch(x, y, z);
 			flush_bound_uavs();
+		}
+
+
+		void CommandList::clear_buffer_float(UnorderedAccessView& uav, ShaderResourceView& srv, float value)
+		{			
+			ID3D12Resource* buffer_dx12 = uav.buffer_resource->get().Get();
+
+			seAssert(descriptor_heap_index + 1 <= descriptor_heap_maximum, "maxium descriptor bindings exceeded");
+			CD3DX12_GPU_DESCRIPTOR_HANDLE dest_gpu(descriptor_heap->GetGPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
+			CD3DX12_CPU_DESCRIPTOR_HANDLE dest_cpu(descriptor_heap->GetCPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
+
+			device->CreateUnorderedAccessView(uav.buffer_resource->get().Get(), nullptr, &uav.desc_uint, dest_cpu);
+
+			D3D12_RESOURCE_BARRIER barrier = {};
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			barrier.UAV.pResource = buffer_dx12;
+
+			FLOAT clear_values[4] = { value, value, value, value };
+
+			// Surely this is wrong, allocating, using then freeing instantly.... ? But this descriptor heap isn't bound on the command list anyway
+			u32 idx = global_cbv_srv_uav_descriptor_heap->allocate();
+			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(global_cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, global_cbv_srv_uav_descriptor_heap->get_increment_size());
+			device->CreateUnorderedAccessView(buffer_dx12, nullptr, &uav.desc_uint, cpu_handle);
+
+			command_list->ResourceBarrier(1, &barrier);
+			command_list->ClearUnorderedAccessViewFloat(dest_gpu, cpu_handle, buffer_dx12, clear_values, 0, nullptr);
+			command_list->ResourceBarrier(1, &barrier);
+
+			global_cbv_srv_uav_descriptor_heap->free(idx);
+		}
+
+
+		void CommandList::clear_buffer_uint(UnorderedAccessView& uav, ShaderResourceView& srv, sg::u32 value)
+		{
+			ID3D12Resource* buffer_dx12 = uav.buffer_resource->get().Get();
+
+			seAssert(descriptor_heap_index + 1 <= descriptor_heap_maximum, "maxium descriptor bindings exceeded");
+			CD3DX12_GPU_DESCRIPTOR_HANDLE dest_gpu(descriptor_heap->GetGPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
+			CD3DX12_CPU_DESCRIPTOR_HANDLE dest_cpu(descriptor_heap->GetCPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
+
+			device->CreateUnorderedAccessView(uav.buffer_resource->get().Get(), nullptr, &uav.desc_uint, dest_cpu);
+
+			D3D12_RESOURCE_BARRIER barrier = {};
+			barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+			barrier.UAV.pResource = buffer_dx12;
+
+			UINT clear_values[4] = { value, value, value, value };
+
+			// Surely this is wrong, allocating, using then freeing instantly.... ? But this descriptor heap isn't bound on the command list anyway
+			u32 idx = global_cbv_srv_uav_descriptor_heap->allocate();
+			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(global_cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, global_cbv_srv_uav_descriptor_heap->get_increment_size());
+			device->CreateUnorderedAccessView(buffer_dx12,nullptr,&uav.desc_uint, cpu_handle);
+
+			command_list->ResourceBarrier(1, &barrier);
+			command_list->ClearUnorderedAccessViewUint(dest_gpu, cpu_handle, buffer_dx12, clear_values, 0, nullptr);
+			command_list->ResourceBarrier(1, &barrier);
+
+			global_cbv_srv_uav_descriptor_heap->free(idx);
+
 		}
 
 		void CommandList::copy_buffer_to_buffer(Buffer* dest, Buffer* source)
