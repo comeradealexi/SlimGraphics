@@ -1,5 +1,11 @@
 #include "ShaderSharedStructures.h"
 
+#ifdef __INTELLISENSE__
+#define MESH_SHADER
+#define VERTEX_TRIANGLE
+#define VERTEX_QUAD
+#endif
+
 cbuffer ConstantBufferData : register(b0)
 {
     CameraData camera;
@@ -17,12 +23,69 @@ struct VS_INPUT
     float3 position : POSITION;
     float3 colour : COLOR0;
 };
-
 struct PS_INPUT
 {
     float4 position : SV_POSITION;
     float3 colour : COLOR0;
+    
+#ifdef MESH_SHADER
+    uint MeshletIndex : COLOR1;
+#endif
 };
+
+#ifdef MESH_SHADER
+struct Vertex
+{
+    float3 position;
+    float3 colour;
+};
+
+struct Meshlet
+{
+    uint VertCount;
+    uint VertOffset;
+    uint PrimCount;
+    uint PrimOffset;
+};
+
+StructuredBuffer<Vertex>    Vertices            : register(t0);
+StructuredBuffer<Meshlet>   Meshlets            : register(t1);
+StructuredBuffer<uint>      UniqueVertexIndices : register(t2);
+ByteAddressBuffer           PrimitiveIndices    : register(t3);
+
+[NumThreads(128, 1, 1)]
+[OutputTopology("triangle")]
+void MSMain(
+    uint gtid : SV_GroupThreadID,
+    uint gid : SV_GroupID,
+    out indices uint3 tris[126],
+    out vertices PS_INPUT verts[64]
+)
+{
+    Meshlet m = Meshlets[gid];
+
+    SetMeshOutputCounts(m.VertCount, m.PrimCount);
+
+    if (gtid < m.VertCount)
+    {
+        uint vertexIndex = UniqueVertexIndices[m.VertOffset + gtid];
+        Vertex v = Vertices[vertexIndex];
+        float4 outpos;
+        outpos = mul(float4(v.position, 1.0f), model.model_matrix);
+        outpos = mul(outpos, camera.view_projection_matrix);
+        
+        verts[gtid].position = outpos;
+        verts[gtid].colour = v.colour;
+    }
+
+    if (gtid < m.PrimCount)
+    {
+        uint offset = m.PrimOffset + (gtid * 3);
+        tris[gtid] = uint3(PrimitiveIndices.Load(offset + 0), PrimitiveIndices.Load(offset + 0), PrimitiveIndices.Load(offset + 0));
+    }
+}
+
+#endif
 
 #ifdef VERTEX_TRIANGLE
 PS_INPUT VSMain(uint id : SV_VertexID)
@@ -148,8 +211,15 @@ float4 ShadePixelOrder() : SV_TARGET0
 
 }
 
-float4 PSMain(PS_INPUT input, uint vid : SV_PrimitiveID) : SV_TARGET
+float4 PSMain(PS_INPUT input 
+#ifndef MESH_SHADER
+, uint vid : SV_PrimitiveID
+#endif
+) : SV_TARGET
 {
+#ifdef MESH_SHADER
+    uint vid = 0; // Not supported for mesh pipelines
+#endif
     if (model.shading_mode == SHADING_MODE_PRIMITIVEORDER)
     {
         float vid_f = vid;

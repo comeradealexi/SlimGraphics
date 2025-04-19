@@ -73,5 +73,16 @@ private:
 	// rotate
 	bool rotate_model = false;
 	float rotate_value = 0.0f;
+
+	struct MeshShaderRendering
+	{
+		sg::Ptr<sg::Pipeline> pipeline;
+		sg::PipelineDesc::Mesh pipeline_desc;
+		sg::Ptr<sg::MeshShader> shader_mesh;
+		sg::Ptr<sg::PixelShader> shader_pixel;
+		sg::BindingDesc binding_desc;
+
+
+	} mesh_shading;
 };
 

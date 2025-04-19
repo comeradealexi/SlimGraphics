@@ -49,6 +49,7 @@ namespace sg
 			Ptr<VertexShader> create_vertex_shader(const std::vector<uint8_t>& shader);
 			Ptr<PixelShader> create_pixel_shader(const std::vector<uint8_t>& shader);
 			Ptr<ComputeShader> create_compute_shader(const std::vector<uint8_t>& shader);
+			Ptr<MeshShader> create_mesh_shader(const std::vector<uint8_t>& shader);
 
 			//Returns current index to use
 			u32 create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list);
@@ -56,6 +57,7 @@ namespace sg
 
 			Ptr<Pipeline> create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc);
 			Ptr<Pipeline> create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc);
+			Ptr<Pipeline> create_pipeline(const PipelineDesc::Mesh& pipeline_desc, const BindingDesc& binding_desc);
 
 			SharedPtr<Buffer> create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type, bool uav_access);
 
@@ -65,6 +67,12 @@ namespace sg
 			VertexBufferView create_vertex_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, u64 stride);
 			IndexBufferView create_index_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, DXGI_FORMAT format);
 
+			//Support checks
+			bool SupportsMeshShaders();
+			size_t GetMeshShaderMaxNumThreads() { return 128; };
+			size_t GetMeshShaderMaxOutputVerts() { return 256; };
+			size_t GetMeshShaderMaxOutputPrims() { return 256; };
+	   
 			//D3D12 Specific
 		public:
 			ComPtr<ID3D12DescriptorHeap> get_cbv_srv_uav_descriptor_heap();

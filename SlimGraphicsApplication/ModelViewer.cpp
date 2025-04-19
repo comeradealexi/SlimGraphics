@@ -11,17 +11,31 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	pipeline_binding_desc = {};
 	pipeline_binding_desc.cbv_binding_count = 2;
 	pipeline_binding_desc.uav_binding_count = 1;
-	
-	std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShader.PC_DXC");
-	std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_PixelShader.PC_DXC");
-	shader_vertex = device->create_vertex_shader(vertex_data);
-	shader_pixel = device->create_pixel_shader(pixel_data);
 
-	vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShaderTriangle.PC_DXC");
-	shader_vertex_triangle = device->create_vertex_shader(vertex_data);
+	mesh_shading.binding_desc = {};
+	mesh_shading.binding_desc.cbv_binding_count = 2;
+	mesh_shading.binding_desc.srv_binding_count = 4;
+	mesh_shading.binding_desc.uav_binding_count = 1;
 
-	vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShaderQuad.PC_DXC");
-	shader_vertex_quad = device->create_vertex_shader(vertex_data);
+	{
+		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShader.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_PixelShader.PC_DXC");
+		shader_vertex = device->create_vertex_shader(vertex_data);
+		shader_pixel = device->create_pixel_shader(pixel_data);
+
+		vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShaderTriangle.PC_DXC");
+		shader_vertex_triangle = device->create_vertex_shader(vertex_data);
+
+		vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShaderQuad.PC_DXC");
+		shader_vertex_quad = device->create_vertex_shader(vertex_data);
+	}
+
+	{
+		std::vector<uint8_t> mesh_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_MeshShader.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_PixelMeshShader.PC_DXC");
+		mesh_shading.shader_mesh = device->create_mesh_shader(mesh_data);
+		mesh_shading.shader_pixel = device->create_pixel_shader(pixel_data);
+	}
 
 	CreatePipeline();
 
@@ -301,6 +315,21 @@ void ModelViewer::CreatePipeline()
 	pipeline_desc.vertex_shader = shader_vertex_quad.get();
 	pipeline_fullscreen_quad = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
 	seAssert(pipeline_fullscreen_quad != nullptr, "Failed to create model view pipeline");
+
+	// Mesh shader pipeline
+	{
+		mesh_shading.pipeline_desc.mesh_shader = mesh_shading.shader_mesh.get();
+		mesh_shading.pipeline_desc.pixel_shader = mesh_shading.shader_pixel.get();
+		mesh_shading.pipeline_desc.render_target_count = 1;
+		mesh_shading.pipeline_desc.render_target_format_list[0] = render_target_format;
+		mesh_shading.pipeline_desc.depth_stencil_format = DXGI_FORMAT_D32_FLOAT;
+		mesh_shading.pipeline_desc.depth_stencil_desc.depth_enable = true;
+		mesh_shading.pipeline_desc.depth_stencil_desc.depth_write = true;
+		mesh_shading.pipeline_desc.rasterizer_desc.fill_mode = render_wireframe ? Rasterizer::FillMode::Wireframe : Rasterizer::FillMode::Solid;
+		const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
+		mesh_shading.pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
+		mesh_shading.pipeline = device->create_pipeline(mesh_shading.pipeline_desc, mesh_shading.binding_desc);
+	}
 
 }
 

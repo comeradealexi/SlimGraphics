@@ -438,6 +438,12 @@ namespace sg
 			return Ptr<ComputeShader>(new ComputeShader(shader));
 		}
 
+
+		sg::Ptr<sg::MeshShader> Device::create_mesh_shader(const std::vector<uint8_t>& shader)
+		{
+			return Ptr<MeshShader>(new MeshShader(shader));
+		}
+
 		Ptr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
         {
             Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline(false));
@@ -515,6 +521,53 @@ namespace sg
             return out_pipeline;
 		}
 
+		sg::Ptr<sg::Pipeline> Device::create_pipeline(const PipelineDesc::Mesh& pipeline_desc, const BindingDesc& binding_desc)
+		{
+            if (!SupportsMeshShaders())
+            {
+                return nullptr;
+            }
+
+			Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline(false));
+
+			out_pipeline->topology = translate(pipeline_desc.primitive_topology);
+
+            seAssert(pipeline_desc.mesh_shader != nullptr, "No Mesh Shader Provided");
+            seAssert(pipeline_desc.pixel_shader != nullptr, "No Pixel Shader Provided");
+
+			D3DX12_MESH_SHADER_PIPELINE_STATE_DESC psoDesc = {};
+			psoDesc.pRootSignature = nullptr;
+			psoDesc.AS = pipeline_desc.amp_shader ? pipeline_desc.amp_shader->shader_code : CD3DX12_SHADER_BYTECODE();
+            psoDesc.MS = pipeline_desc.mesh_shader->shader_code;
+            psoDesc.PS = pipeline_desc.pixel_shader->shader_code;
+			psoDesc.PrimitiveTopologyType = translate(pipeline_desc.topology);
+			psoDesc.BlendState = translate(pipeline_desc.blend_desc);
+			psoDesc.DepthStencilState = translate(pipeline_desc.depth_stencil_desc);
+			psoDesc.RasterizerState = translate(pipeline_desc.rasterizer_desc);
+			psoDesc.SampleMask = UINT_MAX;
+			psoDesc.NumRenderTargets = pipeline_desc.render_target_count;
+			for (u32 i = 0; i < pipeline_desc.render_target_count; i++)
+			{
+				psoDesc.RTVFormats[i] = pipeline_desc.render_target_format_list[i];
+			}
+			psoDesc.DSVFormat = pipeline_desc.depth_stencil_format;
+			psoDesc.SampleDesc.Count = 1;
+
+			//Root Signature Generation
+			{
+				out_pipeline->root_signature = create_root_signature(binding_desc, false);
+				psoDesc.pRootSignature = out_pipeline->root_signature.Get();
+			}
+
+			auto psoStream = CD3DX12_PIPELINE_MESH_STATE_STREAM(psoDesc);
+			D3D12_PIPELINE_STATE_STREAM_DESC streamDesc;
+			streamDesc.pPipelineStateSubobjectStream = &psoStream;
+			streamDesc.SizeInBytes = sizeof(psoStream);
+
+            CHECKHR(device6->CreatePipelineState(&streamDesc, IID_PPV_ARGS(out_pipeline->pipeline.GetAddressOf())));
+			return out_pipeline;
+		}
+
 		sg::SharedPtr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type, bool uav_access)
 		{
             const D3D12_RESOURCE_FLAGS flags = uav_access ? (D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) : D3D12_RESOURCE_FLAG_NONE;
@@ -563,6 +616,15 @@ namespace sg
 				desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 			}
 
+			D3D12_SHADER_RESOURCE_VIEW_DESC desc_uint = {};
+			{
+				desc_uint.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+				desc_uint.Format = DXGI_FORMAT_R32_TYPELESS;
+				desc_uint.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+				desc_uint.Buffer.NumElements = (UINT)element_count / 4;
+				desc_uint.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+			}
+
 			//u32 idx = cbv_srv_uav_descriptor_heap->allocate();
 			//CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, //cbv_srv_uav_descriptor_heap->get_increment_size());
             //
@@ -570,6 +632,7 @@ namespace sg
 
             ShaderResourceView srv;
             srv.desc = desc;
+            srv.desc_uint = desc_uint;
             srv.buffer_resource = buffer;
             return srv;
 		}
@@ -635,9 +698,12 @@ namespace sg
             d3d12_ibv.BufferLocation = buffer->get()->GetGPUVirtualAddress() + offset;
             d3d12_ibv.SizeInBytes = size;
             d3d12_ibv.Format = format;
-
+            
             return ibv;
 		}
+
+
+		bool Device::SupportsMeshShaders() { return features.MeshShaderTier() >= D3D12_MESH_SHADER_TIER_1; }
 
 		u32 Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list)
         {

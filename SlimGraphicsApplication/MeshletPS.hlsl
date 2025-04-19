@@ -27,7 +27,7 @@ struct VertexOut
 
 ConstantBuffer<Constants> Globals : register(b0);
 
-float4 main(VertexOut input) : SV_TARGET
+float4 PSMain(VertexOut input) : SV_TARGET
 {
     float ambientIntensity = 0.1;
     float3 lightColor = float3(1, 1, 1);

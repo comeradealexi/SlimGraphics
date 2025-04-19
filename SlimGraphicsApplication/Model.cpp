@@ -111,6 +111,81 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 				//}
 
 				mesh.draw_count = mesh.indices.size();
+
+				// Make meshlets
+				if (init_data.meshopt_meshlets && device->SupportsMeshShaders())
+				{
+					const size_t max_vertices = 64;
+					const size_t max_triangles = 124;
+					const float cone_weight = 0.0f;
+					size_t max_meshlets = meshopt_buildMeshletsBound(mesh.indices.size(), max_vertices, max_triangles);
+					MeshShadingData& mesh_shader_data = mesh.mesh_shader_data;
+					mesh_shader_data.meshlets.resize(max_meshlets);
+					mesh_shader_data.meshlet_vertices.resize(max_meshlets * max_vertices);
+					mesh_shader_data.meshlet_triangles.resize(max_meshlets * max_triangles * 3);
+
+					size_t meshlet_count = meshopt_buildMeshlets(mesh_shader_data.meshlets.data(), mesh_shader_data.meshlet_vertices.data(), mesh_shader_data.meshlet_triangles.data(), mesh.indices.data(),
+						mesh.indices.size(), (float*) &mesh.vertices[0], mesh.vertices.size(), sizeof(Vertex), max_vertices, max_triangles, cone_weight);
+
+					// Trim excess of vectors
+					const meshopt_Meshlet& last = mesh_shader_data.meshlets[meshlet_count - 1];
+					mesh_shader_data.meshlet_vertices.resize(last.vertex_offset + last.vertex_count);
+					mesh_shader_data.meshlet_triangles.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3));
+					mesh_shader_data.meshlets.resize(meshlet_count);
+
+					if (init_data.meshopt_meshlet_optimize)
+					{
+						for (meshopt_Meshlet& m : mesh_shader_data.meshlets)
+						{
+							meshopt_optimizeMeshlet(&mesh_shader_data.meshlet_vertices[m.vertex_offset], &mesh_shader_data.meshlet_triangles[m.triangle_offset], m.triangle_count, m.vertex_count);
+						}
+					}
+
+					// Compute meshlet bounds
+					mesh_shader_data.meshlet_bounds.resize(mesh_shader_data.meshlets.size());
+					size_t meshlet_idx = 0;
+					for (meshopt_Meshlet& m : mesh_shader_data.meshlets)
+					{
+						mesh_shader_data.meshlet_bounds[meshlet_idx] = meshopt_computeMeshletBounds(&mesh_shader_data.meshlet_vertices[m.vertex_offset], &mesh_shader_data.meshlet_triangles[m.triangle_offset],
+							m.triangle_count, (float*) &mesh.vertices[0], mesh.vertices.size(), sizeof(Vertex));
+						meshlet_idx++;
+					}
+
+					// Create GPU Buffers
+					{ // Meshlets
+						const size_t meshlet_byte_size = mesh_shader_data.meshlets.size() * sizeof(mesh_shader_data.meshlets[0]);
+						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, meshlet_byte_size, 1024 * 64);
+						mesh_shader_data.gpu_meshlets = device->create_buffer(ml_mem, meshlet_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, false);
+						mesh_shader_data.gpu_meshlets_view = device->create_unordered_access_view(mesh_shader_data.gpu_meshlets, sizeof(mesh_shader_data.meshlets[0]), mesh_shader_data.meshlets.size());
+						mesh_shader_data.gpu_meshlets_view_srv = device->create_shader_resource_view(mesh_shader_data.gpu_meshlets, sizeof(mesh_shader_data.meshlets[0]), mesh_shader_data.meshlets.size());
+
+						UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(meshlet_byte_size, 256);
+						upload_heap->write_upload_memory(upload_offset, mesh_shader_data.meshlets.data(), meshlet_byte_size);
+						upload_heap->upload_to_buffer(mesh_shader_data.gpu_meshlets.get(), 0, upload_offset, meshlet_byte_size);
+					}
+					{
+						const size_t unique_meshlet_verts_byte_size = mesh_shader_data.meshlet_vertices.size() * sizeof(mesh_shader_data.meshlet_vertices[0]);
+						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, unique_meshlet_verts_byte_size, 1024 * 64);
+						mesh_shader_data.gpu_unique_vertex_indices = device->create_buffer(ml_mem, unique_meshlet_verts_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, false);
+						mesh_shader_data.gpu_unique_vertex_indices_view = device->create_unordered_access_view(mesh_shader_data.gpu_unique_vertex_indices, sizeof(mesh_shader_data.meshlet_vertices[0]), mesh_shader_data.meshlet_vertices.size());
+						mesh_shader_data.gpu_unique_vertex_indices_view_srv = device->create_shader_resource_view(mesh_shader_data.gpu_unique_vertex_indices, sizeof(mesh_shader_data.meshlet_vertices[0]), mesh_shader_data.meshlet_vertices.size());
+
+						UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(unique_meshlet_verts_byte_size, 256);
+						upload_heap->write_upload_memory(upload_offset, mesh_shader_data.meshlet_vertices.data(), unique_meshlet_verts_byte_size);
+						upload_heap->upload_to_buffer(mesh_shader_data.gpu_unique_vertex_indices.get(), 0, upload_offset, unique_meshlet_verts_byte_size);
+					}
+					{
+						const size_t primitive_indices_byte_size = mesh_shader_data.meshlet_triangles.size() * sizeof(mesh_shader_data.meshlet_triangles[0]);
+						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, primitive_indices_byte_size, 1024 * 64);
+						mesh_shader_data.gpu_primitive_indices = device->create_buffer(ml_mem, primitive_indices_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, false);
+						mesh_shader_data.gpu_primitive_indices_view = device->create_unordered_access_view(mesh_shader_data.gpu_primitive_indices, sizeof(mesh_shader_data.meshlet_triangles[0]), mesh_shader_data.meshlet_triangles.size());
+						mesh_shader_data.gpu_primitive_indices_view_srv = device->create_shader_resource_view(mesh_shader_data.gpu_primitive_indices, sizeof(mesh_shader_data.meshlet_triangles[0]), mesh_shader_data.meshlet_triangles.size());
+
+						UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(primitive_indices_byte_size, 256);
+						upload_heap->write_upload_memory(upload_offset, mesh_shader_data.meshlet_triangles.data(), primitive_indices_byte_size);
+						upload_heap->upload_to_buffer(mesh_shader_data.gpu_primitive_indices.get(), 0, upload_offset, primitive_indices_byte_size);
+					}
+				}
 			}
 
 			if (init_data.scalemodel1to1)
@@ -143,7 +218,6 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 				mesh.ib_offset = (uint32_t)indices.size();
 				vertices.insert(vertices.end(), mesh.vertices.begin(), mesh.vertices.end());
 				indices.insert(indices.end(), mesh.indices.begin(), mesh.indices.end());
-
 			}
 
 			//Vertex Buffer
@@ -193,7 +267,7 @@ void Model::Render(sg::CommandList* command_list, sg::ConstantBufferView& cbv_ca
 
 	command_list->bind_vertex_buffer(vbv);
 	command_list->bind_index_buffer(ibv);
-	for (MeshPart mesh_part : mesh_parts)
+	for (MeshPart& mesh_part : mesh_parts)
 	{		
 		command_list->draw_indexed_instanced(mesh_part.draw_count, 1, mesh_part.ib_offset, mesh_part.vb_offset, 0);
 	}

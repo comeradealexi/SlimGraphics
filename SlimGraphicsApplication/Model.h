@@ -4,6 +4,7 @@
 #include <seEngineBasicFileIO.h>
 #include <DirectXMath.h>
 #include "UploadHeap.h"
+#include <meshoptimizer.h>
 
 class Model
 {
@@ -58,15 +59,36 @@ public:
 		float meshopt_simplification_threshold = 0.2f;
 		float meshopt_simplification_target_error = 0.01f;
 
-		bool meshopt_meshlets = false;
+		bool meshopt_meshlets = true;
 		size_t meshopt_meshlets_max_vertices = 64;
 		size_t meshopt_meshlets_max_triangles = 126;
 		float meshopt_meshlets_cone_weight = 0.0f;
-		bool meshopt_meshlet_optimize = true;
+		bool meshopt_meshlet_optimize = false;
 	};
 
 public:
 	Model(sg::Device* device, UploadHeap* upload_heap, const InitData& _init_data);
+
+	struct MeshShadingData
+	{
+		std::vector<meshopt_Meshlet> meshlets;
+		std::vector<meshopt_Bounds> meshlet_bounds;
+		std::vector<unsigned int> meshlet_vertices;
+		std::vector<unsigned char> meshlet_triangles;
+	
+		//sg::Ptr<sg::Buffer>	gpu_vertices;
+		sg::SharedPtr<sg::Buffer>	gpu_meshlets;
+		sg::UnorderedAccessView		gpu_meshlets_view;
+		sg::ShaderResourceView		gpu_meshlets_view_srv;
+
+		sg::SharedPtr<sg::Buffer>	gpu_unique_vertex_indices;
+		sg::UnorderedAccessView		gpu_unique_vertex_indices_view;
+		sg::ShaderResourceView		gpu_unique_vertex_indices_view_srv;
+
+		sg::SharedPtr<sg::Buffer>	gpu_primitive_indices;
+		sg::UnorderedAccessView		gpu_primitive_indices_view;
+		sg::ShaderResourceView		gpu_primitive_indices_view_srv;
+	};
 
 	struct MeshPart
 	{
@@ -78,6 +100,7 @@ public:
 		DirectX::XMFLOAT3 max_extent = {};
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
+		MeshShadingData mesh_shader_data;
 	};
 
 	struct Material
