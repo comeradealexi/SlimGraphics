@@ -38,34 +38,76 @@ struct Vertex
 {
     float3 position;
     float3 colour;
+    float2 uv;
+    float3 normal;
+    float3 tangent;
 };
 
 struct Meshlet
 {
-    uint VertCount;
     uint VertOffset;
-    uint PrimCount;
     uint PrimOffset;
+    uint VertCount;
+    uint PrimCount;
 };
 
 StructuredBuffer<Vertex>    Vertices            : register(t0);
 StructuredBuffer<Meshlet>   Meshlets            : register(t1);
 StructuredBuffer<uint>      UniqueVertexIndices : register(t2);
-ByteAddressBuffer           PrimitiveIndices    : register(t3);
+StructuredBuffer<uint>      PrimitiveIndices    : register(t3);
 
 [NumThreads(128, 1, 1)]
 [OutputTopology("triangle")]
 void MSMain(
     uint gtid : SV_GroupThreadID,
     uint gid : SV_GroupID,
-    out indices uint3 tris[126],
+    out indices uint3 tris[124],
     out vertices PS_INPUT verts[64]
 )
 {
-    Meshlet m = Meshlets[gid];
-
-    SetMeshOutputCounts(m.VertCount, m.PrimCount);
-
+    
+    //uint meshlet_size, meshlet_count;
+    //Meshlets.GetDimensions(meshlet_size, meshlet_count);
+    
+    //Meshlet m = Meshlets[gid];
+    //uint mesh_output_verts = m.VertCount;
+    //uint mesh_output_prims = m.PrimCount;
+    //
+    //SetMeshOutputCounts(mesh_output_verts, mesh_output_prims);
+    
+    //if (gtid < mesh_output_verts)
+    //{
+    //    verts[gtid].position = float4(0, 0, 0, 0);
+    //    verts[gtid].colour = float3(0, 0, 0);
+    //}
+    //
+    //if (gtid < mesh_output_prims)
+    //{
+    //    tris[gtid] = uint3(0, 1, 2);
+    //}
+    
+    //return;
+    
+    //if (gid >= meshlet_size)
+    //{
+    //    //SetMeshOutputCounts(4, 3);
+    //    if (gtid < 4)
+    //    {      
+    //        verts[gtid].position = float4(0, 0, 0, 0);
+    //        verts[gtid].colour = float3(0, 0, 0);
+    //    }
+    //    if (gtid < 3)
+    //    {
+    //        tris[gtid] = uint3(0, 0, 0);
+    //    }
+    //}
+    //else
+    {
+    
+        Meshlet m = Meshlets[gid];
+        SetMeshOutputCounts(m.VertCount, m.PrimCount);
+#if 0
+    SetMeshOutputCounts(4 * 10, 3*10);
     if (gtid < m.VertCount)
     {
         uint vertexIndex = UniqueVertexIndices[m.VertOffset + gtid];
@@ -77,11 +119,80 @@ void MSMain(
         verts[gtid].position = outpos;
         verts[gtid].colour = v.colour;
     }
-
-    if (gtid < m.PrimCount)
+    if (gtid < 3)
     {
         uint offset = m.PrimOffset + (gtid * 3);
         tris[gtid] = uint3(PrimitiveIndices.Load(offset + 0), PrimitiveIndices.Load(offset + 0), PrimitiveIndices.Load(offset + 0));
+    }
+#else
+
+       // SetMeshOutputCounts(m.VertCount, m.PrimCount);
+
+        if (gtid < m.VertCount)
+        {
+            //verts[gtid].position = float4(0, 0, 0, 0);
+            //verts[gtid].colour = float3(0, 0, 0);
+            #if 1
+            uint offset = m.VertOffset + gtid;
+            uint size, num;
+            UniqueVertexIndices.GetDimensions(size, num);
+            //if (offset >= size)
+            //{
+            //    verts[gtid].position = float4(0, 0, 0, 0);
+            //    verts[gtid].colour = float3(0, 0, 0);
+            //
+            //}
+            //else
+            {
+                verts[gtid].position = float4(0, 0, 0, 0);
+                verts[gtid].colour = float3(0, 0, 0);
+                verts[gtid].MeshletIndex = gid;
+
+                #if 1
+                uint vsize, vnum;
+                Vertices.GetDimensions(vsize, vnum);
+                uint vertexIndex = UniqueVertexIndices[offset];
+                //if (vertexIndex >= vsize)
+                //{
+                //    verts[gtid].position = float4(0, 0, 0, 0);
+                //    verts[gtid].colour = float3(0, 0, 0);
+                //}
+                //else
+                {
+                    Vertex v = Vertices[vertexIndex];
+                    float4 outpos;
+                    outpos = mul(float4(v.position, 1.0f), model.model_matrix);
+                    outpos = mul(outpos, camera.view_projection_matrix);
+        
+                    verts[gtid].position = outpos;
+                    verts[gtid].colour = v.colour;
+                    verts[gtid].MeshletIndex = gid;
+
+                }
+                #endif
+            }
+            #endif
+        }
+
+        if (gtid < m.PrimCount)
+        {
+            uint offset = m.PrimOffset + gtid;
+            uint size, num;
+            PrimitiveIndices.GetDimensions(size, num);
+
+            //if (offset >= size)
+            //{
+            //    tris[gtid] = uint3(0, 0, 0);
+            //
+            //}
+            //else
+            {
+                uint packedIndices = PrimitiveIndices[offset];
+                tris[gtid] = uint3(packedIndices & 0xFF, (packedIndices >> 8) & 0xFF, (packedIndices >> 16) & 0xFF);
+            }
+            //tris[gtid] = uint3(0, 0, 0);
+        }
+#endif
     }
 }
 
@@ -220,6 +331,22 @@ float4 PSMain(PS_INPUT input
 #ifdef MESH_SHADER
     uint vid = 0; // Not supported for mesh pipelines
 #endif
+    
+    if (model.shading_mode == SHADING_MODE_MESHLETORDER)
+    {
+     #ifdef MESH_SHADER
+        uint meshletIndex = input.MeshletIndex;
+        float3 diffuseColor = float3(
+            float(meshletIndex & 1),
+            float(meshletIndex & 3) / 4,
+            float(meshletIndex & 7) / 8); 
+        //float col = ((float) input.MeshletIndex) / ((float) model.meshlet_count);
+        return float4(diffuseColor, 1);
+#else
+        return float4(1.0, 0.5,0.5, 1.0);
+#endif
+    }
+    
     if (model.shading_mode == SHADING_MODE_PRIMITIVEORDER)
     {
         float vid_f = vid;

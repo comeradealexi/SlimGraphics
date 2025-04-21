@@ -34,6 +34,7 @@ namespace sg
 			void end_geometry_pass();
 
 			void dispatch(u32 x = 1, u32 y = 1, u32 z = 1);
+			void dispatch_mesh(u32 x = 1, u32 y = 1, u32 z = 1);
 
 			void clear_buffer_float(UnorderedAccessView& uav, ShaderResourceView& srv, float value);
 			void clear_buffer_uint(UnorderedAccessView& uav, ShaderResourceView& srv, sg::u32 value);

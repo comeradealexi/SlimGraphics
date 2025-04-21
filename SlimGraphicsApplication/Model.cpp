@@ -151,11 +151,46 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 						meshlet_idx++;
 					}
 
+					//seAssert(mesh_shader_data.meshlet_triangles.size() % 3 == 0, "Size must be divisible by 3");
+
+					for (meshopt_Meshlet& meshlet : mesh_shader_data.meshlets)
+					{
+						const u32 new_triangle_offset = mesh_shader_data.meshlet_triangles_gpu.size();
+						for (size_t tri_idx = 0; tri_idx < meshlet.triangle_count; tri_idx++)
+						{
+							const u32 tri_offset = meshlet.triangle_offset + (tri_idx * 3);
+							seAssert((tri_offset + 2) < mesh_shader_data.meshlet_triangles.size(), "Reading too many tris");
+							u32 tri = 0;
+							tri |= static_cast<u32>(mesh_shader_data.meshlet_triangles[tri_offset + 0]) << 0u;
+							tri |= static_cast<u32>(mesh_shader_data.meshlet_triangles[tri_offset + 1]) << 8u;
+							tri |= static_cast<u32>(mesh_shader_data.meshlet_triangles[tri_offset + 2]) << 16u;
+
+							mesh_shader_data.meshlet_triangles_gpu.push_back(tri);
+						}
+						meshlet.triangle_offset = new_triangle_offset;
+					}
+
+					//for (size_t i = 0; i < mesh_shader_data.meshlet_triangles.size(); i+=3)
+					//{
+					//	u32 tri = 0;
+					//	tri |= static_cast<u32>(mesh_shader_data.meshlet_triangles[i + 0]) << 0u;
+					//	tri |= static_cast<u32>(mesh_shader_data.meshlet_triangles[i + 1]) << 8u;
+					//	tri |= static_cast<u32>(mesh_shader_data.meshlet_triangles[i + 2]) << 16u;
+					//
+					//	mesh_shader_data.meshlet_triangles_gpu.push_back(tri);
+					//}
+					//
+					//for (meshopt_Meshlet& meshlet : mesh_shader_data.meshlets)
+					//{
+					//	meshlet.triangle_offset /= 3;
+					//}
+
+
 					// Create GPU Buffers
 					{ // Meshlets
 						const size_t meshlet_byte_size = mesh_shader_data.meshlets.size() * sizeof(mesh_shader_data.meshlets[0]);
 						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, meshlet_byte_size, 1024 * 64);
-						mesh_shader_data.gpu_meshlets = device->create_buffer(ml_mem, meshlet_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, false);
+						mesh_shader_data.gpu_meshlets = device->create_buffer(ml_mem, meshlet_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, true);
 						mesh_shader_data.gpu_meshlets_view = device->create_unordered_access_view(mesh_shader_data.gpu_meshlets, sizeof(mesh_shader_data.meshlets[0]), mesh_shader_data.meshlets.size());
 						mesh_shader_data.gpu_meshlets_view_srv = device->create_shader_resource_view(mesh_shader_data.gpu_meshlets, sizeof(mesh_shader_data.meshlets[0]), mesh_shader_data.meshlets.size());
 
@@ -166,7 +201,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					{
 						const size_t unique_meshlet_verts_byte_size = mesh_shader_data.meshlet_vertices.size() * sizeof(mesh_shader_data.meshlet_vertices[0]);
 						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, unique_meshlet_verts_byte_size, 1024 * 64);
-						mesh_shader_data.gpu_unique_vertex_indices = device->create_buffer(ml_mem, unique_meshlet_verts_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, false);
+						mesh_shader_data.gpu_unique_vertex_indices = device->create_buffer(ml_mem, unique_meshlet_verts_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, true);
 						mesh_shader_data.gpu_unique_vertex_indices_view = device->create_unordered_access_view(mesh_shader_data.gpu_unique_vertex_indices, sizeof(mesh_shader_data.meshlet_vertices[0]), mesh_shader_data.meshlet_vertices.size());
 						mesh_shader_data.gpu_unique_vertex_indices_view_srv = device->create_shader_resource_view(mesh_shader_data.gpu_unique_vertex_indices, sizeof(mesh_shader_data.meshlet_vertices[0]), mesh_shader_data.meshlet_vertices.size());
 
@@ -175,14 +210,14 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 						upload_heap->upload_to_buffer(mesh_shader_data.gpu_unique_vertex_indices.get(), 0, upload_offset, unique_meshlet_verts_byte_size);
 					}
 					{
-						const size_t primitive_indices_byte_size = mesh_shader_data.meshlet_triangles.size() * sizeof(mesh_shader_data.meshlet_triangles[0]);
+						const size_t primitive_indices_byte_size = mesh_shader_data.meshlet_triangles_gpu.size() * sizeof(mesh_shader_data.meshlet_triangles_gpu[0]);
 						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, primitive_indices_byte_size, 1024 * 64);
-						mesh_shader_data.gpu_primitive_indices = device->create_buffer(ml_mem, primitive_indices_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, false);
-						mesh_shader_data.gpu_primitive_indices_view = device->create_unordered_access_view(mesh_shader_data.gpu_primitive_indices, sizeof(mesh_shader_data.meshlet_triangles[0]), mesh_shader_data.meshlet_triangles.size());
-						mesh_shader_data.gpu_primitive_indices_view_srv = device->create_shader_resource_view(mesh_shader_data.gpu_primitive_indices, sizeof(mesh_shader_data.meshlet_triangles[0]), mesh_shader_data.meshlet_triangles.size());
+						mesh_shader_data.gpu_primitive_indices = device->create_buffer(ml_mem, primitive_indices_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, true);
+						mesh_shader_data.gpu_primitive_indices_view = device->create_unordered_access_view(mesh_shader_data.gpu_primitive_indices, sizeof(mesh_shader_data.meshlet_triangles_gpu[0]), mesh_shader_data.meshlet_triangles_gpu.size());
+						mesh_shader_data.gpu_primitive_indices_view_srv = device->create_shader_resource_view(mesh_shader_data.gpu_primitive_indices, sizeof(mesh_shader_data.meshlet_triangles_gpu[0]), mesh_shader_data.meshlet_triangles_gpu.size());
 
 						UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(primitive_indices_byte_size, 256);
-						upload_heap->write_upload_memory(upload_offset, mesh_shader_data.meshlet_triangles.data(), primitive_indices_byte_size);
+						upload_heap->write_upload_memory(upload_offset, mesh_shader_data.meshlet_triangles_gpu.data(), primitive_indices_byte_size);
 						upload_heap->upload_to_buffer(mesh_shader_data.gpu_primitive_indices.get(), 0, upload_offset, primitive_indices_byte_size);
 					}
 				}
@@ -226,6 +261,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 				SharedPtr<Memory> vb_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, vertex_byte_size, 1024 * 64);
 				vb = device->create_buffer(vb_mem, vertex_byte_size, 1024 * 64, BufferType::Vertex, false);
 				vbv = device->create_vertex_buffer_view(vb, 0, vertex_byte_size, stride);
+				vb_srv = device->create_shader_resource_view(vb, sizeof(Vertex), vertices.size());
 				
 				UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(vertex_byte_size, 256);
 				upload_heap->write_upload_memory(upload_offset, vertices.data(), vertex_byte_size);

@@ -121,6 +121,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			recreate_model = true;
 		}
 		ImGui::SeparatorText("Model Settings");
+		ImGui::Checkbox("Render with Mesh Shader", &render_as_mesh_shader);
 		ImGui::SliderFloat("Render Scale", &model_scale, 0.0f, 10.0f);
 		ImGui::SliderFloat("Render Percent", &render_percentage, 0.0f, 1.0f);
 		recreate_model = ImGui::Checkbox("Scale model size -1/+1", &model_init_data.scalemodel1to1) || recreate_model;
@@ -164,8 +165,13 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::RadioButton("Primitive Order", (int*)&render_mode, 1);
 		ImGui::RadioButton("Vertex Order", (int*)&render_mode, 2);
 		ImGui::RadioButton("Pixel Order", (int*)&render_mode, 3);
+		ImGui::RadioButton("Meshlet Order", (int*)&render_mode, 4);
 
-		if (render_mode == RenderMode::VertexOrder || render_mode == RenderMode::PrimitiveOrder)
+		if (render_mode == RenderMode::MeshletOrder)
+		{
+
+		}
+		else if (render_mode == RenderMode::VertexOrder || render_mode == RenderMode::PrimitiveOrder)
 		{
 			ImGui::PushID("Vert/Prim Shading ID IMGUI");
 			if (ImGui::CollapsingHeader("Vert/Prim Shading"))
@@ -253,39 +259,77 @@ void ModelViewer::Render(CommandList& command_list, ConstantBufferView& cbv_came
 
 	if (model)
 	{
-		command_list.set_pipeline(pipeline.get());
-
-		Binding b;
-		b.cbv_binding_count = 2;
-		b.set_cbv(cbv_camera, 0);
-		b.uav_binding_count = 1;
-		b.set_uav(uav, 0);
-
-		command_list.bind_vertex_buffer(model->GetVertexBufferView());
-		command_list.bind_index_buffer(model->GetIndexBufferView());
-
-		int render_idx = 0;
-		for (Model::MeshPart& mesh_part : model->GetMeshParts())
+		if (render_as_mesh_shader)
 		{
-			model_data.primitive_count = mesh_part.draw_count / 3;
-			model_data.vertex_count = mesh_part.vertex_count;
-			sg::ConstantBufferView cbv_model = cbuffer.AllocateAndWrite(model_data);
-			b.set_cbv(cbv_model, 1);
-			command_list.bind(b, PipelineType::Geometry);		
-			command_list.clear_buffer_uint(uav, srv, 0);
-
-			if (render_fullscreen_triangle || render_fullscreen_quad)
+			command_list.set_pipeline(mesh_shading.pipeline.get());
+			Binding b;
+			b.cbv_binding_count = 2;
+			b.set_cbv(cbv_camera, 0);
+			b.uav_binding_count = 1;
+			b.set_uav(uav, 0);
+			b.srv_binding_count = 4;
+			b.set_srv(model->GetVertexBufferSRV(), 0);
+			int render_idx = 0;
+			for (Model::MeshPart& mesh_part : model->GetMeshParts())
 			{
-				command_list.set_pipeline(render_fullscreen_triangle ? pipeline_fullscreen_triangle.get() : pipeline_fullscreen_quad.get());
-				command_list.draw_instanced(render_fullscreen_triangle ? 3 : 6, 1, 0, 0);
-				break;
-			}
+				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 1);
+				b.set_srv(mesh_part.mesh_shader_data.gpu_unique_vertex_indices_view_srv, 2);
+				b.set_srv(mesh_part.mesh_shader_data.gpu_primitive_indices_view_srv, 3);
 
-			if (render_model_bool_array[render_idx])
-			{
-				command_list.draw_indexed_instanced(static_cast<sg::u32>(mesh_part.draw_count * render_percentage), 1, mesh_part.ib_offset, mesh_part.vb_offset, 0);
+				model_data.meshlet_count = mesh_part.mesh_shader_data.meshlets.size();
+				model_data.primitive_count = mesh_part.draw_count / 3;
+				model_data.vertex_count = mesh_part.vertex_count;
+				sg::ConstantBufferView cbv_model = cbuffer.AllocateAndWrite(model_data);
+				b.set_cbv(cbv_model, 1);
+
+				command_list.bind(b, PipelineType::Geometry);
+				command_list.clear_buffer_uint(uav, srv, 0);
+
+				if (render_model_bool_array[render_idx])
+				{
+					u32 dispatch_value = static_cast<sg::u32>(mesh_part.mesh_shader_data.meshlets.size() * render_percentage);
+					if (dispatch_value > 0)
+						command_list.dispatch_mesh(dispatch_value);
+				}
+				render_idx++;
 			}
-			render_idx++;
+		}
+		else
+		{
+			command_list.set_pipeline(pipeline.get());
+
+			Binding b;
+			b.cbv_binding_count = 2;
+			b.set_cbv(cbv_camera, 0);
+			b.uav_binding_count = 1;
+			b.set_uav(uav, 0);
+
+			command_list.bind_vertex_buffer(model->GetVertexBufferView());
+			command_list.bind_index_buffer(model->GetIndexBufferView());
+
+			int render_idx = 0;
+			for (Model::MeshPart& mesh_part : model->GetMeshParts())
+			{
+				model_data.primitive_count = mesh_part.draw_count / 3;
+				model_data.vertex_count = mesh_part.vertex_count;
+				sg::ConstantBufferView cbv_model = cbuffer.AllocateAndWrite(model_data);
+				b.set_cbv(cbv_model, 1);
+				command_list.bind(b, PipelineType::Geometry);
+				command_list.clear_buffer_uint(uav, srv, 0);
+
+				if (render_fullscreen_triangle || render_fullscreen_quad)
+				{
+					command_list.set_pipeline(render_fullscreen_triangle ? pipeline_fullscreen_triangle.get() : pipeline_fullscreen_quad.get());
+					command_list.draw_instanced(render_fullscreen_triangle ? 3 : 6, 1, 0, 0);
+					break;
+				}
+
+				if (render_model_bool_array[render_idx])
+				{
+					command_list.draw_indexed_instanced(static_cast<sg::u32>(mesh_part.draw_count * render_percentage), 1, mesh_part.ib_offset, mesh_part.vb_offset, 0);
+				}
+				render_idx++;
+			}
 		}
 	}
 }

@@ -264,6 +264,12 @@ namespace sg
 		}
 
 
+		void CommandList::dispatch_mesh(u32 x /*= 1*/, u32 y /*= 1*/, u32 z /*= 1*/)
+		{
+			command_list->DispatchMesh(x, y, z);
+			flush_bound_uavs();
+		}
+
 		void CommandList::clear_buffer_float(UnorderedAccessView& uav, ShaderResourceView& srv, float value)
 		{			
 			ID3D12Resource* buffer_dx12 = uav.buffer_resource->get().Get();

@@ -75,7 +75,8 @@ public:
 		std::vector<meshopt_Bounds> meshlet_bounds;
 		std::vector<unsigned int> meshlet_vertices;
 		std::vector<unsigned char> meshlet_triangles;
-	
+		std::vector<sg::u32> meshlet_triangles_gpu; // 1 tri per u32
+
 		//sg::Ptr<sg::Buffer>	gpu_vertices;
 		sg::SharedPtr<sg::Buffer>	gpu_meshlets;
 		sg::UnorderedAccessView		gpu_meshlets_view;
@@ -111,6 +112,7 @@ public:
 	void SetPipeline(sg::Ptr<sg::Pipeline> new_pipeline);
 	void Render(sg::CommandList* command_list, sg::ConstantBufferView& cbv_camera, sg::ConstantBufferView& cbv_model);
 	sg::VertexBufferView& GetVertexBufferView() { return vbv; }
+	sg::ShaderResourceView& GetVertexBufferSRV() { return vb_srv; }
 	sg::IndexBufferView& GetIndexBufferView() { return ibv; }
 	std::vector<MeshPart>& GetMeshParts() { return mesh_parts; }
 private:
@@ -119,6 +121,7 @@ private:
 	sg::SharedPtr<sg::Buffer> vb;
 	sg::SharedPtr<sg::Buffer> ib;
 	sg::VertexBufferView vbv;
+	sg::ShaderResourceView vb_srv;
 	sg::IndexBufferView ibv;
 	std::vector<MeshPart> mesh_parts;
 	std::vector<Material> materials;

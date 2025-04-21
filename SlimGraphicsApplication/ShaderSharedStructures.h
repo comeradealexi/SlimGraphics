@@ -22,8 +22,10 @@ struct ModelData
 	#define SHADING_MODE_PRIMITIVEORDER  1 
 	#define SHADING_MODE_VERTEXORDER  2 
 	#define SHADING_MODE_PIXELORDER  3 
+	#define SHADING_MODE_MESHLETORDER  4 
+
 	int shading_mode;
-	int unused1;
+	int meshlet_count;
 	int unused2;
 	float vertex_shading_mod;
 

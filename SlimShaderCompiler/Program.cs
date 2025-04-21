@@ -238,6 +238,7 @@ namespace SlimShaderCompiler
                 {
                     sb.Append("-spirv ");
                 }
+                sb.Append("/Zi ");
                 sb.AppendFormat("-T {0} ", shader.profile);
                 sb.AppendFormat("-E {0} ", shader.entrypoint);
                 sb.AppendFormat("-Fo \"{0}\\{1}.{2}\" ", args.output_directory, shader.name, args.platform.ToString());

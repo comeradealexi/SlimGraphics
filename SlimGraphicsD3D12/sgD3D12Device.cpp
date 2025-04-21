@@ -611,6 +611,7 @@ namespace sg
 				desc.Format = DXGI_FORMAT_UNKNOWN;
 				desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
+                desc.Buffer.FirstElement = 0;
 				desc.Buffer.NumElements = (UINT) element_count;
 				desc.Buffer.StructureByteStride = (UINT) element_size;
 				desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;

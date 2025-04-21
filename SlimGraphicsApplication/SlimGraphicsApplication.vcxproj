@@ -230,7 +230,6 @@
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="LinearConstantBuffer.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="MeshShaderTest.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="ModelViewer.cpp" />
     <ClCompile Include="UploadHeap.cpp" />
