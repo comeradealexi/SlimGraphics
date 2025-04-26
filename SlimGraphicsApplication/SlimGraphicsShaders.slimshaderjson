@@ -62,6 +62,10 @@
       {
         "name": "Basic_ComputeShader",
         "input_file": "Basic_ComputeShader.hlsl"
+      },
+      {
+        "name": "BufferTypesComputeShader",
+        "input_file": "BufferTypesComputeShader.hlsl"
       }
     ]
   },

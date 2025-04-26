@@ -21,3 +21,6 @@
 	url = https://github.com/zeux/meshoptimizer/
 [submodule "SubModulesmeshoptimizer"]
 	branch = v0.23
+[submodule "SubModules/DirectX-SDK"]
+	path = SubModules/DirectX-SDK
+	url = https://github.com/apitrace/dxsdk
