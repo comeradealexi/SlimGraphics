@@ -103,6 +103,21 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	RenderTargetView rtvs[frame_count];
 	u32 current_frame_idx = device->create_swap_chain(wnd->g_hWnd, queue.get(), frame_count, back_buffer_format, w, h, rtvs);
 
+	// Depth buffer
+	DepthStencilView dsv;
+	SharedPtr<Memory> dsv_mem;
+	SharedPtr<Texture> dsv_tex;
+	{
+		ResourceCreateDesc rd;
+		rd.width = w;
+		rd.height = h;
+		rd.format = DXGI_FORMAT_D32_FLOAT;
+		rd.usage_flags = ResourceUsageFlags::DepthStencil;
+		SizeAndAlignment sal = device->calculate_resource_size_alignment(rd);
+		dsv_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Target, sal.size, sal.alignment);
+		dsv_tex = device->create_texture(dsv_mem, sal.size, sal.alignment, rd);
+	}
+
 	//Pipeline
 	Ptr<Pipeline> pipeline;
 	Ptr<Pipeline> pipeline_cb;

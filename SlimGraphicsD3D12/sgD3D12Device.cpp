@@ -290,13 +290,13 @@ namespace sg
         }
 
 
-		SizeAndAlignment Device::calculate_resource_size_alignment(const ResourceCreateDesc& desc)
+		D3D12_RESOURCE_DESC Device::create_dx12_resource_desc(const ResourceCreateDesc& desc)
 		{
-            const ResourceUsageFlags invalid_4kb_flags = ResourceUsageFlags::RenderTarget | ResourceUsageFlags::DepthStencil;
-            const bool bAlign4Kb = false;// desc.try_alignment_4kb && (static_cast<u32>(desc.usage_flags & invalid_4kb_flags) == 0) && desc.dimension != ResourceDimension::Buffer; //SEE HOW D3D12MA DOES THIS BUT IT'S NOT EXPOSED VIA HEADER
+			const ResourceUsageFlags invalid_4kb_flags = ResourceUsageFlags::RenderTarget | ResourceUsageFlags::DepthStencil;
+			const bool bAlign4Kb = false;// desc.try_alignment_4kb && (static_cast<u32>(desc.usage_flags & invalid_4kb_flags) == 0) && desc.dimension != ResourceDimension::Buffer; //SEE HOW D3D12MA DOES THIS BUT IT'S NOT EXPOSED VIA HEADER
 
-            D3D12_RESOURCE_DESC d3d12_desc = {};
-            d3d12_desc.Alignment = bAlign4Kb ? 4096 : 0; //0 = default
+			D3D12_RESOURCE_DESC d3d12_desc = {};
+			d3d12_desc.Alignment = bAlign4Kb ? 4096 : 0; //0 = default
 			d3d12_desc.Dimension = translate(desc.dimension);
 			d3d12_desc.Width = desc.width;
 			d3d12_desc.Height = desc.height;
@@ -305,8 +305,15 @@ namespace sg
 			d3d12_desc.Format = desc.format;
 			d3d12_desc.SampleDesc.Count = 1;
 			d3d12_desc.SampleDesc.Quality = 0;
-			d3d12_desc.Layout = desc.dimension == ResourceDimension::Buffer ? D3D12_TEXTURE_LAYOUT_ROW_MAJOR :  D3D12_TEXTURE_LAYOUT_UNKNOWN;
-            d3d12_desc.Flags = translate(desc.usage_flags);
+			d3d12_desc.Layout = desc.dimension == ResourceDimension::Buffer ? D3D12_TEXTURE_LAYOUT_ROW_MAJOR : D3D12_TEXTURE_LAYOUT_UNKNOWN;
+			d3d12_desc.Flags = translate(desc.usage_flags);
+
+            return d3d12_desc;
+		}
+
+		SizeAndAlignment Device::calculate_resource_size_alignment(const ResourceCreateDesc& desc)
+		{
+            D3D12_RESOURCE_DESC d3d12_desc = create_dx12_resource_desc(desc);
 
             D3D12_RESOURCE_ALLOCATION_INFO alloc_info = device->GetResourceAllocationInfo(0, 1, &d3d12_desc);
             return { alloc_info.SizeInBytes, alloc_info.Alignment };
@@ -319,6 +326,29 @@ namespace sg
 				PoolPIMPL pool;
 				D3D12_HEAP_DESC desc = {};
 				desc.Properties.Type = D3D12_HEAP_TYPE_UPLOAD;
+				desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+				desc.Flags = D3D12_HEAP_FLAG_NONE | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+				desc.SizeInBytes = size;
+				device->CreateHeap(&desc, IID_PPV_ARGS(pool.heap.GetAddressOf()));
+				pool->SetName(L"Upload Heap");
+
+				D3D12MA::VIRTUAL_BLOCK_DESC vbd = {};
+				vbd.Size = desc.SizeInBytes;
+				CHECKHR(D3D12MA::CreateVirtualBlock(&vbd, pool.virtual_block.GetAddressOf()));
+
+				Allocation out_alloc;
+				D3D12MA::VIRTUAL_ALLOCATION_DESC vad = { D3D12MA::VIRTUAL_ALLOCATION_FLAG_NONE, size, alignment };
+				CHECKHR(pool.virtual_block->Allocate(&vad, out_alloc.virtual_allocation_cast(), &out_alloc.offset));
+				out_alloc.virtual_block = pool.virtual_block;
+				out_alloc.heap = pool.heap;
+
+				return SharedPtr<Memory>(new Memory(type, out_alloc));
+            }
+            else if (type == MemoryType::Readback)
+			{
+				PoolPIMPL pool;
+				D3D12_HEAP_DESC desc = {};
+				desc.Properties.Type = D3D12_HEAP_TYPE_READBACK;
 				desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 				desc.Flags = D3D12_HEAP_FLAG_NONE | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
 				desc.SizeInBytes = size;
@@ -585,6 +615,22 @@ namespace sg
             return buffer;
 		}
 
+
+		se::SharedPtr<sg::D3D12::Texture> Device::create_texture(SharedPtr<Memory> memory, u32 size, u32 alignment, const ResourceCreateDesc& resource_desc)
+		{
+			D3D12_RESOURCE_DESC d3d12_desc = create_dx12_resource_desc(resource_desc);
+
+			Allocation& d3d12_alloc = memory->alloc;
+			const D3D12_RESOURCE_STATES resource_state = get_d3d12_resource_read_state(BufferType::Texture);
+			ComPtr<ID3D12Resource> d3d12_texture;
+			CHECKHR(device6->CreatePlacedResource(d3d12_alloc.heap.Get(), d3d12_alloc.offset, &d3d12_desc, resource_state, nullptr, IID_PPV_ARGS(d3d12_texture.GetAddressOf())));
+
+            bool uav_access = (resource_desc.usage_flags & ResourceUsageFlags::UnorderedAccess) == ResourceUsageFlags::UnorderedAccess;
+			SharedPtr<Texture> buffer(new Texture(size, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
+			buffer->memory = memory;
+			buffer->resource = d3d12_texture;
+			return buffer;
+		}
 
 		sg::ConstantBufferView Device::create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size)
 		{

@@ -1,3 +1,4 @@
+// Introduction to a Resource in Direct3D 11 https://learn.microsoft.com/en-us/windows/win32/direct3d11/overviews-direct3d-11-resources-intro
 Buffer<float4> buffer;
 Buffer<unorm float4> buffer_unorm;
 Buffer<snorm float4> buffer_snorm;
@@ -5,6 +6,8 @@ Buffer<snorm float4> buffer_snorm;
 StructuredBuffer<float4> structured_buffer;
 StructuredBuffer<unorm float4> structured_buffer_unorm;
 StructuredBuffer<snorm float4> structured_buffer_snorm;
+
+ByteAddressBuffer byte_buffer;
 
 RWStructuredBuffer<uint> output_uav : register(u0);
 

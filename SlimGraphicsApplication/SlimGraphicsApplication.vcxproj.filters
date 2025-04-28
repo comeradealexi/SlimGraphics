@@ -159,5 +159,8 @@
     <Text Include="ModelViewer_PixelMeshShader.hlsl">
       <Filter>Shaders</Filter>
     </Text>
+    <Text Include="BufferTypesComputeShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
   </ItemGroup>
 </Project>

@@ -36,6 +36,7 @@ namespace sg
 			void imgui_init(u32 num_frames, DXGI_FORMAT format, DXGI_FORMAT depth_format, CommandQueue* command_queue);
 			void imgui_render(CommandList* command_list);
 
+			D3D12_RESOURCE_DESC create_dx12_resource_desc(const ResourceCreateDesc& desc);
 			SizeAndAlignment calculate_resource_size_alignment(const ResourceCreateDesc& desc);
 
 			SharedPtr<Memory> allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment);
@@ -60,6 +61,7 @@ namespace sg
 			Ptr<Pipeline> create_pipeline(const PipelineDesc::Mesh& pipeline_desc, const BindingDesc& binding_desc);
 
 			SharedPtr<Buffer> create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type, bool uav_access);
+			SharedPtr<Texture> create_texture(SharedPtr<Memory> memory, u32 size, u32 alignment, const ResourceCreateDesc& resource_desc);
 
 			ConstantBufferView create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size);
 			ShaderResourceView create_shader_resource_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count);
