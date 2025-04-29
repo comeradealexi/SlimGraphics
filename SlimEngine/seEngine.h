@@ -32,7 +32,7 @@ namespace se
 		void Assert(const char* file, const char* line, const char* function, const char* asrt, const char* fmt, ...);
 	}
 }
-#define seAssert(expression, fmt, ...) do { if ((expression) == false) { se::Dbg::Assert(__FILE__, LINE_STRING, __FUNCTION__, STRINGIZE(expression) , fmt, ## __VA_ARGS__); __debugbreak(); } } while (0)
+#define seAssert(expression, fmt, ...) do { if (!(expression)) { se::Dbg::Assert(__FILE__, LINE_STRING, __FUNCTION__, STRINGIZE(expression) , fmt, ## __VA_ARGS__); __debugbreak(); } } while (0)
 #else
 #define seAssert(...)
 #endif

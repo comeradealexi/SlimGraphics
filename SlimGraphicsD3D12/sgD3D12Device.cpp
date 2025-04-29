@@ -632,6 +632,51 @@ namespace sg
 			return buffer;
 		}
 
+
+        RenderTargetView Device::create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format /*= DXGI_FORMAT_UNKNOWN*/)
+		{
+            seAssert(texture.get(), "Invalid texture pointer");
+
+            RenderTargetView rtv;
+            rtv.texture_resource = texture;
+            rtv.rtv = rtv_descriptor_heap->allocate();
+			CD3DX12_CPU_DESCRIPTOR_HANDLE rtv_handle(rtv_descriptor_heap->get_cpu_handle_heap_start(), rtv.rtv, rtv_descriptor_heap->get_increment_size());
+
+            D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
+            D3D12_RENDER_TARGET_VIEW_DESC* rtv_desc_ptr = format == DXGI_FORMAT_UNKNOWN ? (D3D12_RENDER_TARGET_VIEW_DESC*)nullptr : &rtv_desc;
+            if (rtv_desc_ptr)
+            {
+                rtv_desc_ptr->Format = format;
+                seAssert(false, "Code path not texted and rtv_desc not filled out fully");
+            }
+
+			device->CreateRenderTargetView(texture->resource.Get(), rtv_desc_ptr, rtv_handle);
+            return rtv;
+		}
+
+
+        DepthStencilView Device::create_depth_stencil_view(SharedPtr<Texture>& texture, DXGI_FORMAT format /*= DXGI_FORMAT_UNKNOWN*/)
+		{
+			seAssert(texture.get(), "Invalid texture pointer");
+
+			DepthStencilView dsv;
+            dsv.texture_resource = texture;
+            dsv.dsv = dsv_descriptor_heap->allocate();
+			CD3DX12_CPU_DESCRIPTOR_HANDLE dsv_handle(dsv_descriptor_heap->get_cpu_handle_heap_start(), dsv.dsv, dsv_descriptor_heap->get_increment_size());
+
+			D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
+            D3D12_DEPTH_STENCIL_VIEW_DESC* dsv_desc_ptr = format == DXGI_FORMAT_UNKNOWN ? (D3D12_DEPTH_STENCIL_VIEW_DESC*)nullptr : &dsv_desc;
+			if (dsv_desc_ptr)
+			{
+                dsv_desc_ptr->Format = format;
+				seAssert(false, "Code path not texted and rtv_desc not filled out fully");
+			}
+
+			device->CreateDepthStencilView(texture->resource.Get(), dsv_desc_ptr, dsv_handle);
+			return dsv;
+
+		}
+
 		sg::ConstantBufferView Device::create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size)
 		{
 			seAssert(offset % D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT == 0, "Invalid offset");

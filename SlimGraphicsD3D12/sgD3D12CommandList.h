@@ -44,6 +44,7 @@ namespace sg
 
 			void clear_render_target_view(RenderTargetView rtv, float4 colour);
 
+			void clear_depth_stencil_view(DepthStencilView& dsv, bool clear_depth, bool clear_stencil, float depth_value = 1.0f, u8 stencil_value = 0);
 			ComPtr<ID3D12GraphicsCommandList6> get() { return command_list; };
 
 		private:

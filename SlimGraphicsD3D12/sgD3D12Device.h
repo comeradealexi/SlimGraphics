@@ -63,6 +63,12 @@ namespace sg
 			SharedPtr<Buffer> create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type, bool uav_access);
 			SharedPtr<Texture> create_texture(SharedPtr<Memory> memory, u32 size, u32 alignment, const ResourceCreateDesc& resource_desc);
 
+			// DXGI_FORMAT_UNKNOWN means use default target format
+			RenderTargetView create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN);
+
+			// DXGI_FORMAT_UNKNOWN means use default target format
+			DepthStencilView create_depth_stencil_view(SharedPtr<Texture>& texture, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN);
+
 			ConstantBufferView create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size);
 			ShaderResourceView create_shader_resource_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count);
 			UnorderedAccessView create_unordered_access_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count);

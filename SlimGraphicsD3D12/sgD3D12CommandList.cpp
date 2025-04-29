@@ -205,12 +205,13 @@ namespace sg
 			}
 
 			CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(global_rtv_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), render_targets->rtv, descriptor_increment_size_rtv);
-			//CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+			CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle;
 			if (depth_stencil)
 			{
-				seAssert(false, "TODO");
+				dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(global_dsv_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), depth_stencil->dsv, descriptor_increment_size_dsv);
 			}
-			command_list->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+
+			command_list->OMSetRenderTargets(1, &rtvHandle, FALSE, depth_stencil ? &dsvHandle : nullptr);
 			command_list->RSSetViewports(1, &d3d_viewport);
 			command_list->RSSetScissorRects(1, &d3d_scissor);
 		}
@@ -382,6 +383,15 @@ namespace sg
 			command_list->ClearRenderTargetView(rtvHandle, colour.data(), 0, nullptr);
 		}
 
+		void CommandList::clear_depth_stencil_view(DepthStencilView& dsv, bool clear_depth, bool clear_stencil, float depth_value /*= 1.0f*/, u8 stencil_value /*= 0*/ )
+		{
+			CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(global_dsv_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), dsv.dsv, descriptor_increment_size_dsv);
+			D3D12_CLEAR_FLAGS clear_flags = {};
+			clear_flags |= clear_depth ? D3D12_CLEAR_FLAG_DEPTH : (D3D12_CLEAR_FLAGS)0;
+			clear_flags |= clear_stencil ? D3D12_CLEAR_FLAG_STENCIL : (D3D12_CLEAR_FLAGS)0;
+
+			command_list->ClearDepthStencilView(dsvHandle, clear_flags, depth_value, stencil_value, 0, nullptr);
+		}
 
 		void CommandList::flush_bound_uavs()
 		{

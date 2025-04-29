@@ -116,6 +116,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		SizeAndAlignment sal = device->calculate_resource_size_alignment(rd);
 		dsv_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Target, sal.size, sal.alignment);
 		dsv_tex = device->create_texture(dsv_mem, sal.size, sal.alignment, rd);
+		dsv = device->create_depth_stencil_view(dsv_tex);
 	}
 
 	//Pipeline
@@ -314,6 +315,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				float4 colour = { 0.0f,1.0f,0.0f,1.0f };
 				command_buffer->clear_render_target_view(rtvs[current_frame_idx], colour);
 			}
+			command_buffer->clear_depth_stencil_view(dsv, true, false);
 			{
 				command_buffer->copy_buffer_to_buffer(cbfr.get(), upload_buffer.get());
 			}
@@ -348,11 +350,17 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				model->Render(command_buffer.get(), cbv_cam, cbv_model);
 #endif
 			}
+			command_buffer->end_geometry_pass();
+
+			command_buffer->start_geometry_pass(1, &rtvs[current_frame_idx], vp, sc, true, &dsv);
 			{ // Model Viewer
 				sg::ConstantBufferView cbv_cam = linear_cb->AllocateAndWrite<ShaderStructs::CameraData>(camera.GetCameraShaderData());
 
 				model_viewer->Render(*command_buffer, cbv_cam, frame_upload_heap, *linear_cb);
 			}
+			command_buffer->end_geometry_pass();
+
+			command_buffer->start_geometry_pass(1, &rtvs[current_frame_idx], vp, sc, true);
 			{
 				ImGui::Render();
 				device->imgui_render(command_buffer.get());
