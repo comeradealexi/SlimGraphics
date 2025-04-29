@@ -22,11 +22,15 @@ struct VS_INPUT
 {
     float3 position : POSITION;
     float3 colour : COLOR0;
+    float2 uvs : TEXCOORD0;
+    float3 normals : NORMAL;
 };
 struct PS_INPUT
 {
     float4 position : SV_POSITION;
     float3 colour : COLOR0;
+    float2 uvs : TEXCOORD0;
+    float3 normals : NORMAL;
     
 #ifdef MESH_SHADER
     uint MeshletIndex : COLOR1;
@@ -38,9 +42,9 @@ struct Vertex
 {
     float3 position;
     float3 colour;
-    float2 uv;
-    float3 normal;
-    float3 tangent;
+    float2 uvs;
+    float3 normals;
+    float3 tangents;
 };
 
 struct Meshlet
@@ -144,9 +148,9 @@ void MSMain(
             //}
             //else
             {
-                verts[gtid].position = float4(0, 0, 0, 0);
-                verts[gtid].colour = float3(0, 0, 0);
-                verts[gtid].MeshletIndex = gid;
+                //verts[gtid].position = float4(0, 0, 0, 0);
+                //verts[gtid].colour = float3(0, 0, 0);
+                //verts[gtid].MeshletIndex = gid;
 
                 #if 1
                 uint vsize, vnum;
@@ -163,9 +167,14 @@ void MSMain(
                     float4 outpos;
                     outpos = mul(float4(v.position, 1.0f), model.model_matrix);
                     outpos = mul(outpos, camera.view_projection_matrix);
+                    
+                    float3 outnormals;
+                    outnormals = normalize(mul(v.normals, (float3x3) model.model_matrix));
         
                     verts[gtid].position = outpos;
                     verts[gtid].colour = v.colour;
+                    verts[gtid].uvs = v.uvs;
+                    verts[gtid].normals = outnormals;
                     verts[gtid].MeshletIndex = gid;
 
                 }
@@ -207,7 +216,8 @@ PS_INPUT VSMain(uint id : SV_VertexID)
     //psOut.UVs = uv;
     psOut.colour = float3(0,0,0);
     psOut.position = float4(uv * float2(2, -2) + float2(-1, 1), 0, 1);
-    
+    psOut.uvs = uv;
+    psOut.normals = float3(0, 0, -1);
     return psOut;
 
 }
@@ -217,6 +227,9 @@ PS_INPUT VSMain(uint id : SV_VertexID)
     PS_INPUT psOut;
 	//psOut.Normal = float3(0, 1, 0);
     psOut.colour = float3(0,0,0);
+    psOut.uvs = float2(0,0);
+    psOut.normals = float3(0,0,-1);
+
 	if (id == 1)
 	{
 		psOut.position = float4(-1, -1, 1, 1);
@@ -259,8 +272,11 @@ PS_INPUT VSMain(VS_INPUT vs_in, uint id : SV_VertexID)
     result.position = mul(float4(vs_in.position, 1.0f), model.model_matrix);
     result.position = mul(result.position, camera.view_projection_matrix);
 
+    result.normals = normalize(mul(vs_in.normals, (float3x3)model.model_matrix));
+
     result.colour = vs_in.colour;
-    
+    result.uvs = vs_in.uvs;
+
     if (model.shading_mode == SHADING_MODE_VERTEXORDER)
     {
         float total_prims = (model.primitive_count * 3) * model.vertex_shading_mod;
@@ -363,7 +379,7 @@ float4 PSMain(PS_INPUT input
         return ShadePixelOrder();
     }
     
-        return float4(input.colour.xyz, 1);
+    return float4(input.colour.xyz, 1) * abs(dot(float3(0,0,1), input.normals));
 }
 
 /*

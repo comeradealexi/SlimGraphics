@@ -223,6 +223,8 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	if (ImGui::CollapsingHeader("Pipeline"))
 	{
 		recreate_pipeline |= ImGui::Checkbox("Wireframe", &render_wireframe);
+		recreate_pipeline |= ImGui::Checkbox("Depth Enable", &depth_enable);
+		recreate_pipeline |= ImGui::Checkbox("Depth Write", &depth_write);
 		recreate_pipeline |= ImGui::Combo("Cull Mode", &cull_mode, "Back\0Front\0None\0", 3);
 	}
 	
@@ -341,9 +343,9 @@ void ModelViewer::CreatePipeline()
 	pipeline_desc.pixel_shader = shader_pixel.get();
 	pipeline_desc.render_target_count = 1;
 	pipeline_desc.render_target_format_list[0] = render_target_format;
-	pipeline_desc.depth_stencil_format = DXGI_FORMAT_D32_FLOAT;
-	pipeline_desc.depth_stencil_desc.depth_enable = true;
-	pipeline_desc.depth_stencil_desc.depth_write = true;
+	pipeline_desc.depth_stencil_format = depth_stencil_format;
+	pipeline_desc.depth_stencil_desc.depth_enable = depth_enable;
+	pipeline_desc.depth_stencil_desc.depth_write = depth_write;
 	pipeline_desc.rasterizer_desc.fill_mode = render_wireframe ? Rasterizer::FillMode::Wireframe : Rasterizer::FillMode::Solid;
 	const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
 	pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
@@ -366,9 +368,9 @@ void ModelViewer::CreatePipeline()
 		mesh_shading.pipeline_desc.pixel_shader = mesh_shading.shader_pixel.get();
 		mesh_shading.pipeline_desc.render_target_count = 1;
 		mesh_shading.pipeline_desc.render_target_format_list[0] = render_target_format;
-		mesh_shading.pipeline_desc.depth_stencil_format = DXGI_FORMAT_D32_FLOAT;
-		mesh_shading.pipeline_desc.depth_stencil_desc.depth_enable = true;
-		mesh_shading.pipeline_desc.depth_stencil_desc.depth_write = true;
+		mesh_shading.pipeline_desc.depth_stencil_format = depth_stencil_format;
+		mesh_shading.pipeline_desc.depth_stencil_desc.depth_enable = depth_enable;
+		mesh_shading.pipeline_desc.depth_stencil_desc.depth_write = depth_write;
 		mesh_shading.pipeline_desc.rasterizer_desc.fill_mode = render_wireframe ? Rasterizer::FillMode::Wireframe : Rasterizer::FillMode::Solid;
 		const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
 		mesh_shading.pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
