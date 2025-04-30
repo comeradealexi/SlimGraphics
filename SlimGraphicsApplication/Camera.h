@@ -1,5 +1,6 @@
 #pragma once
 #include <DirectXMath.h>
+#include <DirectXCollision.h>
 #include "ShaderSharedStructures.h"
 #include <Win32/seGameInput.h>
 
@@ -17,10 +18,16 @@ public:
 	void SetPosition(DirectX::XMFLOAT3A pos) { position = pos; }
 	const ShaderStructs::CameraData& GetCameraShaderData() const { return shader_data; }
 
+	bool IsInFrustum_Accurate(const DirectX::BoundingSphere& sphere) const;
+	bool IsInFrustum_Fast(const DirectX::BoundingSphere& sphere) const;
+
 private:
 	ShaderStructs::CameraData shader_data;
 
 private:
+	DirectX::BoundingFrustum bounding_frustum;
+	DirectX::BoundingSphere bounding_sphere;
+
 	ProjectionType projection_type = ProjectionType::Perspective;
 	bool imgui_perspective = true;
 

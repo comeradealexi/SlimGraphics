@@ -227,6 +227,17 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		recreate_pipeline |= ImGui::Checkbox("Depth Write", &depth_write);
 		recreate_pipeline |= ImGui::Combo("Cull Mode", &cull_mode, "Back\0Front\0None\0", 3);
 	}
+
+	if (ImGui::CollapsingHeader("Culling"))
+	{
+		ImGui::Checkbox("Accurate Culling", &cpu_culling.accurate_cull_check);
+		ImGui::Checkbox("Cull All", &cpu_culling.cull_all);
+		ImGui::Checkbox("Cull None", &cpu_culling.cull_none);
+		ImGui::InputInt("Passed", &cpu_culling.stat_passed, 1, 100, ImGuiInputTextFlags_ReadOnly);
+		ImGui::InputInt("Failed", &cpu_culling.stat_failed, 1, 100, ImGuiInputTextFlags_ReadOnly);
+		cpu_culling.stat_passed	= 0;
+		cpu_culling.stat_failed	= 0;
+	}
 	
 	ImGui::End();
 
@@ -251,7 +262,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 
 }
 
-void ModelViewer::Render(CommandList& command_list, ConstantBufferView& cbv_camera, Ptr<UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer)
+void ModelViewer::Render(CommandList& command_list, const Camera& camera, ConstantBufferView& cbv_camera, Ptr<UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer)
 {
 	if (recreate_model)
 	{
@@ -274,6 +285,9 @@ void ModelViewer::Render(CommandList& command_list, ConstantBufferView& cbv_came
 			int render_idx = 0;
 			for (Model::MeshPart& mesh_part : model->GetMeshParts())
 			{
+				if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), mesh_part))
+					continue;
+
 				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 1);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_unique_vertex_indices_view_srv, 2);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_primitive_indices_view_srv, 3);
@@ -312,6 +326,9 @@ void ModelViewer::Render(CommandList& command_list, ConstantBufferView& cbv_came
 			int render_idx = 0;
 			for (Model::MeshPart& mesh_part : model->GetMeshParts())
 			{
+				if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), mesh_part))
+					continue;
+
 				model_data.primitive_count = mesh_part.draw_count / 3;
 				model_data.vertex_count = mesh_part.vertex_count;
 				sg::ConstantBufferView cbv_model = cbuffer.AllocateAndWrite(model_data);
@@ -397,4 +414,34 @@ void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap)
 			render_model_bool_array[i] = true;
 		}
 	}
+}
+
+bool ModelViewer::MeshPartVisible(const Camera& camera, DirectX::XMFLOAT3 position, Model::MeshPart& mesh_part)
+{
+	float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z));
+	DirectX::BoundingSphere bs(position, radius);
+	bool visible = false;
+
+	if (cpu_culling.cull_all)
+	{
+		visible = false;
+	}
+	else if (cpu_culling.cull_none)
+	{
+		visible = true;
+	}
+	else
+	{
+		visible = cpu_culling.accurate_cull_check ? camera.IsInFrustum_Accurate(bs) : camera.IsInFrustum_Fast(bs);
+	}
+
+	if (visible)
+	{
+		cpu_culling.stat_passed++;
+	}
+	else
+	{
+		cpu_culling.stat_failed++;
+	}
+	return visible;
 }

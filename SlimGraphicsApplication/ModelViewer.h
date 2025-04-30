@@ -12,9 +12,10 @@ public:
 	ModelViewer(sg::SharedPtr<sg::Device>& _device);
 	
 	void Update(float delta_time, float total_time, const Camera& camera);
-	void Render(sg::CommandList& command_list, sg::ConstantBufferView& cbv_camera, sg::Ptr<UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer);
+	void Render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer);
 	void CreatePipeline();
 	void CreateModel(sg::Ptr<UploadHeap>& upload_heap);
+	bool MeshPartVisible(const Camera& camera, DirectX::XMFLOAT3 position, Model::MeshPart& mesh_part);
 
 private:
 	const DXGI_FORMAT render_target_format;
@@ -88,5 +89,15 @@ private:
 
 
 	} mesh_shading;
+
+	struct CPUCulling
+	{
+		bool accurate_cull_check = true;
+		bool cull_all = false;
+		bool cull_none = false;
+
+		int stat_passed = 0;
+		int stat_failed = 0;
+	} cpu_culling;
 };
 

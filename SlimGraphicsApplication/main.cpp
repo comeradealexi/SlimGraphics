@@ -356,7 +356,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			{ // Model Viewer
 				sg::ConstantBufferView cbv_cam = linear_cb->AllocateAndWrite<ShaderStructs::CameraData>(camera.GetCameraShaderData());
 
-				model_viewer->Render(*command_buffer, cbv_cam, frame_upload_heap, *linear_cb);
+				model_viewer->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb);
 			}
 			command_buffer->end_geometry_pass();
 

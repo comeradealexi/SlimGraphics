@@ -229,6 +229,7 @@
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="LinearConstantBuffer.cpp" />
+    <ClCompile Include="LineRenderer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="ModelViewer.cpp" />
@@ -243,6 +244,7 @@
     <ClInclude Include="AverageTimer.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="LinearConstantBuffer.h" />
+    <ClInclude Include="LineRenderer.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="ModelViewer.h" />
     <ClInclude Include="ShaderSharedStructures.h" />

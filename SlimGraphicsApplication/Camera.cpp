@@ -15,7 +15,7 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 		direction = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 		direction = XMVector3Transform(direction, XMMatrixRotationRollPitchYaw(0.0f, camera_rot_y, camera_rot_x));
 		direction = XMVector3Normalize(direction);
-
+		
 		XMVECTOR Eye = XMVectorSet(position.x, position.y, position.z, 0.0f);
 		XMVECTOR At = XMVectorSet(
 			position.x + XMVectorGetX(direction),
@@ -31,6 +31,12 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 		{
 			shader_data.projection_matrix = XMMatrixOrthographicLH(ortho_view_width, ortho_view_height, ortho_near_z, ortho_far_z);
 		}
+
+		BoundingFrustum::CreateFromMatrix(bounding_frustum, shader_data.projection_matrix);
+		// The frustum (near plane, far plane, fov) is in view space so multiplying it with an inverse view matrix will move it into world space
+		DirectX::XMMATRIX inverseViewMatrix = DirectX::XMMatrixInverse(nullptr, shader_data.view_matrix);
+		bounding_frustum.Transform(bounding_frustum, inverseViewMatrix);
+		BoundingSphere::CreateFromFrustum(bounding_sphere, bounding_frustum);
 
 		shader_data.camera_position = { position.x, position.y, position.z, 0.0f };
 		XMStoreFloat4(&shader_data.camera_direction, XMVector3Normalize(XMVectorSubtract(Eye, At)));
@@ -153,4 +159,14 @@ void Camera::SetWidthHeight(float _width, float _height)
 {
 	width = _width;
 	height = _height;
+}
+
+bool Camera::IsInFrustum_Accurate(const DirectX::BoundingSphere& sphere) const
+{
+	return bounding_frustum.Intersects(sphere);
+}
+
+bool Camera::IsInFrustum_Fast(const DirectX::BoundingSphere& sphere) const
+{
+	return bounding_sphere.Intersects(sphere);
 }

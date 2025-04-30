@@ -24,3 +24,6 @@
 [submodule "SubModules/DirectX-SDK"]
 	path = SubModules/DirectX-SDK
 	url = https://github.com/apitrace/dxsdk
+[submodule "SubModules/DirectXTK12"]
+	path = SubModules/DirectXTK12
+	url = https://github.com/microsoft/DirectXTK12
