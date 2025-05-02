@@ -78,7 +78,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;..\SubModules\DirectXTK12\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -111,7 +111,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;..\SubModules\DirectXTK12\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -146,7 +146,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;..\SubModules\DirectXTK12\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -183,7 +183,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;..\SubModules\DirectXTK12\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -213,6 +213,9 @@
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ProjectReference Include="..\DirectXTK12\DirectXTK12.vcxproj">
+      <Project>{67d7cd39-7d3c-4f73-aea8-1256a5a9d1e9}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\ImGui\ImGui.vcxproj">
       <Project>{f9d9bd80-2278-421c-abda-bfa4e5f3f81a}</Project>
     </ProjectReference>
@@ -229,7 +232,6 @@
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="LinearConstantBuffer.cpp" />
-    <ClCompile Include="LineRenderer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="ModelViewer.cpp" />
@@ -244,7 +246,6 @@
     <ClInclude Include="AverageTimer.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="LinearConstantBuffer.h" />
-    <ClInclude Include="LineRenderer.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="ModelViewer.h" />
     <ClInclude Include="ShaderSharedStructures.h" />

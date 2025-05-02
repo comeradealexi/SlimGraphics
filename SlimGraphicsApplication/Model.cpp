@@ -13,10 +13,12 @@
 
 #include <meshoptimizer.h>
 
+#include <GeometricPrimitive.h>
+
 using namespace DirectX;
 using namespace sg;
 
-static DirectX::XMFLOAT3 SetMaxIndividual(const DirectX::XMFLOAT3& a, DirectX::XMFLOAT3& b)
+static DirectX::XMFLOAT3 SetAbsMax(const DirectX::XMFLOAT3& a, DirectX::XMFLOAT3& b)
 {
 	DirectX::XMFLOAT3 o;
 
@@ -24,6 +26,24 @@ static DirectX::XMFLOAT3 SetMaxIndividual(const DirectX::XMFLOAT3& a, DirectX::X
 	o.y = (fabsf(a.y) > fabsf(b.y)) ? fabsf(a.y) : fabsf(b.y);
 	o.z = (fabsf(a.z) > fabsf(b.z)) ? fabsf(a.z) : fabsf(b.z);
 
+	return o;
+}
+
+static DirectX::XMFLOAT3 Max(const DirectX::XMFLOAT3& a, DirectX::XMFLOAT3& b)
+{
+	DirectX::XMFLOAT3 o;
+	o.x = std::max<float>(a.x, b.x);
+	o.y = std::max<float>(a.y, b.y);
+	o.z = std::max<float>(a.z, b.z);
+	return o;
+}
+
+static DirectX::XMFLOAT3 Min(const DirectX::XMFLOAT3& a, DirectX::XMFLOAT3& b)
+{
+	DirectX::XMFLOAT3 o;
+	o.x = std::min<float>(a.x, b.x);
+	o.y = std::min<float>(a.y, b.y);
+	o.z = std::min<float>(a.z, b.z);
 	return o;
 }
 
@@ -68,17 +88,30 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					v.Tangent = aMesh->mTangents ? XMFLOAT3(&aMesh->mTangents[vert_idx].x) : XMFLOAT3(0, 0, 0);
 					mesh.vertices.push_back(v);
 					//mesh.m_verticesCPU.push_back(v);
-					max_extent = SetMaxIndividual(max_extent, v.Position);
-					mesh.max_extent = SetMaxIndividual(mesh.max_extent, v.Position);
+					max_extent = SetAbsMax(max_extent, v.Position);
+					mesh.max_extent = SetAbsMax(mesh.max_extent, v.Position);
+
+					bounding_box_max = Max(bounding_box_max, v.Position);
+					mesh.bounding_box_max = Max(mesh.bounding_box_max, v.Position);
+
+					bounding_box_min = Min(bounding_box_min, v.Position);
+					mesh.bounding_box_min = Min(mesh.bounding_box_min, v.Position);
 				}
 
 				mesh.vertex_count = aMesh->mNumVertices;
 
 				for (uint32_t face_idx = 0; face_idx < aMesh->mNumFaces; face_idx++)
 				{
-					mesh.indices.push_back(aMesh->mFaces[face_idx].mIndices[0]);
-					mesh.indices.push_back(aMesh->mFaces[face_idx].mIndices[1]);
-					mesh.indices.push_back(aMesh->mFaces[face_idx].mIndices[2]);
+					// For some reason we're getting a face idx through where mNumIndices is 2! But the documentation lies! 
+					// "Together with the #aiProcess_Triangulate flag you can then be sure that *#aiFace::mNumIndices is always 3."
+					
+					//seAssert(aMesh->mFaces[face_idx].mNumIndices == 3, "Expected 3 indicies per face...");					
+					if (aMesh->mFaces[face_idx].mNumIndices == 3)
+					{
+						mesh.indices.push_back(aMesh->mFaces[face_idx].mIndices[0]);
+						mesh.indices.push_back(aMesh->mFaces[face_idx].mIndices[1]);
+						mesh.indices.push_back(aMesh->mFaces[face_idx].mIndices[2]);
+					}
 				}
 
 				if (init_data.meshopt_simplification)
@@ -227,10 +260,15 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 			{
 				float position_multiplier = 1.0f / std::max(std::max(max_extent.x, max_extent.y), max_extent.z);
 				max_extent = {};
+				bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };
+				bounding_box_max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+
 				for (uint32_t mesh_idx = 0; mesh_idx < mesh_parts.size(); mesh_idx++)
 				{
 					MeshPart& mesh = mesh_parts[mesh_idx];
 					mesh.max_extent = {};
+					mesh.bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };
+					mesh.bounding_box_max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 
 					for (Vertex& v : mesh.vertices)
 					{
@@ -238,8 +276,14 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 						v.Position.y *= position_multiplier;
 						v.Position.z *= position_multiplier;
 
-						max_extent = SetMaxIndividual(max_extent, v.Position);
-						mesh.max_extent = SetMaxIndividual(mesh.max_extent, v.Position);
+						max_extent = SetAbsMax(max_extent, v.Position);
+						mesh.max_extent = SetAbsMax(mesh.max_extent, v.Position);
+
+						bounding_box_max = Max(bounding_box_max, v.Position);
+						mesh.bounding_box_max = Max(mesh.bounding_box_max, v.Position);
+
+						bounding_box_min = Min(bounding_box_min, v.Position);
+						mesh.bounding_box_min = Min(mesh.bounding_box_min, v.Position);
 					}
 				}
 			}

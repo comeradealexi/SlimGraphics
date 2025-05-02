@@ -128,6 +128,10 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::Checkbox("Rotate Model", &rotate_model);
 		ImGui::SeparatorText("Model Info:");
 		{
+			ImGui::Text("Bounds: %3.3f, %3.3f, %3.3f", model->max_extent.x, model->max_extent.y, model->max_extent.z);
+			ImGui::Text("Bounding Box Min: %3.3f, %3.3f, %3.3f", model->bounding_box_min.x, model->bounding_box_min.y, model->bounding_box_min.z);
+			ImGui::Text("Bounding Box Max: %3.3f, %3.3f, %3.3f", model->bounding_box_max.x, model->bounding_box_max.y, model->bounding_box_max.z);
+
 			size_t model_info_idx = 0;
 			for (Model::MeshPart& mesh_part : model->GetMeshParts())
 			{
@@ -138,6 +142,9 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 				ImGui::Text("Triangles: %u", mesh_part.draw_count / 3);
 				ImGui::Text("Vertex Count: %u", mesh_part.vertex_count);
 				ImGui::Text("Bounds: %3.3f, %3.3f, %3.3f", mesh_part.max_extent.x, mesh_part.max_extent.y, mesh_part.max_extent.z);
+				ImGui::Text("Bounding Box Min: %3.3f, %3.3f, %3.3f", mesh_part.bounding_box_min.x, mesh_part.bounding_box_min.y, mesh_part.bounding_box_min.z);
+				ImGui::Text("Bounding Box Max: %3.3f, %3.3f, %3.3f", mesh_part.bounding_box_max.x, mesh_part.bounding_box_max.y, mesh_part.bounding_box_max.z);
+
 				ImGui::PopID();
 				ImGui::PopID();
 				model_info_idx++;

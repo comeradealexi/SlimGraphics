@@ -102,11 +102,24 @@ public:
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
 		MeshShadingData mesh_shader_data;
+
+		DirectX::XMFLOAT3 bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };
+		DirectX::XMFLOAT3 bounding_box_max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 	};
 
 	struct Material
 	{
 
+	};
+
+	struct DebugModels
+	{
+		struct DrawInfo { sg::u32 draw_count = 0, vertex_offset = 0, index_offset = 0; };
+		std::vector<DrawInfo> cubes;
+		std::vector<DrawInfo> spheres_simple;
+		std::vector<DrawInfo> spheres_complex;
+		sg::SharedPtr<sg::Buffer> vb;
+		sg::SharedPtr<sg::Buffer> ib;
 	};
 
 	void SetPipeline(sg::Ptr<sg::Pipeline> new_pipeline);
@@ -125,6 +138,11 @@ private:
 	sg::IndexBufferView ibv;
 	std::vector<MeshPart> mesh_parts;
 	std::vector<Material> materials;
+	public:
 	DirectX::XMFLOAT3 max_extent = {};
+	DirectX::XMFLOAT3 bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };
+	DirectX::XMFLOAT3 bounding_box_max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+
+	DebugModels debug_models;
 };
 

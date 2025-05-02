@@ -42,9 +42,6 @@
     <ClCompile Include="ModelViewer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="LineRenderer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\SlimEngine\seEngine.h">
@@ -82,9 +79,6 @@
     </ClInclude>
     <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXPackedVector.h">
       <Filter>Submodules\DirectXMath</Filter>
-    </ClInclude>
-    <ClInclude Include="LineRenderer.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
