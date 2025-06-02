@@ -42,6 +42,9 @@
     <ClCompile Include="ModelViewer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="DebugDraw.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\SlimEngine\seEngine.h">
@@ -79,6 +82,9 @@
     </ClInclude>
     <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXPackedVector.h">
       <Filter>Submodules\DirectXMath</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugDraw.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -160,6 +166,9 @@
       <Filter>Shaders</Filter>
     </Text>
     <Text Include="BufferTypesComputeShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="DebugWireframeShader.hlsl">
       <Filter>Shaders</Filter>
     </Text>
   </ItemGroup>

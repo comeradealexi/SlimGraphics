@@ -1,0 +1,114 @@
+#include "DebugDraw.h"
+#include <seEngineBasicFileIO.h>
+
+using namespace sg;
+
+DebugDraw::DebugDraw(sg::Device& device)
+{
+	const sg::u32 max_vertex_size = 3 * MAX_TRIANGLES * sizeof(VertexFormat);
+	const sg::u32 max_index_size = 3 * MAX_TRIANGLES * sizeof(uint16_t);
+	const sg::u32 total_byte_size = max_vertex_size + max_index_size;
+
+	for (auto& upload_buffer : upload_buffers)
+	{
+		SharedPtr<Memory> upload_heap = device.allocate_memory(MemoryType::Upload, MemorySubType::None, total_byte_size, 64ull * 1024);
+		upload_buffer = device.create_buffer(upload_heap, total_byte_size, 64ull * 1024, BufferType::Upload, false);
+	}
+
+	// VB
+	{
+		SharedPtr<Memory> vb_mem = device.allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, max_vertex_size, 64ull * 1024);
+		gpu_vertex_buffer = device.create_buffer(vb_mem, max_vertex_size, 64ull * 1024, BufferType::Vertex, false);
+		gpu_vertex_buffer_view = device.create_vertex_buffer_view(gpu_vertex_buffer, 0, max_vertex_size, sizeof(VertexFormat));
+	}
+
+	// IB
+	{
+		SharedPtr<Memory> ib_mem = device.allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, max_index_size, 64ull * 1024);
+		gpu_index_buffer = device.create_buffer(ib_mem, max_index_size, 64ull * 1024, BufferType::Index, false);
+		gpu_index_buffer_view = device.create_index_buffer_view(gpu_index_buffer, 0, max_index_size, DXGI_FORMAT_R16_UINT);
+	}
+
+	// Shaders
+	{
+		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\DebugWireframeShader_VertexShader.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\DebugWireframeShader_PixelShader.PC_DXC");
+		shader_vertex = device.create_vertex_shader(vertex_data);
+		shader_pixel = device.create_pixel_shader(pixel_data);
+
+		sg::BindingDesc pipeline_binding_desc = {}; 
+		pipeline_binding_desc.cbv_binding_count = 1;
+
+		sg::PipelineDesc::Graphics pipeline_desc;
+		pipeline_desc.input_layout = make_input_layout();
+		pipeline_desc.vertex_shader = shader_vertex.get();
+		pipeline_desc.pixel_shader = shader_pixel.get();
+		pipeline_desc.render_target_count = 1;
+		pipeline_desc.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+		pipeline_desc.depth_stencil_desc.depth_enable = false;
+		pipeline_desc.depth_stencil_desc.depth_write = false;
+		pipeline_desc.rasterizer_desc.fill_mode = Rasterizer::FillMode::Wireframe;
+		pipeline_no_depth = device.create_pipeline(pipeline_desc, pipeline_binding_desc);
+		seAssert(pipeline_no_depth != nullptr, "Failed to create pipeline");
+
+		pipeline_desc.depth_stencil_format = DXGI_FORMAT_D32_FLOAT;
+		pipeline_desc.depth_stencil_desc.depth_enable = true;
+		pipeline_depth = device.create_pipeline(pipeline_desc, pipeline_binding_desc);
+		seAssert(pipeline_depth != nullptr, "Failed to pipeline");
+	}
+}
+
+void DebugDraw::DrawSphere(ColourRGBA colour, const DirectX::XMFLOAT3 centre, float diameter /*= 1.0f*/, size_t tessellation /*= 3*/)
+{
+	DirectX::VertexCollection v;
+	DirectX::IndexCollection i;
+	DirectX::ComputeSphere(v, i, diameter, tessellation, true, false);
+
+	DirectX::XMMATRIX transform = DirectX::XMMatrixTranslation(centre.x, centre.y, centre.z);
+
+	draw_list.push_back({ (sg::u32)i.size(), (sg::u32)indices.size(), (sg::u32)vertices.size() });
+
+	indices.insert(indices.end(), i.begin(), i.end());
+	
+	for (size_t i = 0; i < v.size(); i++)
+	{
+		const DirectX::VertexPositionNormalTexture& v1 = v[i];
+		VertexFormat v2;
+		DirectX::XMStoreFloat3(&v2.position, XMVector3Transform(DirectX::XMLoadFloat3(&v1.position), transform));
+		v2.colour = colour;
+		vertices.push_back(v2);
+	}
+}
+
+void DebugDraw::Render(sg::CommandList& command_list, sg::ConstantBufferView& cbv_camera)
+{
+	sg::SharedPtr<sg::Buffer>& upload = upload_buffers[buffer_index];
+
+	const sg::u32 vertex_size = vertices.size() * sizeof(vertices[0]);
+	const sg::u32 index_size = indices.size() * sizeof(indices[0]);
+	upload->write_memory(0, vertices.data(), vertex_size);
+	upload->write_memory(vertex_size, indices.data(), index_size);
+	command_list.copy_buffer_to_buffer(vertex_size, gpu_vertex_buffer.get(), 0, upload.get(), 0);
+	command_list.copy_buffer_to_buffer(index_size, gpu_index_buffer.get(), 0, upload.get(), vertex_size);	
+	
+	command_list.set_pipeline(pipeline_no_depth.get());
+
+	command_list.bind_vertex_buffer(gpu_vertex_buffer_view);
+	command_list.bind_index_buffer(gpu_index_buffer_view);
+
+	Binding b;
+	b.cbv_binding_count = 1;
+	b.set_cbv(cbv_camera, 0);
+	command_list.bind(b, PipelineType::Geometry);
+
+	for (auto d : draw_list)
+	{
+		command_list.draw_indexed_instanced(d.index_count, 1, d.index_offset, d.vertex_offset, 0);
+	}
+	draw_list.clear();
+	vertices.clear();
+	indices.clear();
+
+	buffer_index++;
+	buffer_index = buffer_index % UPLOAD_BUFFER_COUNT;
+}

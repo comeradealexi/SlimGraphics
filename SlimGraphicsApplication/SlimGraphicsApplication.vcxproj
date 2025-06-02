@@ -78,7 +78,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;..\SubModules\DirectXTK12\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;..\SubModules\DirectXTK12\Inc;..\SubModules\DirectXTK12\Src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -111,7 +111,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;..\SubModules\DirectXTK12\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;..\SubModules\DirectXTK12\Inc;..\SubModules\DirectXTK12\Src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -146,7 +146,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;..\SubModules\DirectXTK12\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;..\SubModules\DirectXTK12\Inc;..\SubModules\DirectXTK12\Src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -183,7 +183,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;..\SubModules\DirectXTK12\Inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\SlimEngine;..\SlimGraphicsD3D12;..\SlimGraphicsShared;..\SubModules\DirectX-Headers\include\directx;..\SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\Include\WinPixEventRuntime;..\SubModules\imgui\;..\SubModules\imgui\backends;..\SubModules\implot;..\SubModules\DirectXMath\Inc;..\External\assimp-5.3.1\include;..\SubModules\meshoptimizer\src;..\SubModules\DirectXTK12\Inc;..\SubModules\DirectXTK12\Src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
@@ -231,6 +231,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="DebugDraw.cpp" />
     <ClCompile Include="LinearConstantBuffer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
@@ -245,6 +246,7 @@
     <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXPackedVector.h" />
     <ClInclude Include="AverageTimer.h" />
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="DebugDraw.h" />
     <ClInclude Include="LinearConstantBuffer.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="ModelViewer.h" />
@@ -394,6 +396,11 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="BufferTypesComputeShader.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="DebugWireframeShader.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

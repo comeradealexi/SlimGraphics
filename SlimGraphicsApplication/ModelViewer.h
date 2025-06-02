@@ -5,6 +5,7 @@
 #include "ShaderSharedStructures.h"
 #include "LinearConstantBuffer.h"
 #include "Camera.h"
+#include "DebugDraw.h"
 
 class ModelViewer
 {
@@ -18,6 +19,7 @@ public:
 	bool MeshPartVisible(const Camera& camera, DirectX::XMFLOAT3 position, Model::MeshPart& mesh_part);
 
 private:
+	sg::Ptr<DebugDraw> debug_draw;
 	const DXGI_FORMAT render_target_format;
 	const DXGI_FORMAT depth_stencil_format;
 

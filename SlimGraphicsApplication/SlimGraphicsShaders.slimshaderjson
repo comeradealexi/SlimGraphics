@@ -26,6 +26,10 @@
       {
         "name": "ModelViewer_PixelMeshShader",
         "input_file": "ModelViewer_PixelMeshShader.hlsl"
+      },
+      {
+        "name": "DebugWireframeShader_PixelShader",
+        "input_file": "DebugWireframeShader.hlsl"
       }
     ]
   },
@@ -52,6 +56,10 @@
       {
         "name": "ModelViewer_VertexShaderQuad",
         "input_file": "ModelViewer_VertexShaderQuad.hlsl"
+      },
+      {
+        "name": "DebugWireframeShader_VertexShader",
+        "input_file": "DebugWireframeShader.hlsl"
       }
     ]
   },
