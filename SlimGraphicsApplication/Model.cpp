@@ -98,6 +98,20 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					mesh.bounding_box_min = Min(mesh.bounding_box_min, v.Position);
 				}
 
+				// AABB
+				{
+					const float dist_x = fabsf(bounding_box_max.x - bounding_box_min.x);
+					const float dist_y = fabsf(bounding_box_max.y - bounding_box_min.y);
+					const float dist_z = fabsf(bounding_box_max.z - bounding_box_min.z);
+					mesh.aabb.Center.x = bounding_box_min.x + (dist_x / 2);
+					mesh.aabb.Center.y = bounding_box_min.y + (dist_y / 2);
+					mesh.aabb.Center.z = bounding_box_min.z + (dist_z / 2);
+					mesh.aabb.Extents.x = dist_x / 2;
+					mesh.aabb.Extents.y = dist_y / 2;
+					mesh.aabb.Extents.z = dist_z / 2;
+
+				}
+
 				mesh.vertex_count = aMesh->mNumVertices;
 
 				for (uint32_t face_idx = 0; face_idx < aMesh->mNumFaces; face_idx++)

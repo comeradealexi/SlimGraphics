@@ -297,6 +297,8 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), mesh_part))
 					continue;
 
+				debug_draw->DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
+
 				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 1);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_unique_vertex_indices_view_srv, 2);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_primitive_indices_view_srv, 3);
@@ -337,6 +339,8 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			{
 				if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), mesh_part))
 					continue;
+
+				debug_draw->DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
 
 				model_data.primitive_count = mesh_part.draw_count / 3;
 				model_data.vertex_count = mesh_part.vertex_count;

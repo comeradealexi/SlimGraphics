@@ -48,6 +48,7 @@ DebugDraw::DebugDraw(sg::Device& device)
 		pipeline_desc.depth_stencil_desc.depth_enable = false;
 		pipeline_desc.depth_stencil_desc.depth_write = false;
 		pipeline_desc.rasterizer_desc.fill_mode = Rasterizer::FillMode::Wireframe;
+		pipeline_desc.rasterizer_desc.cull_mode = Rasterizer::CullMode::None;
 		pipeline_no_depth = device.create_pipeline(pipeline_desc, pipeline_binding_desc);
 		seAssert(pipeline_no_depth != nullptr, "Failed to create pipeline");
 
@@ -58,18 +59,87 @@ DebugDraw::DebugDraw(sg::Device& device)
 	}
 }
 
-void DebugDraw::DrawSphere(ColourRGBA colour, const DirectX::XMFLOAT3 centre, float diameter /*= 1.0f*/, size_t tessellation /*= 3*/)
+void DebugDraw::DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::XMFLOAT3& min_extent, const DirectX::XMFLOAT3& max_extent)
+{
+
+}
+
+void DebugDraw::DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::BoundingBox aabb)
+{
+	DirectX::VertexCollection vc;
+	DirectX::IndexCollection ic;	
+
+	DirectX::XMFLOAT3 corners[8];
+	aabb.GetCorners(corners);
+	for (auto& v : corners)
+	{
+		vc.emplace_back();
+		vc.back().position = v;
+	}
+
+	// From the DXMath AABB Layout
+	//static const g_BoxOffset[8] =
+	//{
+	//	{ { { -1.0f, -1.0f,  1.0f, 0.0f } } },	0
+	//	{ { {  1.0f, -1.0f,  1.0f, 0.0f } } },	1
+	//	{ { {  1.0f,  1.0f,  1.0f, 0.0f } } },	2
+	//	{ { { -1.0f,  1.0f,  1.0f, 0.0f } } },	3
+	//	{ { { -1.0f, -1.0f, -1.0f, 0.0f } } },	4
+	//	{ { {  1.0f, -1.0f, -1.0f, 0.0f } } },	5
+	//	{ { {  1.0f,  1.0f, -1.0f, 0.0f } } },	6
+	//	{ { { -1.0f,  1.0f, -1.0f, 0.0f } } },	7
+	//};
+
+	auto add_face = [&](int16_t a, int16_t b, int16_t c, int16_t d)
+	{
+		ic.push_back(a);
+		ic.push_back(b);
+		ic.push_back(c);
+
+		ic.push_back(b);
+		ic.push_back(c);
+		ic.push_back(d);
+	};
+
+	add_face(0, 1, 2, 3);
+	add_face(4, 5, 6, 7);
+
+	add_face(0, 3, 4, 7);
+	add_face(1, 2, 5, 6);
+
+	add_face(0, 1, 4, 5);
+	add_face(2, 3, 6, 7);
+
+	FinaliseDraw(colour, centre, vc, ic);
+}
+
+void DebugDraw::DrawSphere(ColourRGBA colour, DirectX::XMFLOAT3 centre, float diameter /*= 1.0f*/, size_t tessellation /*= 3*/)
 {
 	DirectX::VertexCollection v;
 	DirectX::IndexCollection i;
 	DirectX::ComputeSphere(v, i, diameter, tessellation, true, false);
 
+	FinaliseDraw(colour, centre, v, i);
+}
+
+void DebugDraw::DrawGeoSphere(ColourRGBA colour, DirectX::XMFLOAT3 centre, float diameter /*= 1.0f*/, size_t tessellation /*= 3*/)
+{
+	DirectX::VertexCollection v;
+	DirectX::IndexCollection i;
+	DirectX::ComputeGeoSphere(v, i, diameter, tessellation, true);
+
+	FinaliseDraw(colour, centre, v, i);
+}
+
+
+void DebugDraw::FinaliseDraw(ColourRGBA colour, DirectX::XMFLOAT3 centre, DirectX::VertexCollection& v, DirectX::IndexCollection& i)
+{
 	DirectX::XMMATRIX transform = DirectX::XMMatrixTranslation(centre.x, centre.y, centre.z);
 
 	draw_list.push_back({ (sg::u32)i.size(), (sg::u32)indices.size(), (sg::u32)vertices.size() });
 
 	indices.insert(indices.end(), i.begin(), i.end());
-	
+
 	for (size_t i = 0; i < v.size(); i++)
 	{
 		const DirectX::VertexPositionNormalTexture& v1 = v[i];
@@ -79,6 +149,7 @@ void DebugDraw::DrawSphere(ColourRGBA colour, const DirectX::XMFLOAT3 centre, fl
 		vertices.push_back(v2);
 	}
 }
+
 
 void DebugDraw::Render(sg::CommandList& command_list, sg::ConstantBufferView& cbv_camera)
 {

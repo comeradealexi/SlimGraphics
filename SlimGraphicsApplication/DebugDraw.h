@@ -1,5 +1,6 @@
 #pragma once
 #include <sgPlatformInclude.h>
+#include <DirectXCollision.h>
 #include <Geometry.h>
 
 class DebugDraw
@@ -32,8 +33,11 @@ public:
 
 	DebugDraw(sg::Device& device);
 
-	void DrawSphere(ColourRGBA colour, const DirectX::XMFLOAT3 centre, float diameter = 1.0f, size_t tessellation = 3);
+	void DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::XMFLOAT3& min_extent, const DirectX::XMFLOAT3& max_extent);
+	void DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::BoundingBox aabb);
 
+	void DrawSphere(ColourRGBA colour, DirectX::XMFLOAT3 centre, float diameter = 1.0f, size_t tessellation = 3);	
+	void DrawGeoSphere(ColourRGBA colour, DirectX::XMFLOAT3 centre, float diameter = 1.0f, size_t tessellation = 3);
 	void Render(sg::CommandList& command_list, sg::ConstantBufferView& cbv_camera);
 
 	static inline sg::InputLayout::Desc make_input_layout(sg::u32* out_stride = nullptr)
@@ -53,6 +57,8 @@ public:
 
 		return d;
 	}
+private:
+	void FinaliseDraw(ColourRGBA colour, DirectX::XMFLOAT3 centre, DirectX::VertexCollection& v, DirectX::IndexCollection& i);
 
 private:
 	static constexpr sg::u32 MAX_TRIANGLES = 50000;

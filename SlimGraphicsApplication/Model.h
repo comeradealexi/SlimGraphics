@@ -3,6 +3,7 @@
 #include <sgPlatformInclude.h>
 #include <seEngineBasicFileIO.h>
 #include <DirectXMath.h>
+#include <DirectXCollision.h>
 #include "UploadHeap.h"
 #include <meshoptimizer.h>
 
@@ -105,6 +106,7 @@ public:
 
 		DirectX::XMFLOAT3 bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };
 		DirectX::XMFLOAT3 bounding_box_max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+		DirectX::BoundingBox aabb;
 	};
 
 	struct Material
