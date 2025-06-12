@@ -27,3 +27,6 @@
 [submodule "SubModules/DirectXTK12"]
 	path = SubModules/DirectXTK12
 	url = https://github.com/microsoft/DirectXTK12
+[submodule "SubModules/DirectXMesh"]
+	path = SubModules/DirectXMesh
+	url = https://github.com/microsoft/DirectXMesh

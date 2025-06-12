@@ -18,6 +18,7 @@
 #include "sgD3D12IndexBufferView.h"
 #include "sgD3D12UnorderedAccessView.h"
 #include "sgD3D12GPUTimestampPool.h"
+#include "sgD3D12GPUStatisticPool.h"
 
 #ifndef SG_PLATFORM_D3D12
 #error Expecting SG_PLATFORM_D3D12 to be defined

@@ -167,6 +167,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	}
 
 	Ptr<GPUTimestampPool> timestamp_pool = device->create_gpu_timestamp_pool(queue.get(), 1024);
+	Ptr<GPUStatisticPool> stats_pool = device->create_gpu_statistic_pool(queue.get(), 32);
 
 	SharedPtr<Memory> mem_uav = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
 	SharedPtr<Buffer> bfr_uav = device->create_buffer(mem_uav, 64ull * 1024, 64ull * 1024, BufferType::GeneralDataBuffer, true);
@@ -238,6 +239,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	float total_time; // seconds
 	auto total_time_start = std::chrono::high_resolution_clock::now();
 	auto last_frame_start = std::chrono::high_resolution_clock::now();
+	D3D12_QUERY_DATA_PIPELINE_STATISTICS query_data = {};
 	while (run)
 	{
 		auto cpu_start_time = std::chrono::high_resolution_clock::now();
@@ -254,6 +256,29 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
 		ImPlot::ShowDemoWindow();
+		ImGui::ShowStyleEditor();
+
+		ImGui::SetNextWindowPos(ImVec2(0, 0));
+		ImGui::SetNextWindowSize(ImVec2(w, 60));
+		ImGui::SetNextWindowBgAlpha(0.5f);
+		ImGui::Begin("Top Bar", nullptr, 			
+			ImGuiWindowFlags_NoTitleBar |
+			ImGuiWindowFlags_NoMove |
+			ImGuiWindowFlags_NoResize |
+			ImGuiWindowFlags_NoSavedSettings | 
+			ImGuiWindowFlags_NoCollapse | 
+			ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::Text("Test 1");
+		ImGui::SameLine();
+		ImGui::Text("Test 2");
+		ImGui::SameLine();
+		ImGui::PlotHistogram("gpu", gpu_timer.get_history_buffer(), gpu_timer.get_history_count(), gpu_timer.get_history_idx());
+		//static float 
+		//ImPlot::PlotHistogram2D(,)
+		//ImGui::PlotHistogram("GPU Time", )
+		
+		ImGui::End();
+
 		ImGui::Begin("Slim Graphics", &bOpen, 0);
 
 		model_viewer->Update(delta_time, total_time, camera);
@@ -291,12 +316,32 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				}
 #endif
 			}
+			{ // Query Stats
+				ImGui::Text("Pipeline Statistics:");
+				ImGui::Text("IAVertices:    %llu", query_data.IAVertices);
+				ImGui::Text("IAPrimitives:  %llu", query_data.IAPrimitives);
+				ImGui::Text("VSInvocations: %llu", query_data.VSInvocations);
+				ImGui::Text("GSInvocations: %llu", query_data.GSInvocations);
+				ImGui::Text("GSPrimitives:  %llu", query_data.GSPrimitives);
+				ImGui::Text("CInvocations:  %llu", query_data.CInvocations);
+				ImGui::Text("CPrimitives:   %llu", query_data.CPrimitives);
+				ImGui::Text("PSInvocations: %llu", query_data.PSInvocations);
+				ImGui::Text("HSInvocations: %llu", query_data.HSInvocations);
+				ImGui::Text("DSInvocations: %llu", query_data.DSInvocations);
+				ImGui::Text("CSInvocations: %llu", query_data.CSInvocations);
+				//ImGui::Text("ASInvocations: %ull", query_data.ASInvocations);
+				//ImGui::Text("MSInvocations: %ull", query_data.MSInvocations);
+				//ImGui::Text("MSPrimitives:  %ull", query_data.MSPrimitives);
+
+			}
 		}
 		ImGui::End();
 
 		command_buffer->start_recording();
 		timestamp_pool->begin_frame();
+		stats_pool->begin_frame();
 		GPUTimestampPool::Index gpu_timestamp_idx = timestamp_pool->allocate_new_timestamp();
+		GPUStatisticPool::Index stat_query_idx = stats_pool->allocate_new_query();
 		timestamp_pool->begin_timestamp(gpu_timestamp_idx, command_buffer.get());
 		{
 
@@ -352,6 +397,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			}
 			command_buffer->end_geometry_pass();
 
+			stats_pool->begin_query(stat_query_idx, command_buffer.get());
 			command_buffer->start_geometry_pass(1, &rtvs[current_frame_idx], vp, sc, true, &dsv);
 			{ // Model Viewer
 				sg::ConstantBufferView cbv_cam = linear_cb->AllocateAndWrite<ShaderStructs::CameraData>(camera.GetCameraShaderData());
@@ -359,6 +405,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				model_viewer->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb);
 			}
 			command_buffer->end_geometry_pass();
+			stats_pool->end_query(stat_query_idx, command_buffer.get());
 
 			command_buffer->start_geometry_pass(1, &rtvs[current_frame_idx], vp, sc, true);
 			{
@@ -369,6 +416,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		}
 		timestamp_pool->end_timestamp(gpu_timestamp_idx, command_buffer.get());
 		timestamp_pool->end_frame(command_buffer.get());
+		stats_pool->end_frame(command_buffer.get());
 		command_buffer->end_recording();
 
 		linear_cb->EndFrame();
@@ -383,6 +431,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		//Timestamps
 		timestamp_pool->resolve();
 		gpu_timer.add_time(timestamp_pool->collect_timestamp_us(gpu_timestamp_idx));
+
+		stats_pool->resolve();
+		query_data = stats_pool->collect_query(stat_query_idx);
+
 		total_frame_idx++;
 		wnd->Poll();
 

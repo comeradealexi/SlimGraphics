@@ -43,6 +43,7 @@ namespace sg
 			ComPtr<QueueFence> create_queue_fence();
 
 			Ptr<GPUTimestampPool> create_gpu_timestamp_pool(CommandQueue* queue, u32 max_timestamps);
+			Ptr<GPUStatisticPool> create_gpu_statistic_pool(CommandQueue* queue, u32 max_stats);
 
 			Ptr<CommandQueue> create_command_queue();
 			Ptr<CommandList> create_command_buffer();

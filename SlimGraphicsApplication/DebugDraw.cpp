@@ -71,15 +71,15 @@ void DebugDraw::DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const Dire
 
 	DirectX::XMFLOAT3 corners[8];
 	aabb.GetCorners(corners);
+
 	for (auto& v : corners)
 	{
-		vc.emplace_back();
-		vc.back().position = v;
+		vc.emplace_back().position = v;
 	}
 
 	// From the DXMath AABB Layout
 	//static const g_BoxOffset[8] =
-	//{
+	//{ 
 	//	{ { { -1.0f, -1.0f,  1.0f, 0.0f } } },	0
 	//	{ { {  1.0f, -1.0f,  1.0f, 0.0f } } },	1
 	//	{ { {  1.0f,  1.0f,  1.0f, 0.0f } } },	2
@@ -92,21 +92,19 @@ void DebugDraw::DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const Dire
 
 	auto add_face = [&](int16_t a, int16_t b, int16_t c, int16_t d)
 	{
-		ic.push_back(a);
-		ic.push_back(b);
-		ic.push_back(c);
-
-		ic.push_back(b);
-		ic.push_back(c);
-		ic.push_back(d);
+		ic.push_back(a); ic.push_back(b); ic.push_back(c);
+		ic.push_back(b); ic.push_back(c); ic.push_back(d);
 	};
 
+	// Z
 	add_face(0, 1, 2, 3);
 	add_face(4, 5, 6, 7);
 
+	// X
 	add_face(0, 3, 4, 7);
 	add_face(1, 2, 5, 6);
 
+	// Y
 	add_face(0, 1, 4, 5);
 	add_face(2, 3, 6, 7);
 

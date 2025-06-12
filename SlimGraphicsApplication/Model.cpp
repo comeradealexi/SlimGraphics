@@ -14,6 +14,7 @@
 #include <meshoptimizer.h>
 
 #include <GeometricPrimitive.h>
+#include <DirectXMesh.h>
 
 using namespace DirectX;
 using namespace sg;
@@ -148,7 +149,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					meshopt_optimizeVertexCache(new_indices.data(), mesh.indices.data(), mesh.indices.size(), mesh.vertices.size());
 					mesh.indices = new_indices;
 				}
-
+				
 				//if (init_data.meshopt_overdraw)
 				//{
 				//	std::vector<uint32_t> new_indices;
@@ -156,6 +157,11 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 				//	meshopt_optimizeVertexCache(new_indices.data(), mesh.indices.data(), mesh.indices.size(), mesh.vertices.size());
 				//	mesh.indices = new_indices;
 				//}
+
+				// DirectX Mesh Stats
+				{					
+					DirectX::ComputeVertexCacheMissRate(mesh.indices.data(), mesh.indices.size() / 3, mesh.vertices.size(), OPTFACES_V_DEFAULT, mesh.vertex_cache_miss_acmr, mesh.vertex_cache_miss_atvr);
+				}
 
 				mesh.draw_count = mesh.indices.size();
 

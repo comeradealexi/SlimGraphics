@@ -107,6 +107,13 @@ public:
 		DirectX::XMFLOAT3 bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };
 		DirectX::XMFLOAT3 bounding_box_max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 		DirectX::BoundingBox aabb;
+
+
+		// ACMR is Average Cache Miss Ratio, which is used to measure the effectiveness of a vertex reordering scheme to see how it performs.
+		float vertex_cache_miss_acmr = 0.0f;
+
+		// ATVR (average transform to vertex ratio)
+		float vertex_cache_miss_atvr = 0.0f;
 	};
 
 	struct Material

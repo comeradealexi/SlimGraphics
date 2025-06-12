@@ -143,6 +143,8 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 				ImGui::Checkbox("Render", render_model_bool_array + model_info_idx);
 				ImGui::Text("Triangles: %u", mesh_part.draw_count / 3);
 				ImGui::Text("Vertex Count: %u", mesh_part.vertex_count);
+				ImGui::Text("Vertex Cache Miss (ACMR): %0.2f", mesh_part.vertex_cache_miss_acmr);
+				ImGui::Text("Vertex Cache Miss (ATVR): %0.2f", mesh_part.vertex_cache_miss_atvr);
 				ImGui::Text("Bounds: %3.3f, %3.3f, %3.3f", mesh_part.max_extent.x, mesh_part.max_extent.y, mesh_part.max_extent.z);
 				ImGui::Text("Bounding Box Min: %3.3f, %3.3f, %3.3f", mesh_part.bounding_box_min.x, mesh_part.bounding_box_min.y, mesh_part.bounding_box_min.z);
 				ImGui::Text("Bounding Box Max: %3.3f, %3.3f, %3.3f", mesh_part.bounding_box_max.x, mesh_part.bounding_box_max.y, mesh_part.bounding_box_max.z);
@@ -297,7 +299,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), mesh_part))
 					continue;
 
-				debug_draw->DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
+				//debug_draw->DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
 
 				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 1);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_unique_vertex_indices_view_srv, 2);
@@ -340,7 +342,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), mesh_part))
 					continue;
 
-				debug_draw->DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
+				//debug_draw->DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
 
 				model_data.primitive_count = mesh_part.draw_count / 3;
 				model_data.vertex_count = mesh_part.vertex_count;
@@ -367,11 +369,11 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 
 	// Debug draw
 	{
-		debug_draw->DrawSphere(DebugDraw::ColourRGBA(), {}, 1.0f, 9);
-		debug_draw->DrawSphere(DebugDraw::ColourRGBA(), { -1.0f,0.0f,0.0f }, 1.0f, 9);
-		debug_draw->DrawSphere(DebugDraw::ColourRGBA(), { 1.0f,0.0f,0.0f }, 1.0f, 9);
-
-		debug_draw->Render(command_list, cbv_camera);
+		//debug_draw->DrawSphere(DebugDraw::ColourRGBA(), {}, 1.0f, 9);
+		//debug_draw->DrawSphere(DebugDraw::ColourRGBA(), { -1.0f,0.0f,0.0f }, 1.0f, 9);
+		//debug_draw->DrawSphere(DebugDraw::ColourRGBA(), { 1.0f,0.0f,0.0f }, 1.0f, 9);
+		//
+		//debug_draw->Render(command_list, cbv_camera);
 	}
 }
 

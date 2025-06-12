@@ -9,6 +9,7 @@
 #include "sgD3D12Pipeline.h"
 #include "sgD3D12TypesTranslator.h"
 #include "sgD3D12GPUTimestampPool.h"
+#include "sgD3D12GPUStatisticPool.h"
 #include <imgui_impl_dx12.h>
 
 //D3D12 Memory Allocator
@@ -401,6 +402,13 @@ namespace sg
 		{
             ID3D12CommandQueue* d3d12_queue = queue->get().Get();
             return Ptr<GPUTimestampPool>(new GPUTimestampPool(device.Get(), d3d12_queue, max_timestamps));
+		}
+
+
+		se::Ptr<sg::D3D12::GPUStatisticPool> Device::create_gpu_statistic_pool(CommandQueue* queue, u32 max_stats)
+		{
+			ID3D12CommandQueue* d3d12_queue = queue->get().Get();
+			return Ptr<GPUStatisticPool>(new GPUStatisticPool(device6.Get(), d3d12_queue, max_stats));
 		}
 
 		Ptr<CommandQueue> Device::create_command_queue()

@@ -24,6 +24,7 @@ namespace sg
 		class DepthStencilView;
 		class Device;
 		class GPUTimestampPool;
+		class GPUStatisticPool;
 		class IndexBufferView;
 		class Memory;
 		class MeshShader;
@@ -53,6 +54,7 @@ namespace sg
 	using DepthStencilView = D3D12::DepthStencilView;
 	using Device = D3D12::Device;
 	using GPUTimestampPool = D3D12::GPUTimestampPool;
+	using GPUStatisticPool = D3D12::GPUStatisticPool;
 	using IndexBufferView = D3D12::IndexBufferView;
 	using Memory = D3D12::Memory;
 	using MeshShader = D3D12::MeshShader;
