@@ -6,6 +6,7 @@
 #include <DirectXCollision.h>
 #include "UploadHeap.h"
 #include <meshoptimizer.h>
+#include <DirectXMesh.h>
 
 class Model
 {
@@ -52,7 +53,6 @@ public:
 
 		// Mesh Optimizer settings
 		bool scalemodel1to1 = false;
-		bool meshopt_vertex_cache = false;
 		bool meshopt_overdraw = false;
 		bool meshopt_vertex_fetch = false;
 		bool meshopt_vertex_quantization = false;
@@ -65,6 +65,19 @@ public:
 		size_t meshopt_meshlets_max_triangles = 126;
 		float meshopt_meshlets_cone_weight = 0.0f;
 		bool meshopt_meshlet_optimize = false;
+
+		enum class VertexCachOptimisation : int
+		{
+			Default,
+			MeshOpt,
+			DXMesh,
+			DXMeshLRU
+		};
+		VertexCachOptimisation vertex_cache_opt_mode = VertexCachOptimisation::Default;
+		int dxmesh_vertex_cache_size = DirectX::OPTFACES::OPTFACES_V_DEFAULT;
+		int dxmesh_restart = DirectX::OPTFACES::OPTFACES_R_DEFAULT;
+		int dxmesh_lru_size = DirectX::OPTFACES::OPTFACES_LRU_DEFAULT;
+
 	};
 
 public:
@@ -109,10 +122,21 @@ public:
 		DirectX::BoundingBox aabb;
 
 
-		// ACMR is Average Cache Miss Ratio, which is used to measure the effectiveness of a vertex reordering scheme to see how it performs.
+		// ACMR (Average Cache Miss Ratio)
+		// Best = 0.5, Worst = 3.0
+		// 
+		// ACMR is Average Cache Miss Ratio, which is used to measure the effectiveness of a vertex reordering scheme to see how it performs. 
+		// That is, the GPU has a certain number of transformed vertices it keeps in its post-transformed vertex cache. 
+		// This cache will be more or less effective, depending on the order you feed triangles into the GPU. 
+		// ACMR is the sum of the number of times each vertex must be transformed and loaded into the cache, divided by the number of triangles in the mesh. 
+		// Under perfect conditions it is 0.5, since the most a cached vertex can be shared on average in a (non-bizarre) mesh is 6 times and each triangle has 3 vertices.
 		float vertex_cache_miss_acmr = 0.0f;
 
 		// ATVR (average transform to vertex ratio)
+		// Best = 1.0, Worst = 6.0
+		// 
+		// ATVR is a better measure of cache performance, as it provides a number that can be judged by itself: 1.0 is always the optimum, so if your caching scheme is giving 1.05 ATVR, you’re doing pretty good. 
+		// The worst ATVR can get is 6.0 (or just shy of 6.0).
 		float vertex_cache_miss_atvr = 0.0f;
 	};
 

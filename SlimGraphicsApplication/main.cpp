@@ -316,8 +316,11 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				}
 #endif
 			}
+
+		}
+		if (ImGui::CollapsingHeader("GPU Pipeline Stats"))
+		{
 			{ // Query Stats
-				ImGui::Text("Pipeline Statistics:");
 				ImGui::Text("IAVertices:    %llu", query_data.IAVertices);
 				ImGui::Text("IAPrimitives:  %llu", query_data.IAPrimitives);
 				ImGui::Text("VSInvocations: %llu", query_data.VSInvocations);

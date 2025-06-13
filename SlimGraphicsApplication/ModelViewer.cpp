@@ -157,7 +157,27 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 
 		ImGui::SeparatorText("Mesh Optimizer");
 		ImGui::BeginGroup();
-		recreate_model = ImGui::Checkbox("Vertex Cache", &model_init_data.meshopt_vertex_cache) || recreate_model;
+		recreate_model = ImGui::RadioButton("Default", (int*)&model_init_data.vertex_cache_opt_mode, (int) Model::InitData::VertexCachOptimisation::Default) || recreate_model;
+		recreate_model = ImGui::RadioButton("MeshOpt", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::MeshOpt) || recreate_model;
+		recreate_model = ImGui::RadioButton("DXMesh", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::DXMesh) || recreate_model;
+		recreate_model = ImGui::RadioButton("DXMeshLRU", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::DXMeshLRU) || recreate_model;
+
+		if (model_init_data.vertex_cache_opt_mode == Model::InitData::VertexCachOptimisation::DXMeshLRU)
+		{
+			recreate_model = ImGui::SliderInt("LRU Size", &model_init_data.dxmesh_lru_size, 1, 64) || recreate_model;
+		} 
+		else if (model_init_data.vertex_cache_opt_mode == Model::InitData::VertexCachOptimisation::DXMesh)
+		{
+			recreate_model = ImGui::SliderInt("Vertex Cache Size", &model_init_data.dxmesh_vertex_cache_size, 1, 64) || recreate_model;
+			recreate_model = ImGui::SliderInt("Restart Value", &model_init_data.dxmesh_restart, 1, 64) || recreate_model;
+
+			if (model_init_data.dxmesh_restart > model_init_data.dxmesh_vertex_cache_size)
+			{
+				model_init_data.dxmesh_restart = model_init_data.dxmesh_vertex_cache_size;
+			}
+
+		}
+
 		ImGui::EndGroup();
 		ImGui::Text("Mesh Simplification (LOD)");
 		recreate_model = ImGui::Checkbox("Simplify", &model_init_data.meshopt_simplification) || recreate_model;
@@ -168,15 +188,18 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::EndDisabled();
 
 		ImGui::SeparatorText("Render Mode");
-		ImGui::Checkbox("Render Fullscreen Triangle", &render_fullscreen_triangle);
-		ImGui::Checkbox("Render Fullscreen Quad", &render_fullscreen_quad);
+		ImGui::RadioButton("3D Model", (int*)&render_geo, (int)RenderGeo::Model);
+		ImGui::RadioButton("Fullscreen Triangle", (int*)&render_geo, (int)RenderGeo::FullscreenTriangle);
+		ImGui::RadioButton("Fullscreen Quad", (int*)&render_geo, (int)RenderGeo::FullscreenQuad);
 
 		ImGui::Text("Render Mode:");
+		ImGui::PushID("Render Mode Radio Buttons");
 		ImGui::RadioButton("Default", (int*)&render_mode, 0);
 		ImGui::RadioButton("Primitive Order", (int*)&render_mode, 1);
 		ImGui::RadioButton("Vertex Order", (int*)&render_mode, 2);
 		ImGui::RadioButton("Pixel Order", (int*)&render_mode, 3);
 		ImGui::RadioButton("Meshlet Order", (int*)&render_mode, 4);
+		ImGui::PopID();
 
 		if (render_mode == RenderMode::MeshletOrder)
 		{
@@ -351,10 +374,10 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				command_list.bind(b, PipelineType::Geometry);
 				command_list.clear_buffer_uint(uav, srv, 0);
 
-				if (render_fullscreen_triangle || render_fullscreen_quad)
+				if (render_geo == RenderGeo::FullscreenTriangle || render_geo == RenderGeo::FullscreenQuad)
 				{
-					command_list.set_pipeline(render_fullscreen_triangle ? pipeline_fullscreen_triangle.get() : pipeline_fullscreen_quad.get());
-					command_list.draw_instanced(render_fullscreen_triangle ? 3 : 6, 1, 0, 0);
+					command_list.set_pipeline((render_geo == RenderGeo::FullscreenTriangle) ? pipeline_fullscreen_triangle.get() : pipeline_fullscreen_quad.get());
+					command_list.draw_instanced((render_geo == RenderGeo::FullscreenTriangle) ? 3 : 6, 1, 0, 0);
 					break;
 				}
 

@@ -142,12 +142,56 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					mesh.indices = new_indices;
 				}
 
-				if (init_data.meshopt_vertex_cache)
+				switch (init_data.vertex_cache_opt_mode)
 				{
+				case InitData::VertexCachOptimisation::Default:
+					// leave as is.
+					break;
+				case InitData::VertexCachOptimisation::MeshOpt:
+					{
+						std::vector<uint32_t> new_indices;
+						new_indices.resize(mesh.indices.size());
+						meshopt_optimizeVertexCache(new_indices.data(), mesh.indices.data(), mesh.indices.size(), mesh.vertices.size());
+						mesh.indices = new_indices;
+					}
+					break;
+				case InitData::VertexCachOptimisation::DXMesh:
+					{
+					auto pos = std::make_unique<XMFLOAT3[]>(mesh.vertices.size());
+					for (size_t j = 0; j < mesh.vertices.size(); ++j)
+						pos[j] = mesh.vertices[j].Position;
+					auto adj = std::make_unique<uint32_t[]>(mesh.indices.size());
+					HRESULT hr = DirectX::GenerateAdjacencyAndPointReps(mesh.indices.data(), mesh.indices.size() / 3, pos.get(), mesh.vertices.size(), 0.f, nullptr, adj.get());
+					seAssert(hr == S_OK, "GenerateAdjacencyAndPointReps failed");
+
+					auto faceRemap = std::make_unique<uint32_t[]>(mesh.indices.size() / 3);
+					hr = OptimizeFaces(mesh.indices.data(), mesh.indices.size() / 3, adj.get(), faceRemap.get(), init_data.dxmesh_vertex_cache_size, init_data.dxmesh_restart);
+					seAssert(hr == S_OK, "OptimizeFaces failed");
+
 					std::vector<uint32_t> new_indices;
 					new_indices.resize(mesh.indices.size());
-					meshopt_optimizeVertexCache(new_indices.data(), mesh.indices.data(), mesh.indices.size(), mesh.vertices.size());
+					hr = DirectX::ReorderIB(mesh.indices.data(), mesh.indices.size() / 3, faceRemap.get(), new_indices.data());
+					seAssert(hr == S_OK, "ReorderIB failed");
 					mesh.indices = new_indices;
+
+					}
+					break;
+				case InitData::VertexCachOptimisation::DXMeshLRU:
+				{
+					std::vector<uint32_t> face_remap;
+					face_remap.resize(mesh.indices.size());
+					HRESULT hr = DirectX::OptimizeFacesLRU(mesh.indices.data(), mesh.indices.size() / 3, face_remap.data(), init_data.dxmesh_lru_size);
+					seAssert(hr == S_OK, "OptimizeFacesLRU failed");
+					std::vector<uint32_t> new_indices;
+					new_indices.resize(mesh.indices.size());
+					hr = DirectX::ReorderIB(mesh.indices.data(), mesh.indices.size() / 3, face_remap.data(), new_indices.data());
+					seAssert(hr == S_OK, "ReorderIB failed");
+					mesh.indices = new_indices;
+				}
+					break;
+				default:
+					seAssert(false, "Missing switch case statement");
+					break;
 				}
 				
 				//if (init_data.meshopt_overdraw)

@@ -25,8 +25,13 @@ private:
 
 	int model_file_list_current = 0;
 	std::vector<std::string> model_file_list;
-	bool render_fullscreen_triangle = false;
-	bool render_fullscreen_quad = false;
+	enum class RenderGeo : int
+	{
+		Model,
+		FullscreenTriangle,
+		FullscreenQuad
+	};
+	RenderGeo render_geo = RenderGeo::Model;
 
 	sg::SharedPtr<sg::Device> device;
 	sg::Ptr<sg::Pipeline> pipeline;
