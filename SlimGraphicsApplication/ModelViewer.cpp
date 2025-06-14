@@ -16,7 +16,7 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 	mesh_shading.binding_desc = {};
 	mesh_shading.binding_desc.cbv_binding_count = 2;
-	mesh_shading.binding_desc.srv_binding_count = 4;
+	mesh_shading.binding_desc.srv_binding_count = 5;
 	mesh_shading.binding_desc.uav_binding_count = 1;
 
 	{
@@ -188,9 +188,11 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::EndDisabled();
 
 		ImGui::SeparatorText("Render Mode");
+		ImGui::BeginDisabled(render_as_mesh_shader);
 		ImGui::RadioButton("3D Model", (int*)&render_geo, (int)RenderGeo::Model);
 		ImGui::RadioButton("Fullscreen Triangle", (int*)&render_geo, (int)RenderGeo::FullscreenTriangle);
 		ImGui::RadioButton("Fullscreen Quad", (int*)&render_geo, (int)RenderGeo::FullscreenQuad);
+		ImGui::EndDisabled();
 
 		ImGui::Text("Render Mode:");
 		ImGui::PushID("Render Mode Radio Buttons");
@@ -199,9 +201,10 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::RadioButton("Vertex Order", (int*)&render_mode, 2);
 		ImGui::RadioButton("Pixel Order", (int*)&render_mode, 3);
 		ImGui::RadioButton("Meshlet Order", (int*)&render_mode, 4);
+		ImGui::RadioButton("Meshlet Cull Angle", (int*)&render_mode, 5);
 		ImGui::PopID();
 
-		if (render_mode == RenderMode::MeshletOrder)
+		if (render_mode == RenderMode::MeshletOrder || render_mode == RenderMode::MeshletCullAngle)
 		{
 
 		}
@@ -314,7 +317,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			b.set_cbv(cbv_camera, 0);
 			b.uav_binding_count = 1;
 			b.set_uav(uav, 0);
-			b.srv_binding_count = 4;
+			b.srv_binding_count = 5;
 			b.set_srv(model->GetVertexBufferSRV(), 0);
 			int render_idx = 0;
 			for (Model::MeshPart& mesh_part : model->GetMeshParts())
@@ -327,6 +330,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 1);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_unique_vertex_indices_view_srv, 2);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_primitive_indices_view_srv, 3);
+				b.set_srv(mesh_part.mesh_shader_data.gpu_culldata_view_srv, 4);
 
 				model_data.meshlet_count = mesh_part.mesh_shader_data.meshlets.size();
 				model_data.primitive_count = mesh_part.draw_count / 3;

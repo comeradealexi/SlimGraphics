@@ -23,6 +23,7 @@ struct ModelData
 	#define SHADING_MODE_VERTEXORDER  2 
 	#define SHADING_MODE_PIXELORDER  3 
 	#define SHADING_MODE_MESHLETORDER  4 
+	#define SHADING_MODE_MESHLET_CULL_ANGLE  5
 
 	int shading_mode;
 	int meshlet_count;
@@ -46,6 +47,20 @@ struct CameraData
 	float4 screen_dimensions_and_depth_info;
 	float4 camera_position;
 	float4 camera_direction;
+};
+
+struct MeshletCullData
+{
+	float4 spherepos_xyz_radius_w;
+
+	float4 cone_apex_xyz;
+
+	float4 cone_axis_xyz_cone_cutoff_w;
+
+	int cone_axis_s8xyz_cone_cutoff_s8w;
+	int pad1;
+	int pad2;
+	int pad3;
 };
 
 #ifdef __cplusplus

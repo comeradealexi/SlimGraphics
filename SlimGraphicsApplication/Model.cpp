@@ -15,6 +15,7 @@
 
 #include <GeometricPrimitive.h>
 #include <DirectXMesh.h>
+#include "ShaderSharedStructures.h"
 
 using namespace DirectX;
 using namespace sg;
@@ -316,6 +317,35 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 						UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(primitive_indices_byte_size, 256);
 						upload_heap->write_upload_memory(upload_offset, mesh_shader_data.meshlet_triangles_gpu.data(), primitive_indices_byte_size);
 						upload_heap->upload_to_buffer(mesh_shader_data.gpu_primitive_indices.get(), 0, upload_offset, primitive_indices_byte_size);
+					}
+					{ // Meshlets Cull Data
+						const size_t meshlet_byte_size = mesh_shader_data.meshlet_bounds.size() * sizeof(ShaderStructs::MeshletCullData);
+						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, meshlet_byte_size, 1024 * 64);
+						mesh_shader_data.gpu_culldata = device->create_buffer(ml_mem, meshlet_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, true);
+						mesh_shader_data.gpu_culldata_view = device->create_unordered_access_view(mesh_shader_data.gpu_culldata, sizeof(ShaderStructs::MeshletCullData), mesh_shader_data.meshlet_bounds.size());
+						mesh_shader_data.gpu_culldata_view_srv = device->create_shader_resource_view(mesh_shader_data.gpu_culldata, sizeof(ShaderStructs::MeshletCullData), mesh_shader_data.meshlet_bounds.size());
+
+						std::vector<ShaderStructs::MeshletCullData> gpu_cull_data;
+						gpu_cull_data.resize(mesh_shader_data.meshlet_bounds.size());
+						for (size_t i = 0; i < mesh_shader_data.meshlet_bounds.size(); i++)
+						{
+							const meshopt_Bounds& src = mesh_shader_data.meshlet_bounds[i];
+							ShaderStructs::MeshletCullData& dst = gpu_cull_data[i];
+							dst.spherepos_xyz_radius_w = DirectX::XMFLOAT4A(src.center[0], src.center[1], src.center[2], src.radius);
+							dst.cone_apex_xyz = DirectX::XMFLOAT4A(src.cone_apex[0], src.cone_apex[1], src.cone_apex[2], 0.0f);
+
+							dst.cone_axis_xyz_cone_cutoff_w = DirectX::XMFLOAT4A(src.cone_axis[0], src.cone_axis[1], src.cone_axis[2], src.cone_cutoff);
+
+							char* cone_axis = (char*)&dst.cone_axis_s8xyz_cone_cutoff_s8w;
+							cone_axis[0] = src.cone_axis_s8[0];
+							cone_axis[1] = src.cone_axis_s8[1];
+							cone_axis[2] = src.cone_axis_s8[2];
+							cone_axis[3] = src.cone_cutoff_s8;
+						}
+
+						UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(meshlet_byte_size, 256);
+						upload_heap->write_upload_memory(upload_offset, gpu_cull_data.data(), meshlet_byte_size);
+						upload_heap->upload_to_buffer(mesh_shader_data.gpu_culldata.get(), 0, upload_offset, meshlet_byte_size);
 					}
 				}
 			}

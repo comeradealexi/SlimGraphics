@@ -55,10 +55,14 @@ struct Meshlet
     uint PrimCount;
 };
 
-StructuredBuffer<Vertex>    Vertices            : register(t0);
-StructuredBuffer<Meshlet>   Meshlets            : register(t1);
-StructuredBuffer<uint>      UniqueVertexIndices : register(t2);
-StructuredBuffer<uint>      PrimitiveIndices    : register(t3);
+
+
+StructuredBuffer<Vertex>    Vertices                    : register(t0);
+StructuredBuffer<Meshlet>   Meshlets                    : register(t1);
+StructuredBuffer<uint>      UniqueVertexIndices         : register(t2);
+StructuredBuffer<uint>      PrimitiveIndices            : register(t3);
+StructuredBuffer<MeshletCullData> MeshletCullingDatas   : register(t4);
+
 
 [NumThreads(128, 1, 1)]
 [OutputTopology("triangle")]
@@ -108,8 +112,21 @@ void MSMain(
     //else
     {
     
+        MeshletCullData cull_data = MeshletCullingDatas[gid];
+        
+        bool reject = false; // TODO - TAKE MODEL MATRIX IN TO ACCOUNT!
+        if (dot(normalize(cull_data.cone_apex_xyz.xyz - camera.camera_position.xyz), cull_data.cone_axis_xyz_cone_cutoff_w.xyz) >= cull_data.cone_axis_xyz_cone_cutoff_w.w)
+        {
+            reject = true;
+        }        
+        
         Meshlet m = Meshlets[gid];
-        SetMeshOutputCounts(m.VertCount, m.PrimCount);
+        SetMeshOutputCounts(reject ? 0 : m.VertCount, reject ? 0 : m.PrimCount);
+        
+        if (reject)
+        {
+            return;
+        }
 #if 0
     SetMeshOutputCounts(4 * 10, 3*10);
     if (gtid < m.VertCount)
@@ -132,14 +149,14 @@ void MSMain(
 
        // SetMeshOutputCounts(m.VertCount, m.PrimCount);
 
-        if (gtid < m.VertCount)
-        {
+            if (gtid < m.VertCount)
+            {
             //verts[gtid].position = float4(0, 0, 0, 0);
             //verts[gtid].colour = float3(0, 0, 0);
-            #if 1
-            uint offset = m.VertOffset + gtid;
-            uint size, num;
-            UniqueVertexIndices.GetDimensions(size, num);
+#if 1
+                uint offset = m.VertOffset + gtid;
+                uint size, num;
+                UniqueVertexIndices.GetDimensions(size, num);
             //if (offset >= size)
             //{
             //    verts[gtid].position = float4(0, 0, 0, 0);
@@ -152,10 +169,10 @@ void MSMain(
                 //verts[gtid].colour = float3(0, 0, 0);
                 //verts[gtid].MeshletIndex = gid;
 
-                #if 1
-                uint vsize, vnum;
-                Vertices.GetDimensions(vsize, vnum);
-                uint vertexIndex = UniqueVertexIndices[offset];
+#if 1
+                    uint vsize, vnum;
+                    Vertices.GetDimensions(vsize, vnum);
+                    uint vertexIndex = UniqueVertexIndices[offset];
                 //if (vertexIndex >= vsize)
                 //{
                 //    verts[gtid].position = float4(0, 0, 0, 0);
@@ -163,25 +180,25 @@ void MSMain(
                 //}
                 //else
                 {
-                    Vertex v = Vertices[vertexIndex];
-                    float4 outpos;
-                    outpos = mul(float4(v.position, 1.0f), model.model_matrix);
-                    outpos = mul(outpos, camera.view_projection_matrix);
+                        Vertex v = Vertices[vertexIndex];
+                        float4 outpos;
+                        outpos = mul(float4(v.position, 1.0f), model.model_matrix);
+                        outpos = mul(outpos, camera.view_projection_matrix);
                     
-                    float3 outnormals;
-                    outnormals = normalize(mul(v.normals, (float3x3) model.model_matrix));
+                        float3 outnormals;
+                        outnormals = normalize(mul(v.normals, (float3x3) model.model_matrix));
         
-                    verts[gtid].position = outpos;
-                    verts[gtid].colour = v.colour;
-                    verts[gtid].uvs = v.uvs;
-                    verts[gtid].normals = outnormals;
-                    verts[gtid].MeshletIndex = gid;
+                        verts[gtid].position = outpos;
+                        verts[gtid].colour = v.colour;
+                        verts[gtid].uvs = v.uvs;
+                        verts[gtid].normals = outnormals;
+                        verts[gtid].MeshletIndex = gid;
 
+                    }
+#endif
                 }
-                #endif
+#endif
             }
-            #endif
-        }
 
         if (gtid < m.PrimCount)
         {
@@ -352,12 +369,42 @@ float4 PSMain(PS_INPUT input
     {
      #ifdef MESH_SHADER
         uint meshletIndex = input.MeshletIndex;
+        //float3 diffuseColor = float3(
+        //    float(meshletIndex & 1),
+        //    float(meshletIndex & 3) / 4,
+        //    float(meshletIndex & 7) / 8); 
+        
+        //float3 diffuseColor = float3(
+        //    float(meshletIndex & 3) / 4,
+        //    float(meshletIndex & 7) / 8,
+        //    float(meshletIndex & 15) / 16);
+        
         float3 diffuseColor = float3(
-            float(meshletIndex & 1),
-            float(meshletIndex & 3) / 4,
-            float(meshletIndex & 7) / 8); 
+            float(meshletIndex & 7) / 8,
+            float(meshletIndex & 15) / 16,
+            float(meshletIndex & 31) / 32);
+        
         //float col = ((float) input.MeshletIndex) / ((float) model.meshlet_count);
-        return float4(diffuseColor, 1);
+        return float4(diffuseColor, 1);       
+#else
+        return float4(1.0, 0.5,0.5, 1.0);
+#endif
+    }
+    
+    if (model.shading_mode == SHADING_MODE_MESHLET_CULL_ANGLE)
+    {
+ #ifdef MESH_SHADER
+        // TODO - TAKE MODEL MATRIX IN TO ACCOUNT!
+        uint meshletIndex = input.MeshletIndex;
+        MeshletCullData cull_data = MeshletCullingDatas[meshletIndex];
+        
+        // Meshlet wil always be rendered.
+        if (cull_data.cone_axis_xyz_cone_cutoff_w.w == 1.0)
+        {
+            return float4(0.0f, 0.7f, 0.0f, 1.0f);
+        }
+        
+        return float4(1.0 - smoothstep(0.0f, cull_data.cone_axis_xyz_cone_cutoff_w.w, dot(normalize(cull_data.cone_apex_xyz.xyz - camera.camera_position.xyz), cull_data.cone_axis_xyz_cone_cutoff_w.xyz)).x, 0.0, 0.0, 1.0);
 #else
         return float4(1.0, 0.5,0.5, 1.0);
 #endif

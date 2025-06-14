@@ -103,6 +103,10 @@ public:
 		sg::SharedPtr<sg::Buffer>	gpu_primitive_indices;
 		sg::UnorderedAccessView		gpu_primitive_indices_view;
 		sg::ShaderResourceView		gpu_primitive_indices_view_srv;
+
+		sg::SharedPtr<sg::Buffer>	gpu_culldata;
+		sg::UnorderedAccessView		gpu_culldata_view;
+		sg::ShaderResourceView		gpu_culldata_view_srv;
 	};
 
 	struct MeshPart

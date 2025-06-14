@@ -60,6 +60,7 @@ private:
 		VertexOrder,
 		PixelOrder,
 		MeshletOrder,
+		MeshletCullAngle,
 	} render_mode;
 	int cull_mode = 0;
 	bool recreate_model = true;
