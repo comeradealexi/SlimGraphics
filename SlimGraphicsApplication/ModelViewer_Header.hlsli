@@ -110,8 +110,9 @@ void MSMain(
         bool reject = false; // TODO - TAKE MODEL MATRIX IN TO ACCOUNT!
         
         if (!reject && model.meshlet_culling.y != 0)
-        {            
-            if (IsVisible(cull_data.spherepos_xyz_radius_w) == false)
+        {      
+            float4 sphere_pos = mul(float4(cull_data.spherepos_xyz_radius_w.xyz, cull_data.spherepos_xyz_radius_w.w), model.model_matrix);
+            if (IsVisible(sphere_pos) == false)
             {
                 uint original;
                 InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT], 1, original);
@@ -121,7 +122,10 @@ void MSMain(
         
         if (!reject && model.meshlet_culling.x != 0)
         {      
-            if (dot(normalize(cull_data.cone_apex_xyz.xyz - camera.camera_position.xyz), cull_data.cone_axis_xyz_cone_cutoff_w.xyz) >= cull_data.cone_axis_xyz_cone_cutoff_w.w)
+            float3 cone_apex = mul(float4(cull_data.cone_apex_xyz.xyz, 1.0f), model.model_matrix).xyz;
+            float3 cone_axis = mul(float4(cull_data.cone_axis_xyz_cone_cutoff_w.xyz, 1.0f), model.model_matrix).xyz;
+
+            if (dot(normalize(cone_apex - camera.camera_position.xyz), cone_axis) >= cull_data.cone_axis_xyz_cone_cutoff_w.w)
             {
                 uint original;
                 InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT], 1, original);
@@ -425,7 +429,10 @@ float4 PSMain(PS_INPUT input
             return float4(0.0f, 0.7f, 0.0f, 1.0f);
         }
         
-        return float4(1.0 - smoothstep(0.0f, cull_data.cone_axis_xyz_cone_cutoff_w.w, dot(normalize(cull_data.cone_apex_xyz.xyz - camera.camera_position.xyz), cull_data.cone_axis_xyz_cone_cutoff_w.xyz)).x, 0.0, 0.0, 1.0);
+        float3 cone_apex = mul(float4(cull_data.cone_apex_xyz.xyz, 1.0f), model.model_matrix).xyz;
+        float3 cone_axis = mul(float4(cull_data.cone_axis_xyz_cone_cutoff_w.xyz, 1.0f), model.model_matrix).xyz;
+        
+        return float4(1.0 - smoothstep(0.0f, cull_data.cone_axis_xyz_cone_cutoff_w.w, dot(normalize(cone_apex - camera.camera_position.xyz), cone_axis)).x, 0.0, 0.0, 1.0);
 #else
         return float4(1.0, 0.5,0.5, 1.0);
 #endif

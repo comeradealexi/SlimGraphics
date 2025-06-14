@@ -386,6 +386,11 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 						command_list.dispatch_mesh(dispatch_value);
 				}
 				render_idx++;
+
+				//for (const meshopt_Bounds& meshlet_bounds :  mesh_part.mesh_shader_data.meshlet_bounds)
+				//{
+				//	debug_draw->DrawSphere(DebugDraw::ColourRGBA(255,0,0), DirectX::XMFLOAT3(meshlet_bounds.center), meshlet_bounds.radius * 2, 9);
+				//}
 			}
 		}
 		else
