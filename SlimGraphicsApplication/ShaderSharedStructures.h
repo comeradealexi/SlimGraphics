@@ -10,6 +10,7 @@ namespace ShaderStructs
 	using float4 = DirectX::XMFLOAT4A;
 	using float4x4 = DirectX::XMMATRIX;
 	using uint = uint32_t;
+	using int4 = DirectX::XMINT4;
 #else
 
 #endif
@@ -38,7 +39,7 @@ struct ModelData
 	float4 pixel_order_data1; //x=multiplier, y=mod, z=use_colours, w=shade_over_time	
 	float4 pixel_order_data2;  //x=pixel_to_shade, y=colour_range
 
-	int meshlet_culling[4]; // x = cone culling
+	int4 meshlet_culling; // x = cone culling, y = sphere frustum culling
 };
 
 struct CameraData
@@ -49,6 +50,9 @@ struct CameraData
 	float4 screen_dimensions_and_depth_info;
 	float4 camera_position;
 	float4 camera_direction;
+
+	// Camera frustum planes
+	float4 Planes[6];
 };
 
 struct MeshletCullData

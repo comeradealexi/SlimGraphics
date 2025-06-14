@@ -101,6 +101,25 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 
 	shader_data.view_projection_matrix = XMMatrixMultiply(shader_data.view_matrix, shader_data.projection_matrix);
 
+	// Frustum planes
+	{
+		XMMATRIX vp = XMMatrixTranspose(shader_data.view_projection_matrix);
+		XMVECTOR planes[6] =
+		{
+			XMPlaneNormalize(XMVectorAdd(vp.r[3], vp.r[0])),      // Left
+			XMPlaneNormalize(XMVectorSubtract(vp.r[3], vp.r[0])), // Right
+			XMPlaneNormalize(XMVectorAdd(vp.r[3], vp.r[1])),      // Bottom
+			XMPlaneNormalize(XMVectorSubtract(vp.r[3], vp.r[1])), // Top
+			XMPlaneNormalize(vp.r[2]),                            // Near
+			XMPlaneNormalize(XMVectorSubtract(vp.r[3], vp.r[2])), // Far
+		};
+
+		for (uint32_t i = 0; i < 6; ++i)
+		{
+			XMStoreFloat4(&shader_data.Planes[i], planes[i]);
+		}
+	}
+
 	//ImGui
 	{
 		if (ImGui::CollapsingHeader("Camera"))

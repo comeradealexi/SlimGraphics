@@ -18,9 +18,10 @@ cbuffer ModelBufferData : register(b1)
 
 #define UAV_INDEX_PIXELS_SHADED 0
 #define UAV_INDEX_MESH_SHADER_INVOCATIONS 1
-#define UAV_INDEX_MESH_SHADER_CULL_COUNT 2
+#define UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT 2
 #define UAV_INDEX_MESH_SHADER_PRIM_COUNT 3
 #define UAV_INDEX_VERTEX_SHADER_INVOCATIONS 4
+#define UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT 5
 
 RWStructuredBuffer<uint> uav0 : register(u0);
 
@@ -69,6 +70,23 @@ StructuredBuffer<uint>      UniqueVertexIndices         : register(t2);
 StructuredBuffer<uint>      PrimitiveIndices            : register(t3);
 StructuredBuffer<MeshletCullData> MeshletCullingDatas   : register(t4);
 
+// Computes visiblity of an instance
+// Performs a simple world-space bounding sphere vs. frustum plane check.
+bool IsVisible(float4 boundingSphere)
+{
+    float4 center = float4(boundingSphere.xyz, 1.0);
+    float radius = boundingSphere.w;
+
+    for (int i = 0; i < 6; ++i)
+    {
+        if (dot(center, camera.Planes[i]) < -radius)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 [NumThreads(128, 1, 1)]
 [OutputTopology("triangle")]
@@ -79,21 +97,34 @@ void MSMain(
     out vertices PS_INPUT verts[64]
 )
 {
-    uint original;
+
+    {    
+        uint original;
     InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_INVOCATIONS], 1, original);
-    
+        }
+
     {
     
         MeshletCullData cull_data = MeshletCullingDatas[gid];
         
         bool reject = false; // TODO - TAKE MODEL MATRIX IN TO ACCOUNT!
         
-        if (model.meshlet_culling[0] != 0)
+        if (!reject && model.meshlet_culling.y != 0)
+        {            
+            if (IsVisible(cull_data.spherepos_xyz_radius_w) == false)
+            {
+                uint original;
+                InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT], 1, original);
+                reject = true;
+            }
+        }
+        
+        if (!reject && model.meshlet_culling.x != 0)
         {      
             if (dot(normalize(cull_data.cone_apex_xyz.xyz - camera.camera_position.xyz), cull_data.cone_axis_xyz_cone_cutoff_w.xyz) >= cull_data.cone_axis_xyz_cone_cutoff_w.w)
             {
                 uint original;
-                InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_CULL_COUNT], 1, original);
+                InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT], 1, original);
                 reject = true;
             }
         }

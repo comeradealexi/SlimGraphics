@@ -71,6 +71,7 @@ private:
 	bool depth_write = true;
 
 	bool mesh_shader_cone_culling = true;
+	bool mesh_shader_sphere_frustum_culling = true;
 
 
 	// Uav

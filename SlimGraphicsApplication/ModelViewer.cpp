@@ -106,9 +106,10 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	{
 		u32 UAV_INDEX_PIXELS_SHADED;
 		u32 UAV_INDEX_MESH_SHADER_INVOCATIONS;
-		u32 UAV_INDEX_MESH_SHADER_CULL_COUNT;
+		u32 UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT;
 		u32 UAV_INDEX_MESH_SHADER_PRIM_COUNT;
 		u32 UAV_INDEX_VERTEX_SHADER_INVOCATIONS;
+		u32 UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT;
 	} uav_readback_values = {};
 	readback_uav_buffer->read_memory(0, &uav_readback_values, sizeof(uav_readback_values));
 
@@ -174,8 +175,9 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			ImGui::Text("Pixels Shaded:   %u", uav_readback_values.UAV_INDEX_PIXELS_SHADED);
 			ImGui::Text("VS Invocations:  %u", uav_readback_values.UAV_INDEX_VERTEX_SHADER_INVOCATIONS);
 			ImGui::Text("MS Invocations:  %u", uav_readback_values.UAV_INDEX_MESH_SHADER_INVOCATIONS);
-			ImGui::Text("Meshlets Culled: %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_COUNT);
 			ImGui::Text("Meshlet Prims:   %u", uav_readback_values.UAV_INDEX_MESH_SHADER_PRIM_COUNT);
+			ImGui::Text("Meshlets Culled (By Cone Dir): %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT);
+			ImGui::Text("Meshlets Culled (By Sphere Frustum): %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT);
 			ImGui::PopID();
 		}
 
@@ -214,6 +216,8 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::SeparatorText("Mesh Shader");
 		ImGui::BeginDisabled(!render_as_mesh_shader);
 		ImGui::Checkbox("Cone Culling", &mesh_shader_cone_culling);
+		ImGui::Checkbox("Sphere Frustum Culling", &mesh_shader_sphere_frustum_culling);
+
 		ImGui::EndDisabled();
 
 		ImGui::SeparatorText("Render Mode");
@@ -294,7 +298,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		recreate_pipeline |= ImGui::Combo("Cull Mode", &cull_mode, "Back\0Front\0None\0", 3);
 	}
 
-	if (ImGui::CollapsingHeader("Culling"))
+	if (ImGui::CollapsingHeader("CPU Culling"))
 	{
 		ImGui::Checkbox("Accurate Culling", &cpu_culling.accurate_cull_check);
 		ImGui::Checkbox("Cull All", &cpu_culling.cull_all);
@@ -312,7 +316,10 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	model_data.time_frame_delta = delta_time;
 	model_data.time_total = total_time;
 	model_data.shading_mode = (int)render_mode;
-	model_data.meshlet_culling[0] = mesh_shader_cone_culling;
+	model_data.meshlet_culling.x = mesh_shader_cone_culling ? 1 : 0;
+	model_data.meshlet_culling.y = mesh_shader_sphere_frustum_culling ? 1 : 0;
+	model_data.meshlet_culling.z = 0;
+	model_data.meshlet_culling.w = 0;
 
 	if (rotate_model)
 	{
@@ -350,6 +357,8 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			b.srv_binding_count = 5;
 			b.set_srv(model->GetVertexBufferSRV(), 0);
 			int render_idx = 0;
+			command_list.clear_buffer_uint(uav, srv, 0);
+
 			for (Model::MeshPart& mesh_part : model->GetMeshParts())
 			{
 				if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), mesh_part))
@@ -360,16 +369,15 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 1);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_unique_vertex_indices_view_srv, 2);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_primitive_indices_view_srv, 3);
-				b.set_srv(mesh_part.mesh_shader_data.gpu_culldata_view_srv, 4);
+				b.set_srv(mesh_part.mesh_shader_data.gpu_culldata_view_srv, 4); 
 
 				model_data.meshlet_count = mesh_part.mesh_shader_data.meshlets.size();
 				model_data.primitive_count = mesh_part.draw_count / 3;
 				model_data.vertex_count = mesh_part.vertex_count;
-				sg::ConstantBufferView cbv_model = cbuffer.AllocateAndWrite(model_data);
+				sg::ConstantBufferView cbv_model = cbuffer.AllocateAndWrite(model_data); 
 				b.set_cbv(cbv_model, 1);
 
 				command_list.bind(b, PipelineType::Geometry);
-				command_list.clear_buffer_uint(uav, srv, 0);
 
 				if (render_model_bool_array[render_idx])
 				{
@@ -390,6 +398,8 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			b.uav_binding_count = 1;
 			b.set_uav(uav, 0);
 
+			command_list.clear_buffer_uint(uav, srv, 0);
+
 			command_list.bind_vertex_buffer(model->GetVertexBufferView());
 			command_list.bind_index_buffer(model->GetIndexBufferView());
 
@@ -406,7 +416,6 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				sg::ConstantBufferView cbv_model = cbuffer.AllocateAndWrite(model_data);
 				b.set_cbv(cbv_model, 1);
 				command_list.bind(b, PipelineType::Geometry);
-				command_list.clear_buffer_uint(uav, srv, 0);
 
 				if (render_geo == RenderGeo::FullscreenTriangle || render_geo == RenderGeo::FullscreenQuad)
 				{

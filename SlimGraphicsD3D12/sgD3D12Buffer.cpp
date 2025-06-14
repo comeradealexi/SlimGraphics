@@ -37,7 +37,8 @@ namespace sg
 			if (cpu_readable)
 			{
 				BYTE* pData;
-				CHECKHR(resource->Map(0, nullptr, reinterpret_cast<void**>(&pData)))
+				D3D12_RANGE readbackBufferRange{ 0, size };
+				CHECKHR(resource->Map(0, &readbackBufferRange, reinterpret_cast<void**>(&pData)))
 					memcpy(memory_dest, pData + offset, size);
 				resource->Unmap(0, nullptr);
 			}

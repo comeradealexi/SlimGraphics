@@ -347,6 +347,11 @@ namespace sg
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), state_dest, D3D12_RESOURCE_STATE_COPY_DEST);
 				command_list->ResourceBarrier(1, &barrier);
 			}
+			else
+			{
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(source->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE);
+				command_list->ResourceBarrier(1, &barrier);
+			}
 			
 			command_list->CopyResource(dest->get().Get(), source->get().Get());	
 			
@@ -356,6 +361,12 @@ namespace sg
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), D3D12_RESOURCE_STATE_COPY_DEST, state_dest);
 				command_list->ResourceBarrier(1, &barrier);
 			}
+			else
+			{
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(source->get().Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				command_list->ResourceBarrier(1, &barrier);
+			}
+
 		}
 
 
