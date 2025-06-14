@@ -84,8 +84,11 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 	uav_memory = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
 	uav_buffer = device->create_buffer(uav_memory, 64ull * 1024, 64ull * 1024, BufferType::GeneralDataBuffer, true);
-	uav = device->create_unordered_access_view(uav_buffer, 64ull * 1024, 1);
-	srv = device->create_shader_resource_view(uav_buffer, 64ull * 1024, 1);
+	uav = device->create_unordered_access_view(uav_buffer, sizeof(u32), (64ull * 1024) / sizeof(u32));
+	srv = device->create_shader_resource_view(uav_buffer, sizeof(u32), (64ull * 1024) / sizeof(u32));
+
+	readback_uav_memory = device->allocate_memory(MemoryType::Readback, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
+	readback_uav_buffer = device->create_buffer(readback_uav_memory, 64ull * 1024, 64ull * 1024, BufferType::GeneralDataBuffer, false);
 
 	// Defaults
 	model_data.vertex_shading_mod = 1.0f;
@@ -98,6 +101,16 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	bool recreate_pipeline = false;
 
 	ImGui::Begin("Model Viewer", nullptr, 0);
+
+	struct UAVReadBack
+	{
+		u32 UAV_INDEX_PIXELS_SHADED;
+		u32 UAV_INDEX_MESH_SHADER_INVOCATIONS;
+		u32 UAV_INDEX_MESH_SHADER_CULL_COUNT;
+		u32 UAV_INDEX_MESH_SHADER_PRIM_COUNT;
+		u32 UAV_INDEX_VERTEX_SHADER_INVOCATIONS;
+	} uav_readback_values = {};
+	readback_uav_buffer->read_memory(0, &uav_readback_values, sizeof(uav_readback_values));
 
 	// Model scale and shading etc
 	if (ImGui::CollapsingHeader("Model"))
@@ -155,6 +168,17 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			}
 		}
 
+		ImGui::SeparatorText("UAV Readback:");
+		{
+			ImGui::PushID("UAV ReadbackInfo");
+			ImGui::Text("Pixels Shaded:   %u", uav_readback_values.UAV_INDEX_PIXELS_SHADED);
+			ImGui::Text("VS Invocations:  %u", uav_readback_values.UAV_INDEX_VERTEX_SHADER_INVOCATIONS);
+			ImGui::Text("MS Invocations:  %u", uav_readback_values.UAV_INDEX_MESH_SHADER_INVOCATIONS);
+			ImGui::Text("Meshlets Culled: %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_COUNT);
+			ImGui::Text("Meshlet Prims:   %u", uav_readback_values.UAV_INDEX_MESH_SHADER_PRIM_COUNT);
+			ImGui::PopID();
+		}
+
 		ImGui::SeparatorText("Mesh Optimizer");
 		ImGui::BeginGroup();
 		recreate_model = ImGui::RadioButton("Default", (int*)&model_init_data.vertex_cache_opt_mode, (int) Model::InitData::VertexCachOptimisation::Default) || recreate_model;
@@ -185,6 +209,11 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		recreate_model = ImGui::SliderFloat("Threshold", &model_init_data.meshopt_simplification_threshold, 0.0f, 1.0f) || recreate_model;
 		recreate_model = ImGui::SliderFloat("Target Error", &model_init_data.meshopt_simplification_target_error, 0.0f, 1.0f) || recreate_model;
 		//ImGui::Text("Reported LOD Error: %f", )
+		ImGui::EndDisabled();
+
+		ImGui::SeparatorText("Mesh Shader");
+		ImGui::BeginDisabled(!render_as_mesh_shader);
+		ImGui::Checkbox("Cone Culling", &mesh_shader_cone_culling);
 		ImGui::EndDisabled();
 
 		ImGui::SeparatorText("Render Mode");
@@ -283,6 +312,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	model_data.time_frame_delta = delta_time;
 	model_data.time_total = total_time;
 	model_data.shading_mode = (int)render_mode;
+	model_data.meshlet_culling[0] = mesh_shader_cone_culling;
 
 	if (rotate_model)
 	{
@@ -392,6 +422,9 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				render_idx++;
 			}
 		}
+
+		// Copy UAV to readback buffer.
+		command_list.copy_buffer_to_buffer(readback_uav_buffer.get(), uav_buffer.get());
 	}
 
 	// Debug draw

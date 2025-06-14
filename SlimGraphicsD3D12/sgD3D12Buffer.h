@@ -12,6 +12,7 @@ namespace sg
 			Buffer(BufferType type_, size_t size_bytes_, bool uav_access_, bool cpu_write, bool cpu_read) : type(type_), size_bytes(size_bytes_), uav_access(uav_access_), cpu_writeable(cpu_write), cpu_readable(cpu_read) {}
 			ComPtr<ID3D12Resource> get() { return resource; }
 			BufferType get_type() const { return type; }
+			MemoryType get_memory_type() const;
 			D3D12_RESOURCE_STATES get_read_resource_state() const;
 			size_t get_size_bytes() const { return size_bytes;  }
 

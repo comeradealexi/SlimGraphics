@@ -335,10 +335,14 @@ namespace sg
 		{
 			seAssert(dest->get_size_bytes() >= source->get_size_bytes(), "Dest too small for source size");
 			seAssert(dest && source, "no valid buffers");
-			seAssert(source->get_type() == BufferType::Upload, "only upload supported. Need to add different barrier transition for other types (to copy src)");
+			
+			// Readback type does not need to transiton
+			const bool dest_is_readback = dest->get_memory_type() == MemoryType::Readback;
+
 			const D3D12_RESOURCE_STATES state_dest = dest->get_read_resource_state();
 
 			//Barrier transition
+			if (!dest_is_readback)
 			{
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), state_dest, D3D12_RESOURCE_STATE_COPY_DEST);
 				command_list->ResourceBarrier(1, &barrier);
@@ -347,6 +351,7 @@ namespace sg
 			command_list->CopyResource(dest->get().Get(), source->get().Get());	
 			
 			//Barrier transition
+			if (!dest_is_readback)
 			{
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), D3D12_RESOURCE_STATE_COPY_DEST, state_dest);
 				command_list->ResourceBarrier(1, &barrier);

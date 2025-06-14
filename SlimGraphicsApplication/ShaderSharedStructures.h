@@ -37,6 +37,8 @@ struct ModelData
 
 	float4 pixel_order_data1; //x=multiplier, y=mod, z=use_colours, w=shade_over_time	
 	float4 pixel_order_data2;  //x=pixel_to_shade, y=colour_range
+
+	int meshlet_culling[4]; // x = cone culling
 };
 
 struct CameraData

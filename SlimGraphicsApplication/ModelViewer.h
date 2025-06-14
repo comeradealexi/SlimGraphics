@@ -70,12 +70,20 @@ private:
 	bool depth_enable = true;
 	bool depth_write = true;
 
+	bool mesh_shader_cone_culling = true;
+
 
 	// Uav
 	sg::SharedPtr<sg::Memory> uav_memory;
 	sg::SharedPtr<sg::Buffer> uav_buffer;
 	sg::UnorderedAccessView uav;
 	sg::ShaderResourceView srv;
+
+	// Uav Readback
+	sg::SharedPtr<sg::Memory> readback_uav_memory;
+	sg::SharedPtr<sg::Buffer> readback_uav_buffer;
+
+
 	bool pixel_shade_order_ranged_colour = false;
 	bool pixel_shade_order_automatic = false;
 	bool pixel_shade_order_coloured = false;

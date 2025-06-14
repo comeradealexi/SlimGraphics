@@ -1,15 +1,22 @@
 #include "pch.h"
 #include "sgD3D12Buffer.h"	
 #include "sgD3D12TypesTranslator.h"
+#include "sgD3D12Memory.h"
 
 namespace sg
 {
 	namespace D3D12
 	{
 
+
+		sg::MemoryType Buffer::get_memory_type() const
+		{
+			return memory->get_type();
+		}
+
 		D3D12_RESOURCE_STATES Buffer::get_read_resource_state() const
 		{
-			return get_d3d12_resource_read_state(type);
+			return get_d3d12_resource_read_state(type, memory->get_type() == MemoryType::Readback);
 		}
 
 		void Buffer::write_memory(u32 offset, const void* memory_src, u64 size)

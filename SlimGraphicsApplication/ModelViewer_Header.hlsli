@@ -16,6 +16,12 @@ cbuffer ModelBufferData : register(b1)
     ModelData model;
 };
 
+#define UAV_INDEX_PIXELS_SHADED 0
+#define UAV_INDEX_MESH_SHADER_INVOCATIONS 1
+#define UAV_INDEX_MESH_SHADER_CULL_COUNT 2
+#define UAV_INDEX_MESH_SHADER_PRIM_COUNT 3
+#define UAV_INDEX_VERTEX_SHADER_INVOCATIONS 4
+
 RWStructuredBuffer<uint> uav0 : register(u0);
 
 struct VS_INPUT
@@ -73,52 +79,24 @@ void MSMain(
     out vertices PS_INPUT verts[64]
 )
 {
+    uint original;
+    InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_INVOCATIONS], 1, original);
     
-    //uint meshlet_size, meshlet_count;
-    //Meshlets.GetDimensions(meshlet_size, meshlet_count);
-    
-    //Meshlet m = Meshlets[gid];
-    //uint mesh_output_verts = m.VertCount;
-    //uint mesh_output_prims = m.PrimCount;
-    //
-    //SetMeshOutputCounts(mesh_output_verts, mesh_output_prims);
-    
-    //if (gtid < mesh_output_verts)
-    //{
-    //    verts[gtid].position = float4(0, 0, 0, 0);
-    //    verts[gtid].colour = float3(0, 0, 0);
-    //}
-    //
-    //if (gtid < mesh_output_prims)
-    //{
-    //    tris[gtid] = uint3(0, 1, 2);
-    //}
-    
-    //return;
-    
-    //if (gid >= meshlet_size)
-    //{
-    //    //SetMeshOutputCounts(4, 3);
-    //    if (gtid < 4)
-    //    {      
-    //        verts[gtid].position = float4(0, 0, 0, 0);
-    //        verts[gtid].colour = float3(0, 0, 0);
-    //    }
-    //    if (gtid < 3)
-    //    {
-    //        tris[gtid] = uint3(0, 0, 0);
-    //    }
-    //}
-    //else
     {
     
         MeshletCullData cull_data = MeshletCullingDatas[gid];
         
         bool reject = false; // TODO - TAKE MODEL MATRIX IN TO ACCOUNT!
-        if (dot(normalize(cull_data.cone_apex_xyz.xyz - camera.camera_position.xyz), cull_data.cone_axis_xyz_cone_cutoff_w.xyz) >= cull_data.cone_axis_xyz_cone_cutoff_w.w)
-        {
-            reject = true;
-        }        
+        
+        if (model.meshlet_culling[0] != 0)
+        {      
+            if (dot(normalize(cull_data.cone_apex_xyz.xyz - camera.camera_position.xyz), cull_data.cone_axis_xyz_cone_cutoff_w.xyz) >= cull_data.cone_axis_xyz_cone_cutoff_w.w)
+            {
+                uint original;
+                InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_CULL_COUNT], 1, original);
+                reject = true;
+            }
+        }
         
         Meshlet m = Meshlets[gid];
         SetMeshOutputCounts(reject ? 0 : m.VertCount, reject ? 0 : m.PrimCount);
@@ -127,6 +105,9 @@ void MSMain(
         {
             return;
         }
+        
+        uint original;
+        InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_PRIM_COUNT], m.PrimCount, original);
 #if 0
     SetMeshOutputCounts(4 * 10, 3*10);
     if (gtid < m.VertCount)
@@ -227,6 +208,9 @@ void MSMain(
 #ifdef VERTEX_TRIANGLE
 PS_INPUT VSMain(uint id : SV_VertexID)
 {
+    uint original;
+    InterlockedAdd(uav0[UAV_INDEX_VERTEX_SHADER_INVOCATIONS], 1, original);
+    
     PS_INPUT psOut;
     
     float2 uv = float2((id << 1) & 2, id & 2);
@@ -241,6 +225,9 @@ PS_INPUT VSMain(uint id : SV_VertexID)
 #elif defined (VERTEX_QUAD)
 PS_INPUT VSMain(uint id : SV_VertexID)
 {
+    uint original;
+    InterlockedAdd(uav0[UAV_INDEX_VERTEX_SHADER_INVOCATIONS], 1, original);
+
     PS_INPUT psOut;
 	//psOut.Normal = float3(0, 1, 0);
     psOut.colour = float3(0,0,0);
@@ -284,6 +271,9 @@ PS_INPUT VSMain(uint id : SV_VertexID)
 
 PS_INPUT VSMain(VS_INPUT vs_in, uint id : SV_VertexID)
 {
+    uint original;
+    InterlockedAdd(uav0[UAV_INDEX_VERTEX_SHADER_INVOCATIONS], 1, original);
+
     PS_INPUT result;
     
     result.position = mul(float4(vs_in.position, 1.0f), model.model_matrix);
@@ -308,7 +298,7 @@ float4 ShadePixelOrder() : SV_TARGET0
 {
     uint true_original;
     uint original;
-    InterlockedAdd(uav0[0], 1, original);
+    InterlockedAdd(uav0[UAV_INDEX_PIXELS_SHADED], 1, original);
     true_original = original;
     float w = camera.screen_dimensions_and_depth_info.x;
     float h = camera.screen_dimensions_and_depth_info.y;
@@ -426,68 +416,11 @@ float4 PSMain(PS_INPUT input
         return ShadePixelOrder();
     }
     
+    if (model.shading_mode != SHADING_MODE_PIXELORDER)
+    {
+        uint original;
+        InterlockedAdd(uav0[UAV_INDEX_PIXELS_SHADED], 1, original);
+    }
+    
     return float4(input.colour.xyz, 1) * abs(dot(float3(0,0,1), input.normals));
 }
-
-/*
-#include "OffScreenShared.h"
-
-RWStructuredBuffer<uint> uav0 : register(u1);
-
-cbuffer ShadeCB : register(b1)
-{
-    float4 scale; //x=multiplier, y=mod, z=use_colours, w=shade_over_time
-    float4 time;  //x=pixel_to_shade, y=colour_range
-}
-
-float4 main(PS_INPUT input) : SV_TARGET0
-{
-    uint true_original;
-    uint original;
-    InterlockedAdd(uav0[0], 1, original);
-    true_original = original;
-    float total_pixels = (1280.0 * 720.0) * scale.y;
-    
-    uint mod_idx = (uint) (((float) original) / total_pixels);
-    mod_idx = mod_idx % 3;
-    
-
-    original = original % (uint) total_pixels;
-    
-    float outv = ((float) original) / total_pixels;
-    outv = 1.0 - outv;
-    
-    float4 fout = float4((outv * scale.x).xxx, 1);
-    
-    if (scale.w)
-    {
-        float absolute = abs(((float) true_original) - time.x);
-        if (absolute <= time.y)
-        {
-            return float4(1, 0, 0, 1);
-        }
-        
-        return fout;
-    }
-    
-    if (scale.z != 0.0f)
-    {
-        if (mod_idx == 0)
-        {
-            return fout * float4(1, 0, 0, 1);
-        }
-        if (mod_idx == 1)
-        {
-            return fout * float4(0, 1, 0, 1);
-        }
-        if (mod_idx == 2)
-        {
-            return fout * float4(0, 0, 1, 1);
-        }
-    }
-    return fout;
-
-}
-
-
-*/

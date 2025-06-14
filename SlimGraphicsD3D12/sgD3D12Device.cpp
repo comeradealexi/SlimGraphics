@@ -613,7 +613,7 @@ namespace sg
 			const CD3DX12_RESOURCE_DESC ResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(rai, flags);
 
             Allocation& d3d12_alloc = memory->alloc;
-            const D3D12_RESOURCE_STATES resource_state = get_d3d12_resource_read_state(type);
+            const D3D12_RESOURCE_STATES resource_state = get_d3d12_resource_read_state(type, memory->get_type() == MemoryType::Readback);
 			ComPtr<ID3D12Resource> d3d12_buffer;
 			CHECKHR(device6->CreatePlacedResource(d3d12_alloc.heap.Get(), d3d12_alloc.offset, &ResourceDesc, resource_state, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
             
