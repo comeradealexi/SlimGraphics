@@ -124,7 +124,7 @@ void MSMain(
         if (!reject && model.meshlet_culling.x != 0)
         {      
             float3 cone_apex = mul(float4(cull_data.cone_apex_xyz.xyz, 1.0f), model.model_matrix).xyz;
-            float3 cone_axis = normalize(mul(float4(cull_data.cone_axis_xyz_cone_cutoff_w.xyz, 1.0f), model.model_matrix_inverse).xyz);
+            float3 cone_axis = normalize(mul(cull_data.cone_axis_xyz_cone_cutoff_w.xyz, (float3x3) model.model_matrix));
 
             if (dot(normalize(cone_apex - camera.camera_position.xyz), cone_axis) >= cull_data.cone_axis_xyz_cone_cutoff_w.w)
             {
@@ -431,7 +431,7 @@ float4 PSMain(PS_INPUT input
         }
         
         float3 cone_apex = mul(float4(cull_data.cone_apex_xyz.xyz, 1.0f), model.model_matrix).xyz;
-        float3 cone_axis = normalize(mul(float4(cull_data.cone_axis_xyz_cone_cutoff_w.xyz, 1.0f), model.model_matrix_inverse).xyz);
+        float3 cone_axis = normalize(mul(cull_data.cone_axis_xyz_cone_cutoff_w.xyz, (float3x3) model.model_matrix));
         
         return float4(1.0 - smoothstep(0.0f, cull_data.cone_axis_xyz_cone_cutoff_w.w, dot(normalize(cone_apex - camera.camera_position.xyz), cone_axis)).x, 0.0, 0.0, 1.0);
 #else
