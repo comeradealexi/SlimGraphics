@@ -69,6 +69,8 @@ private:
 	bool render_as_mesh_shader = true;
 	bool depth_enable = true;
 	bool depth_write = true;
+	bool scale_model_to_1 = false;
+	float scale_mode_to_1_previous = model_scale;
 
 	bool mesh_shader_cone_culling = true;
 	bool mesh_shader_sphere_frustum_culling = true;

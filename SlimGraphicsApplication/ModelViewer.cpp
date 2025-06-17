@@ -55,6 +55,32 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/platform.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/cube.obj");
 
+	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Bulldozer.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Carved pumpkin.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Cat.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Residential House.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Sunflower - low poly.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Tree.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Trophy cup.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Tuft of grass.obj");
+
+	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere3x3.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere6x6.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere9x9.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere16x16.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere32x32.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere64x64.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere128x128.obj");
+
+	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/grass.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/palm_tree.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/sponza.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/T34-85.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/armadillo.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/buddha.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/cow.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/dragon.obj");
+
 	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/duck.fbx");
 	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/Cinema4D.fbx");
 	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/COLLADA.fbx");
@@ -67,6 +93,11 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/anims_with_full_rotations_between_keys.fbx");
 	model_file_list.push_back("../External/assimp-5.3.1/test/models/IFC/AC14-FZK-Haus.ifc");
 	model_file_list.push_back("../External/assimp-5.3.1/test/models/MDC/spider.mdc");
+
+	model_file_list.push_back("../External/assimp-5.3.1/test/models/OBJ/WusonOBJ.obj");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/OBJ/rifle.obj");
+	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/OBJ/segment.obj");
+
 
 	model_file_list.push_back("../SlimGraphicsAssets/GL/bunny.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/GL/ChessKing.obj");
@@ -138,9 +169,21 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		}
 		ImGui::SeparatorText("Model Settings");
 		ImGui::Checkbox("Render with Mesh Shader", &render_as_mesh_shader);
-		ImGui::SliderFloat("Render Scale", &model_scale, 0.0f, 10.0f);
+		ImGui::BeginDisabled(scale_model_to_1);
+		ImGui::SliderFloat("Render Scale", &model_scale, 0.0f, 20.0f);
+		ImGui::EndDisabled();
 		ImGui::SliderFloat("Render Percent", &render_percentage, 0.0f, 1.0f);
-		recreate_model = ImGui::Checkbox("Scale model size -1/+1", &model_init_data.scalemodel1to1) || recreate_model;
+		if (ImGui::Checkbox("Scale model size -1/+1", &scale_model_to_1))
+		{
+			if (scale_model_to_1)
+			{
+				scale_mode_to_1_previous = model_scale;
+			}
+			else
+			{
+				model_scale = scale_mode_to_1_previous;
+			}
+		}
 		ImGui::Checkbox("Rotate Model", &rotate_model);
 		ImGui::SeparatorText("Model Info:");
 		{
@@ -285,6 +328,13 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			model_data.pixel_order_data2.x = pixel_shade_order_pixel_to_shade;
 			model_data.pixel_order_data2.y = pixel_shade_order_range;
 		}
+	}
+
+	// Model scale
+	if (scale_model_to_1)
+	{
+		float position_multiplier = 1.0f / std::max(std::max(model->max_extent.x, model->max_extent.y), model->max_extent.z);
+		model_scale = position_multiplier;
 	}
 
 	// Mesh opt etc

@@ -51,8 +51,9 @@ public:
 	{
 		std::string file_path;
 
+		//bool scalemodel1to1 = false; // Problems with this so removed for now.
+
 		// Mesh Optimizer settings
-		bool scalemodel1to1 = false;
 		bool meshopt_overdraw = false;
 		bool meshopt_vertex_fetch = false;
 		bool meshopt_vertex_quantization = false;
@@ -165,6 +166,7 @@ public:
 	sg::ShaderResourceView& GetVertexBufferSRV() { return vb_srv; }
 	sg::IndexBufferView& GetIndexBufferView() { return ibv; }
 	std::vector<MeshPart>& GetMeshParts() { return mesh_parts; }
+
 private:
 	InitData init_data;
 	sg::Ptr<sg::Pipeline> pipeline;
@@ -175,7 +177,7 @@ private:
 	sg::IndexBufferView ibv;
 	std::vector<MeshPart> mesh_parts;
 	std::vector<Material> materials;
-	public:
+public:
 	DirectX::XMFLOAT3 max_extent = {};
 	DirectX::XMFLOAT3 bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };
 	DirectX::XMFLOAT3 bounding_box_max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };

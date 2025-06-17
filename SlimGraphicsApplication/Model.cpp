@@ -350,6 +350,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 				}
 			}
 
+#if 0 // This is incompatible with mesh modifications during constructions as we need to know total mesh size of all meshes before scaling but we process per mesh
 			if (init_data.scalemodel1to1)
 			{
 				float position_multiplier = 1.0f / std::max(std::max(max_extent.x, max_extent.y), max_extent.z);
@@ -381,6 +382,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					}
 				}
 			}
+#endif
 
 			std::vector<Vertex> vertices;
 			std::vector<uint32_t> indices;
