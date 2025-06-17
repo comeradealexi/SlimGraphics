@@ -374,6 +374,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				model_data.meshlet_count = mesh_part.mesh_shader_data.meshlets.size();
 				model_data.primitive_count = mesh_part.draw_count / 3;
 				model_data.vertex_count = mesh_part.vertex_count;
+				model_data.meshlet_vb_offset = mesh_part.vb_offset;
 				sg::ConstantBufferView cbv_model = cbuffer.AllocateAndWrite(model_data); 
 				b.set_cbv(cbv_model, 1);
 

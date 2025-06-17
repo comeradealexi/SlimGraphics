@@ -188,7 +188,7 @@ void MSMain(
 #if 1
                     uint vsize, vnum;
                     Vertices.GetDimensions(vsize, vnum);
-                    uint vertexIndex = UniqueVertexIndices[offset];
+                    uint vertexIndex = model.meshlet_vb_offset + UniqueVertexIndices[offset];
                 //if (vertexIndex >= vsize)
                 //{
                 //    verts[gtid].position = float4(0, 0, 0, 0);

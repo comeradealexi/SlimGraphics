@@ -28,7 +28,7 @@ struct ModelData
 
 	int shading_mode;
 	int meshlet_count;
-	int unused2;
+	int meshlet_vb_offset;
 	float vertex_shading_mod;
 
 	uint vertex_count; // Total vertices in current draw call
