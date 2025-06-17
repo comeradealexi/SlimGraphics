@@ -18,6 +18,7 @@ namespace ShaderStructs
 struct ModelData
 {
 	row_major float4x4 model_matrix;
+	row_major float4x4 model_matrix_inverse;
 
 	#define SHADING_MODE_DEFAULT  0 
 	#define SHADING_MODE_PRIMITIVEORDER  1 

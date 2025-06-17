@@ -381,6 +381,8 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		model_data.model_matrix = DirectX::XMMatrixMultiply(model_data.model_matrix, rotation_matrix);
 	}
 
+	model_data.model_matrix_inverse = DirectX::XMMatrixInverse(nullptr, model_data.model_matrix);
+
 	if (recreate_pipeline)
 	{ 
 		CreatePipeline();
