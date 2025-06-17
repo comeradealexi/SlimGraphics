@@ -89,7 +89,7 @@ private:
 
 	bool pixel_shade_order_ranged_colour = false;
 	bool pixel_shade_order_automatic = false;
-	bool pixel_shade_order_coloured = false;
+	bool pixel_shade_order_coloured = true;
 	float pixel_shade_order_automated_speed = 1.0f;
 	float pixel_shade_order_pixel_to_shade = 1.0f;
 	float pixel_shade_order_range = 0.0f;

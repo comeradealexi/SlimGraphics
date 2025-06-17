@@ -54,6 +54,7 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/hollowcube.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/platform.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/cube.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/Bartek/donut.glb");
 
 	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Bulldozer.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Carved pumpkin.obj");
@@ -123,7 +124,8 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 	// Defaults
 	model_data.vertex_shading_mod = 1.0f;
-	model_data.pixel_order_data1.y = 1.0f;
+	model_data.pixel_order_data1.x = 1.0f;
+	model_data.pixel_order_data1.y = 1.0f/3.0f;
 
 }
 
