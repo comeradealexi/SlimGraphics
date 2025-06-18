@@ -251,7 +251,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	Camera camera;
 	camera.SetWidthHeight((float)w, (float)h);
-	camera.SetPosition({ 0.0f, 0.0f, -1.5f });
+	camera.SetPosition({ 0.0f, 0.5f, -2.0f });
 
 	//Loading frame
 	Ptr<VertexShader> model_vs;

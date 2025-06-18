@@ -26,7 +26,7 @@ BasicGrid::BasicGrid(sg::SharedPtr<sg::Device>& _device)
 	pipeline_desc.depth_stencil_desc.depth_enable = true;
 	pipeline_desc.depth_stencil_desc.depth_write = false;
 	pipeline_desc.rasterizer_desc.fill_mode = Rasterizer::FillMode::Solid;
-	pipeline_desc.rasterizer_desc.cull_mode = Rasterizer::CullMode::Back;
+	pipeline_desc.rasterizer_desc.cull_mode = Rasterizer::CullMode::None;
 	pipeline_desc.blend_desc.render_targets[0].blend_enable = true;
 	pipeline_desc.blend_desc.render_targets[0].src_blend = Blend::Type::Src_alpha;
 	pipeline_desc.blend_desc.render_targets[0].dest_blend = Blend::Type::Inv_src_alpha;
