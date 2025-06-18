@@ -233,6 +233,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BasicGrid.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DebugDraw.cpp" />
     <ClCompile Include="LinearConstantBuffer.cpp" />
@@ -248,6 +249,7 @@
     <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXMath.h" />
     <ClInclude Include="..\SubModules\DirectXMath\Inc\DirectXPackedVector.h" />
     <ClInclude Include="AverageTimer.h" />
+    <ClInclude Include="BasicGrid.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="DebugDraw.h" />
     <ClInclude Include="LinearConstantBuffer.h" />
@@ -404,6 +406,11 @@
   </ItemGroup>
   <ItemGroup>
     <Text Include="DebugWireframeShader.hlsl">
+      <FileType>Document</FileType>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="BasicGrid.hlsl">
       <FileType>Document</FileType>
     </Text>
   </ItemGroup>

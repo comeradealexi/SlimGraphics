@@ -8,6 +8,11 @@ using namespace sg;
 
 ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI_FORMAT_R8G8B8A8_UNORM), depth_stencil_format(DXGI_FORMAT_D32_FLOAT), device(_device)
 {
+	if (!device->SupportsMeshShaders())
+	{
+		render_as_mesh_shader = false;
+	}
+
 	debug_draw = sg::Ptr<DebugDraw>(new DebugDraw(*device));
 
 	pipeline_binding_desc = {};
@@ -170,7 +175,9 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			recreate_model = true;
 		}
 		ImGui::SeparatorText("Model Settings");
+		ImGui::BeginDisabled(!device->SupportsMeshShaders());
 		ImGui::Checkbox("Render with Mesh Shader", &render_as_mesh_shader);
+		ImGui::EndDisabled();
 		ImGui::BeginDisabled(scale_model_to_1);
 		ImGui::SliderFloat("Render Scale", &model_scale, 0.0f, 20.0f);
 		ImGui::EndDisabled();

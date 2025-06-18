@@ -30,6 +30,10 @@
       {
         "name": "DebugWireframeShader_PixelShader",
         "input_file": "DebugWireframeShader.hlsl"
+      },
+      {
+        "name": "BasicGrid_PixelShader",
+        "input_file": "BasicGrid.hlsl"
       }
     ]
   },
@@ -60,6 +64,10 @@
       {
         "name": "DebugWireframeShader_VertexShader",
         "input_file": "DebugWireframeShader.hlsl"
+      },
+      {
+        "name": "BasicGrid_VertexShader",
+        "input_file": "BasicGrid.hlsl"
       }
     ]
   },

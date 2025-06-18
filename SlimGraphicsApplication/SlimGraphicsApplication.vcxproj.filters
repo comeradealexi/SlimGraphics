@@ -45,6 +45,9 @@
     <ClCompile Include="DebugDraw.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="BasicGrid.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\SlimEngine\seEngine.h">
@@ -84,6 +87,9 @@
       <Filter>Submodules\DirectXMath</Filter>
     </ClInclude>
     <ClInclude Include="DebugDraw.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BasicGrid.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -169,6 +175,9 @@
       <Filter>Shaders</Filter>
     </Text>
     <Text Include="DebugWireframeShader.hlsl">
+      <Filter>Shaders</Filter>
+    </Text>
+    <Text Include="BasicGrid.hlsl">
       <Filter>Shaders</Filter>
     </Text>
   </ItemGroup>
