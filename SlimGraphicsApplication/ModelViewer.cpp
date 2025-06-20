@@ -4,6 +4,7 @@
 #include <seEngineBasicFileIO.h>
 #include "Camera.h"
 
+
 using namespace sg;
 
 ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI_FORMAT_R8G8B8A8_UNORM), depth_stencil_format(DXGI_FORMAT_D32_FLOAT), device(_device)
@@ -12,8 +13,6 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	{
 		render_as_mesh_shader = false;
 	}
-
-	debug_draw = sg::Ptr<DebugDraw>(new DebugDraw(*device));
 
 	pipeline_binding_desc = {};
 	pipeline_binding_desc.cbv_binding_count = 2;
@@ -134,7 +133,7 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 }
 
-void ModelViewer::Update(float delta_time, float total_time, const Camera& camera)
+void ModelViewer::Update(float delta_time, float total_time, const Camera& camera, DebugDraw& debug_draw)
 {
 	bool recreate_pipeline = false;
 
@@ -397,7 +396,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 
 }
 
-void ModelViewer::Render(CommandList& command_list, const Camera& camera, ConstantBufferView& cbv_camera, Ptr<UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer)
+void ModelViewer::Render(CommandList& command_list, const Camera& camera, ConstantBufferView& cbv_camera, Ptr<UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw)
 {
 	if (recreate_model)
 	{
@@ -449,10 +448,13 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				}
 				render_idx++;
 
-				//for (const meshopt_Bounds& meshlet_bounds :  mesh_part.mesh_shader_data.meshlet_bounds)
-				//{
-				//	debug_draw->DrawSphere(DebugDraw::ColourRGBA(255,0,0), DirectX::XMFLOAT3(meshlet_bounds.center), meshlet_bounds.radius * 2, 9);
-				//}
+				for (const meshopt_Bounds& meshlet_bounds :  mesh_part.mesh_shader_data.meshlet_bounds)
+				{
+					DirectX::XMFLOAT3 pos;
+					DirectX::XMStoreFloat3(&pos, DirectX::XMVector3Transform(DirectX::XMLoadFloat3((DirectX::XMFLOAT3*)meshlet_bounds.center), model_data.model_matrix));
+					float diameter = meshlet_bounds.radius * 2.0f * model_scale;
+					debug_draw.DrawSphere(DebugDraw::ColourRGBA(255,0,0), pos, diameter, 9);
+				}
 			}
 		}
 		else
@@ -501,15 +503,6 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 
 		// Copy UAV to readback buffer.
 		command_list.copy_buffer_to_buffer(readback_uav_buffer.get(), uav_buffer.get());
-	}
-
-	// Debug draw
-	{
-		//debug_draw->DrawSphere(DebugDraw::ColourRGBA(), {}, 1.0f, 9);
-		//debug_draw->DrawSphere(DebugDraw::ColourRGBA(), { -1.0f,0.0f,0.0f }, 1.0f, 9);
-		//debug_draw->DrawSphere(DebugDraw::ColourRGBA(), { 1.0f,0.0f,0.0f }, 1.0f, 9);
-		//
-		//debug_draw->Render(command_list, cbv_camera);
 	}
 }
 

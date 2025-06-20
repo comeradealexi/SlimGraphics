@@ -33,6 +33,8 @@ public:
 
 	DebugDraw(sg::Device& device);
 
+	void Update();
+
 	void DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::XMFLOAT3& min_extent, const DirectX::XMFLOAT3& max_extent);
 	void DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::BoundingBox aabb);
 
@@ -61,7 +63,7 @@ private:
 	void FinaliseDraw(ColourRGBA colour, DirectX::XMFLOAT3 centre, DirectX::VertexCollection& v, DirectX::IndexCollection& i);
 
 private:
-	static constexpr sg::u32 MAX_TRIANGLES = 50000;
+	static constexpr sg::u32 MAX_TRIANGLES = 100000;
 	static constexpr sg::u32 UPLOAD_BUFFER_COUNT = 3;
 	sg::u32 buffer_index = 0;
 	std::array<sg::SharedPtr<sg::Buffer>, UPLOAD_BUFFER_COUNT> upload_buffers;
@@ -92,4 +94,11 @@ private:
 		sg::u32 vertex_offset;
 	};
 	std::vector<Draw> draw_list;
+
+	bool IsEnabled() const { return options.enabled; }
+
+	struct Options
+	{
+		bool enabled = false;
+	}options;
 };

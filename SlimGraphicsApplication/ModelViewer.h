@@ -12,14 +12,13 @@ class ModelViewer
 public:
 	ModelViewer(sg::SharedPtr<sg::Device>& _device);
 	
-	void Update(float delta_time, float total_time, const Camera& camera);
-	void Render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer);
+	void Update(float delta_time, float total_time, const Camera& camera, DebugDraw& debug_draw);
+	void Render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw);
 	void CreatePipeline();
 	void CreateModel(sg::Ptr<UploadHeap>& upload_heap);
 	bool MeshPartVisible(const Camera& camera, DirectX::XMFLOAT3 position, Model::MeshPart& mesh_part);
 
 private:
-	sg::Ptr<DebugDraw> debug_draw;
 	const DXGI_FORMAT render_target_format;
 	const DXGI_FORMAT depth_stencil_format;
 

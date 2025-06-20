@@ -30,3 +30,7 @@
 [submodule "SubModules/DirectXMesh"]
 	path = SubModules/DirectXMesh
 	url = https://github.com/microsoft/DirectXMesh
+[submodule "SubModules/ImGuiDocking"]
+	path = SubModules/ImGuiDocking
+	url = https://github.com/ocornut/imgui/
+	branch = docking

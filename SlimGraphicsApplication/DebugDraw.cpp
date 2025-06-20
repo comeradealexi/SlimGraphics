@@ -6,7 +6,7 @@ using namespace sg;
 DebugDraw::DebugDraw(sg::Device& device)
 {
 	const sg::u32 max_vertex_size = 3 * MAX_TRIANGLES * sizeof(VertexFormat);
-	const sg::u32 max_index_size = 3 * MAX_TRIANGLES * sizeof(uint16_t);
+	const sg::u32 max_index_size = 9 * MAX_TRIANGLES * sizeof(uint32_t);
 	const sg::u32 total_byte_size = max_vertex_size + max_index_size;
 
 	for (auto& upload_buffer : upload_buffers)
@@ -45,7 +45,7 @@ DebugDraw::DebugDraw(sg::Device& device)
 		pipeline_desc.pixel_shader = shader_pixel.get();
 		pipeline_desc.render_target_count = 1;
 		pipeline_desc.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-		pipeline_desc.depth_stencil_desc.depth_enable = false;
+		pipeline_desc.depth_stencil_desc.depth_enable = true;
 		pipeline_desc.depth_stencil_desc.depth_write = false;
 		pipeline_desc.rasterizer_desc.fill_mode = Rasterizer::FillMode::Wireframe;
 		pipeline_desc.rasterizer_desc.cull_mode = Rasterizer::CullMode::None;
@@ -61,11 +61,13 @@ DebugDraw::DebugDraw(sg::Device& device)
 
 void DebugDraw::DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::XMFLOAT3& min_extent, const DirectX::XMFLOAT3& max_extent)
 {
-
+	if (!IsEnabled()) return;
 }
 
 void DebugDraw::DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::BoundingBox aabb)
 {
+	if (!IsEnabled()) return;
+
 	DirectX::VertexCollection vc;
 	DirectX::IndexCollection ic;	
 
@@ -113,6 +115,8 @@ void DebugDraw::DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const Dire
 
 void DebugDraw::DrawSphere(ColourRGBA colour, DirectX::XMFLOAT3 centre, float diameter /*= 1.0f*/, size_t tessellation /*= 3*/)
 {
+	if (!IsEnabled()) return;
+
 	DirectX::VertexCollection v;
 	DirectX::IndexCollection i;
 	DirectX::ComputeSphere(v, i, diameter, tessellation, true, false);
@@ -122,6 +126,8 @@ void DebugDraw::DrawSphere(ColourRGBA colour, DirectX::XMFLOAT3 centre, float di
 
 void DebugDraw::DrawGeoSphere(ColourRGBA colour, DirectX::XMFLOAT3 centre, float diameter /*= 1.0f*/, size_t tessellation /*= 3*/)
 {
+	if (!IsEnabled()) return;
+
 	DirectX::VertexCollection v;
 	DirectX::IndexCollection i;
 	DirectX::ComputeGeoSphere(v, i, diameter, tessellation, true);
@@ -151,33 +157,36 @@ void DebugDraw::FinaliseDraw(ColourRGBA colour, DirectX::XMFLOAT3 centre, Direct
 
 void DebugDraw::Render(sg::CommandList& command_list, sg::ConstantBufferView& cbv_camera)
 {
-	sg::SharedPtr<sg::Buffer>& upload = upload_buffers[buffer_index];
-
-	const sg::u32 vertex_size = vertices.size() * sizeof(vertices[0]);
-	const sg::u32 index_size = indices.size() * sizeof(indices[0]);
-	upload->write_memory(0, vertices.data(), vertex_size);
-	upload->write_memory(vertex_size, indices.data(), index_size);
-	command_list.copy_buffer_to_buffer(vertex_size, gpu_vertex_buffer.get(), 0, upload.get(), 0);
-	command_list.copy_buffer_to_buffer(index_size, gpu_index_buffer.get(), 0, upload.get(), vertex_size);	
-	
-	command_list.set_pipeline(pipeline_no_depth.get());
-
-	command_list.bind_vertex_buffer(gpu_vertex_buffer_view);
-	command_list.bind_index_buffer(gpu_index_buffer_view);
-
-	Binding b;
-	b.cbv_binding_count = 1;
-	b.set_cbv(cbv_camera, 0);
-	command_list.bind(b, PipelineType::Geometry);
-
-	for (auto d : draw_list)
+	if (draw_list.size())
 	{
-		command_list.draw_indexed_instanced(d.index_count, 1, d.index_offset, d.vertex_offset, 0);
-	}
-	draw_list.clear();
-	vertices.clear();
-	indices.clear();
+		sg::SharedPtr<sg::Buffer>& upload = upload_buffers[buffer_index];
 
-	buffer_index++;
-	buffer_index = buffer_index % UPLOAD_BUFFER_COUNT;
+		const sg::u32 vertex_size = vertices.size() * sizeof(vertices[0]);
+		const sg::u32 index_size = indices.size() * sizeof(indices[0]);
+		upload->write_memory(0, vertices.data(), vertex_size);
+		upload->write_memory(vertex_size, indices.data(), index_size);
+		command_list.copy_buffer_to_buffer(vertex_size, gpu_vertex_buffer.get(), 0, upload.get(), 0);
+		command_list.copy_buffer_to_buffer(index_size, gpu_index_buffer.get(), 0, upload.get(), vertex_size);
+
+		command_list.set_pipeline(pipeline_no_depth.get());
+
+		command_list.bind_vertex_buffer(gpu_vertex_buffer_view);
+		command_list.bind_index_buffer(gpu_index_buffer_view);
+
+		Binding b;
+		b.cbv_binding_count = 1;
+		b.set_cbv(cbv_camera, 0);
+		command_list.bind(b, PipelineType::Geometry);
+
+		for (auto d : draw_list)
+		{
+			command_list.draw_indexed_instanced(d.index_count, 1, d.index_offset, d.vertex_offset, 0);
+		}
+		draw_list.clear();
+		vertices.clear();
+		indices.clear();
+
+		buffer_index++;
+		buffer_index = buffer_index % UPLOAD_BUFFER_COUNT;
+	}
 }

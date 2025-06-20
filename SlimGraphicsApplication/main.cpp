@@ -16,6 +16,7 @@
 #include "LinearConstantBuffer.h"
 #include "Camera.h"
 #include "ModelViewer.h"
+#include "DebugDraw.h"
 
 /*
 TODO:
@@ -253,6 +254,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	camera.SetWidthHeight((float)w, (float)h);
 	camera.SetPosition({ 0.0f, 0.5f, -2.0f });
 
+	sg::Ptr<DebugDraw> debug_draw = sg::Ptr<DebugDraw>(new DebugDraw(*device));
+
 	//Loading frame
 	Ptr<VertexShader> model_vs;
 	Ptr<PixelShader> model_ps;
@@ -352,7 +355,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 		ImGui::Begin("Slim Graphics", &bOpen, 0);
 
-		model_viewer->Update(delta_time, total_time, camera);
+		model_viewer->Update(delta_time, total_time, camera, *debug_draw);
 
 		camera.Update(delta_time, total_time, *input);
 		if (ImGui::CollapsingHeader("Performance"))
@@ -476,9 +479,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				sg::ConstantBufferView cbv_cam = linear_cb->AllocateAndWrite<ShaderStructs::CameraData>(camera.GetCameraShaderData());
 
 				stats_pool->begin_query(stat_query_idx, command_buffer.get());
-				model_viewer->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb);
+				model_viewer->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
 				stats_pool->end_query(stat_query_idx, command_buffer.get());
 				basic_grid.Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb);
+				debug_draw->Render(*command_buffer, cbv_cam);
 			}
 			command_buffer->end_geometry_pass();
 
