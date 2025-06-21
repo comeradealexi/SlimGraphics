@@ -24,21 +24,21 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	mesh_shading.binding_desc.uav_binding_count = 1;
 
 	{
-		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShader.PC_DXC");
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_PixelShader.PC_DXC");
+		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_VertexShader.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_PixelShader.PC_DXC");
 		shader_vertex = device->create_vertex_shader(vertex_data);
 		shader_pixel = device->create_pixel_shader(pixel_data);
 
-		vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShaderTriangle.PC_DXC");
+		vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_VertexShaderTriangle.PC_DXC");
 		shader_vertex_triangle = device->create_vertex_shader(vertex_data);
 
-		vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_VertexShaderQuad.PC_DXC");
+		vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_VertexShaderQuad.PC_DXC");
 		shader_vertex_quad = device->create_vertex_shader(vertex_data);
 	}
 
 	{
-		std::vector<uint8_t> mesh_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_MeshShader.PC_DXC");
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\ModelViewer_PixelMeshShader.PC_DXC");
+		std::vector<uint8_t> mesh_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_MeshShader.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_PixelMeshShader.PC_DXC");
 		mesh_shading.shader_mesh = device->create_mesh_shader(mesh_data);
 		mesh_shading.shader_pixel = device->create_pixel_shader(pixel_data);
 	}

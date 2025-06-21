@@ -34,3 +34,6 @@
 	path = SubModules/ImGuiDocking
 	url = https://github.com/ocornut/imgui/
 	branch = docking
+[submodule "SubModules/Sharpmake"]
+	path = SubModules/Sharpmake
+	url = https://github.com/ubisoft/Sharpmake

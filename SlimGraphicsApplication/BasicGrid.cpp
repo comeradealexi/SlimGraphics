@@ -8,8 +8,8 @@ using namespace sg;
 
 BasicGrid::BasicGrid(sg::SharedPtr<sg::Device>& _device)
 {
-	std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\BasicGrid_VertexShader.PC_DXC");
-	std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\BasicGrid_PixelShader.PC_DXC");
+	std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\BasicGrid_VertexShader.PC_DXC");
+	std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\BasicGrid_PixelShader.PC_DXC");
 	vs = _device->create_vertex_shader(vertex_data);
 	ps = _device->create_pixel_shader(pixel_data);
 

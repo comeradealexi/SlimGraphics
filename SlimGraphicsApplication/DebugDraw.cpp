@@ -31,8 +31,8 @@ DebugDraw::DebugDraw(sg::Device& device)
 
 	// Shaders
 	{
-		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\DebugWireframeShader_VertexShader.PC_DXC");
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\DebugWireframeShader_PixelShader.PC_DXC");
+		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\DebugWireframeShader_VertexShader.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\DebugWireframeShader_PixelShader.PC_DXC");
 		shader_vertex = device.create_vertex_shader(vertex_data);
 		shader_pixel = device.create_pixel_shader(pixel_data);
 

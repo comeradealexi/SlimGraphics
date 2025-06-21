@@ -430,3 +430,6 @@ FodyWeavers.xsd
 *.out
 *.app
 /SlimGraphicsApplication/imgui.ini
+/Sharpmake/projects/*
+/Sharpmake/csharp_projects/*
+/Sharpmake/sharpmake_projects/*

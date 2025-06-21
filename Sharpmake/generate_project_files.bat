@@ -1,0 +1,1 @@
+Sharpmake.Application\Debug\net6.0\Sharpmake.Application.exe /sources('main.sharpmake.cs') /generateDebugSolution /debugSolutionPath('sharpmake_projects') /alexblobonly /devenvversion('vs2028')

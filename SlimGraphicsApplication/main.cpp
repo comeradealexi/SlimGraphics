@@ -153,21 +153,21 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	Ptr<PixelShader> ps_b;
 	Ptr<ComputeShader> cs;
 	{
-		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic_VertexShader.PC_DXC");
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic_PixelShader.PC_DXC");
+		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\Basic_VertexShader.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\Basic_PixelShader.PC_DXC");
 		vs = device->create_vertex_shader(vertex_data);
 		ps = device->create_pixel_shader(pixel_data);
 	}
 	{
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic_ConstantBuffer_PixelShader.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\Basic_ConstantBuffer_PixelShader.PC_DXC");
 		ps_cb = device->create_pixel_shader(pixel_data);
 	}
 	{
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic_Buffer_PixelShader.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\Basic_Buffer_PixelShader.PC_DXC");
 		ps_b = device->create_pixel_shader(pixel_data);
 	}
 	{
-		std::vector<uint8_t> compute_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic_ComputeShader.PC_DXC");
+		std::vector<uint8_t> compute_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\Basic_ComputeShader.PC_DXC");
 		cs = device->create_compute_shader(compute_data);
 	}
 
@@ -271,8 +271,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		frame_upload_heap->end_frame(queue.get());
 
 		// Make model pipeline
-		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic3D_VertexShader.PC_DXC");
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBinD3D12_Debug\\Basic3D_PixelShader.PC_DXC");
+		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\Basic3D_VertexShader.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\Basic3D_PixelShader.PC_DXC");
 		model_vs = device->create_vertex_shader(vertex_data);
 		model_ps = device->create_pixel_shader(pixel_data);
 		
