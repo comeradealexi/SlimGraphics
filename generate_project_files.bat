@@ -5,3 +5,5 @@ popd
 if ERRORLEVEL 1 (
 pause
 )
+
+mklink .\slimgraphics_vs2022.sln .\Sharpmake\projects\slimgraphics_vs2022.sln
