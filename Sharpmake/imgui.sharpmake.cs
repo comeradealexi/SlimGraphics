@@ -9,17 +9,24 @@ namespace SlimEngine
     {
         public ImGuiProject() : base("ImGui")
         {
-            SourceRootPath = Path.Join(Globals.SubmodulesPath, "imgui");
+            SourceRootPath = Path.Join(Globals.SubmodulesPath, Globals.ImGuiDocking ? "ImGuiDocking" : "imgui");
+            SourceFilesExcludeRegex.Add(@"\.*\\(examples)\\"); // Don't want loads of main.cpp files visible in project
         }
 
         public override void ConfigureAll(Configuration conf, SlimEngineTarget target)
         {
             base.ConfigureAll(conf, target);
 
+            conf.ExportDefines.Add("SE_IMGUI");
+            if (Globals.ImGuiDocking)
+            {
+                conf.ExportDefines.Add("SE_IMGUI_DOCKING");
+            }
+
             conf.SolutionFolder = "SubModules";
             conf.IncludePaths.Add(SourceRootPath);
+            conf.IncludePaths.Add(Path.Join(SourceRootPath, "backends"));
 
-            conf.SourceFilesBuildExcludeRegex.Add(@"\.*\\(examples)\\");
             conf.SourceFilesBuildExcludeRegex.Add(@"\.*\\(misc)\\");
 
             if (target.Platform == Platform.win64)

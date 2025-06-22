@@ -288,6 +288,15 @@ namespace sg
             ID3D12DescriptorHeap* heap = cbv_srv_uav_descriptor_heap_imgui->get_heap().Get();
             d3d_cmd_list->SetDescriptorHeaps(1, &heap);
             ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), d3d_cmd_list);
+
+#ifdef SE_IMGUI_DOCKING
+			// Update and Render additional Platform Windows
+			if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+			{
+				ImGui::UpdatePlatformWindows();
+				ImGui::RenderPlatformWindowsDefault();
+			}
+#endif
         }
 
 

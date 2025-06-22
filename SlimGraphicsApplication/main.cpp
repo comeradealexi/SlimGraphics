@@ -108,12 +108,21 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	const u32 frame_count = 3;
 	u64 w = 1920;
 	u64 h = 1080;
+	u64 x_off = 0;
+	u64 y_off = 0;
 	se::Ptr<se::Window> wnd(new se::Window(hInstance, nCmdShow, w,h));
 	{
 		RECT cr;
 		GetClientRect(wnd->g_hWnd, &cr);
-		w = cr.right;
-		h = cr.bottom;
+		w = cr.right - cr.left;
+		h = cr.bottom - cr.top;
+
+		POINT xy;
+		xy.x = cr.left;
+		xy.y = cr.top;
+		ClientToScreen(wnd->g_hWnd, &xy);
+		x_off = xy.x;
+		y_off = xy.y;
 	}
 	se::Ptr<se::GameInput> input(new se::GameInput());
 
@@ -131,6 +140,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImGui::CreateContext();
 		ImPlot::CreateContext();
 		ImGui::StyleColorsDark();
+#ifdef SE_IMGUI_DOCKING
+		ImGui::GetIO().ConfigFlags |= (ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_ViewportsEnable);
+#endif
 		ImGui_ImplWin32_Init(wnd->g_hWnd);
 		ShowWindow(wnd->g_hWnd, SW_SHOWNORMAL);
 		device->imgui_init(frame_count, back_buffer_format, DXGI_FORMAT_UNKNOWN, queue.get());
@@ -329,11 +341,17 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
-		ImPlot::ShowDemoWindow();
-		ImGui::ShowStyleEditor();
+		//ImPlot::ShowDemoWindow();
+		//ImGui::ShowStyleEditor();
 
-		ImGui::SetNextWindowPos(ImVec2(0, 0));
-		ImGui::SetNextWindowSize(ImVec2(w, 60));
+		static bool once = true;
+		if (once)
+		{
+			// If we set this every frame, we need to be accurate to the screen pixel coordinates, by setting it only once, imgui keeps it tracked internally.
+			ImGui::SetNextWindowPos(ImVec2(x_off, y_off));
+			once = false;
+		}
+		ImGui::SetNextWindowSize(ImVec2(w, 30));
 		ImGui::SetNextWindowBgAlpha(0.5f);
 		ImGui::Begin("Top Bar", nullptr, 			
 			ImGuiWindowFlags_NoTitleBar |
@@ -341,7 +359,12 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			ImGuiWindowFlags_NoResize |
 			ImGuiWindowFlags_NoSavedSettings | 
 			ImGuiWindowFlags_NoCollapse | 
-			ImGuiWindowFlags_AlwaysAutoResize);
+			ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration
+#ifdef SE_IMGUI_DOCKING
+			| ImGuiWindowFlags_NoDocking
+#endif
+
+		);
 		ImGui::Text("Test 1");
 		ImGui::SameLine();
 		ImGui::Text("Test 2");

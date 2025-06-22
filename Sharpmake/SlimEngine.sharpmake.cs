@@ -18,7 +18,6 @@ namespace SlimEngine
             conf.SolutionFolder = "SlimEngine";
 
             conf.IncludePaths.Add(SourceRootPath);
-            conf.IncludePaths.Add(Path.Join(Globals.SubmodulesPath, @"imgui"));
             conf.IncludePaths.Add(Path.Join(Globals.ExternalsPath, @"GameInput\include"));
 
             conf.PrecompHeader = "se_engine_pch.h";
@@ -28,6 +27,7 @@ namespace SlimEngine
             {
                 conf.SourceFilesBuildExcludeRegex.Add(@"\win32\*");
             }
+            conf.AddPrivateDependency<ImGuiProject>(target);
         }
     }
 }

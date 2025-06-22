@@ -15,6 +15,8 @@ namespace SlimEngine
         public static string SubmodulesPath = @"[project.SharpmakeCsPath]\..\SubModules";
         public static string ExternalsPath = @"[project.SharpmakeCsPath]\..\External";
 
+        public static bool ImGuiDocking = true;
+
         [CommandLine.Option("alexblobonly", @"Only generate blob and work blob files: ex: /blobonly")]
         public static void CommandLineBlobOnly()
         {

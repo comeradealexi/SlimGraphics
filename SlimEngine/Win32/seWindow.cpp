@@ -212,4 +212,30 @@ namespace se
 			DispatchMessage(&msg);
 		}
 	}
+
+	se::Window::Sizes Window::GetWindowSizes()
+	{
+		Sizes sizes;
+		GetClientRect(g_hWnd, &sizes.client_rect);
+		GetWindowRect(g_hWnd, &sizes.window_rect);
+
+		{
+			POINT xy;
+			xy.x = sizes.client_rect.left;
+			xy.y = sizes.client_rect.top;
+			ClientToScreen(g_hWnd, &xy);
+			sizes.client_rect_to_screen.left = xy.x;
+			sizes.client_rect_to_screen.top = xy.y;
+		}
+		{
+			POINT xy;
+			xy.x = sizes.client_rect.right;
+			xy.y = sizes.client_rect.bottom;
+			ClientToScreen(g_hWnd, &xy);
+			sizes.client_rect_to_screen.right = xy.x;
+			sizes.client_rect_to_screen.bottom = xy.y;
+		}
+
+		return sizes;
+	}
 }
