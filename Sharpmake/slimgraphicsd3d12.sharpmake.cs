@@ -10,6 +10,7 @@ namespace SlimEngine
         public SlimGraphicsD3D12() : base("SlimGraphicsD3D12")
         {
             SourceRootPath = Path.Join(Globals.Root, "SlimGraphicsD3D12");
+            SourceFiles.Add(Globals.GetThisFilePath());
         }
 
         public override void ConfigureAll(Configuration conf, SlimEngineTarget target)

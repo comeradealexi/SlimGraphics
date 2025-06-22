@@ -10,6 +10,7 @@ namespace SlimEngine
         public SlimEngineProject() : base("SlimEngine")
         {
             SourceRootPath = Path.Join(Globals.Root, "SlimEngine");
+            SourceFiles.Add(Globals.GetThisFilePath());
         }
 
         public override void ConfigureAll(Configuration conf, SlimEngineTarget target)

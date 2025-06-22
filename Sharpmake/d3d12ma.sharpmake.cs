@@ -10,6 +10,7 @@ namespace SlimEngine
         public D3D12MAProject() : base("D3D12MA")
         {
             SourceRootPath = Path.Join(Globals.SubmodulesPath, "D3D12MemoryAllocator");
+            SourceFiles.Add(Globals.GetThisFilePath());
         }
 
         public override void ConfigureAll(Configuration conf, SlimEngineTarget target)

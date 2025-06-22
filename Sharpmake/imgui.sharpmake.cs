@@ -11,6 +11,7 @@ namespace SlimEngine
         {
             SourceRootPath = Path.Join(Globals.SubmodulesPath, Globals.ImGuiDocking ? "ImGuiDocking" : "imgui");
             SourceFilesExcludeRegex.Add(@"\.*\\(examples)\\"); // Don't want loads of main.cpp files visible in project
+            SourceFiles.Add(Globals.GetThisFilePath());
         }
 
         public override void ConfigureAll(Configuration conf, SlimEngineTarget target)

@@ -2,6 +2,7 @@ using Sharpmake;
 using System;
 using System.IO;
 
+
 namespace SlimEngine
 {
     [Sharpmake.Generate]
@@ -10,6 +11,7 @@ namespace SlimEngine
         public ImPlotProject() : base("ImPlot")
         {
             SourceRootPath = Path.Join(Globals.SubmodulesPath, "implot");
+            SourceFiles.Add(Globals.GetThisFilePath());
         }
 
         public override void ConfigureAll(Configuration conf, SlimEngineTarget target)

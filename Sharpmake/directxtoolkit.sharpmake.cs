@@ -10,6 +10,7 @@ namespace SlimEngine
         public DirectXToolkitProject() : base("DirectXToolkit")
         {
             SourceRootPath = Path.Join(Globals.SubmodulesPath, @"DirectXTK12\Src");
+            SourceFiles.Add(Globals.GetThisFilePath());
         }
 
         public override void ConfigureAll(Configuration conf, SlimEngineTarget target)

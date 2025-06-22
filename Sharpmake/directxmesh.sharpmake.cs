@@ -10,6 +10,7 @@ namespace SlimEngine
         public DirectXMeshProject() : base("DirectXMesh")
         {
             SourceRootPath = Path.Join(Globals.SubmodulesPath, "DirectXMesh");
+            SourceFiles.Add(Globals.GetThisFilePath());
         }
 
         public override void ConfigureAll(Configuration conf, SlimEngineTarget target)

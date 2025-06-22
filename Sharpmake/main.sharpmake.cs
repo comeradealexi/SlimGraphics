@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.CompilerServices;
 
 [module: Sharpmake.Include("*.sharpmake.cs")]
 
@@ -23,6 +24,11 @@ namespace SlimEngine
             System.Console.WriteLine("ALEX !!! BlobOnly!");
             Debug.WriteLine("ALEX !!! BlobOnly!");
         }
+
+        public static string GetThisFilePath([CallerFilePath] string path = null)
+        {
+            return path;
+        }
     }
 
     [Sharpmake.Generate]
@@ -34,13 +40,14 @@ namespace SlimEngine
 
             AddTargets(
                 new SlimEngineTarget(
-                    Platform.anycpu,
-                    DevEnv.vs2022,
-                    Optimization.Debug | Optimization.Release, OutputType.Dll),
-                new SlimEngineTarget(
                     Platform.win64,
                     DevEnv.vs2022,
-                    Optimization.Debug | Optimization.Profile | Optimization.Release)
+                    Optimization.Debug | Optimization.Profile | Optimization.Release),
+                new SlimEngineTarget(
+                    Platform.anycpu,
+                    DevEnv.vs2022,
+                    Optimization.Debug | Optimization.Release, OutputType.Dll)
+                
                 );
         }
 

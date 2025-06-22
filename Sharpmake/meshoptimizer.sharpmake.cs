@@ -10,6 +10,7 @@ namespace SlimEngine
         public MeshOptimizerProject() : base("meshoptimizer")
         {
             SourceRootPath = Path.Join(Globals.SubmodulesPath, "meshoptimizer/src");
+            SourceFiles.Add(Globals.GetThisFilePath());
         }
 
         public override void ConfigureAll(Configuration conf, SlimEngineTarget target)

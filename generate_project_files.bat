@@ -1,5 +1,5 @@
 pushd Sharpmake
-Sharpmake.Application\Debug\net6.0\Sharpmake.Application.exe /sources('main.sharpmake.cs')
+Sharpmake.Application\Debug\net6.0\Sharpmake.Application.exe /sources('main.sharpmake.cs') /generateDebugSolution /debugSolutionPath('sharpmake_projects')
 popd
 
 if ERRORLEVEL 1 (
