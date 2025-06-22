@@ -30,10 +30,15 @@ namespace se
 			void Assert(const char* file, const char* line, const char* function, const char* asrt, const char* fmt, ...)
 			{
 				Dbg::Print("Assert: %s", asrt);
-				va_list args;
-				va_start(args, fmt);
-				Dbg::Print(fmt, args);
-				va_end(args);
+				{
+					char bfr[1024 * 8];
+					va_list args;
+					va_start(args, fmt);
+					vsprintf_s(bfr, fmt, args);
+					va_end(args);
+					OutputDebugStringA(bfr);
+					OutputDebugStringA("\n");
+				}
 				Dbg::Print("%s(%s): ", file, line);
 				Dbg::Print("Function: %s", function);
 			}

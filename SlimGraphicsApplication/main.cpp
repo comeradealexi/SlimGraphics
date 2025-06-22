@@ -344,12 +344,12 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		//ImPlot::ShowDemoWindow();
 		//ImGui::ShowStyleEditor();
 
-		static bool once = true;
-		if (once)
+		static bool top_bar_once = true;
+		if (top_bar_once)
 		{
 			// If we set this every frame, we need to be accurate to the screen pixel coordinates, by setting it only once, imgui keeps it tracked internally.
 			ImGui::SetNextWindowPos(ImVec2(x_off, y_off));
-			once = false;
+			top_bar_once = false;
 		}
 		ImGui::SetNextWindowSize(ImVec2(w, 30));
 		ImGui::SetNextWindowBgAlpha(0.5f);
@@ -365,9 +365,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 #endif
 
 		);
-		ImGui::Text("Test 1");
+		ImGui::Text("CPU: %5.1fus", cpu_timer.get_average());
 		ImGui::SameLine();
-		ImGui::Text("Test 2");
+		ImGui::Text("GPU: %5.1fus", gpu_timer.get_average());
 		ImGui::SameLine();
 		ImGui::PlotHistogram("gpu", gpu_timer.get_history_buffer(), gpu_timer.get_history_count(), gpu_timer.get_history_idx());
 		//static float 
