@@ -41,7 +41,7 @@ namespace SlimEngine
             conf.LibraryPaths.Add(Path.Join(Globals.ExternalsPath, @"assimp-5.3.1\lib\RelWithDebInfo"));
             conf.LibraryPaths.Add(Path.Join(Globals.ExternalsPath, @"GameInput\lib\x64"));
 
-            conf.EventPostBuild.Add("xcopy " + Path.Join(Globals.ExternalsPath, @"assimp-5.3.1\bin\RelWithDebInfo\assimp-vc143-mt.dll") + " " + conf.StartWorkingDirectory + " /y");
+            conf.EventPostBuild.Add("xcopy " + Path.Join(Globals.ExternalsPath, @"assimp-5.3.1\bin\RelWithDebInfo\assimp-vc143-mt.dll") + " " + SourceRootPath + " /y");
             conf.EventPreBuild.Add(Path.Join(Globals.Root, @"Binaries\SlimShaderCompiler.exe") + " " + SourceRootPath + " " + Path.Join(SourceRootPath, "ShaderBin_" + target.Optimization) + " PC_DXC");
 
             conf.VcxprojUserFile = new Configuration.VcxprojUserFileSettings();
