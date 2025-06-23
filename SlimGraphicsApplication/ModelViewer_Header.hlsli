@@ -4,6 +4,7 @@
 #define MESH_SHADER
 #define VERTEX_TRIANGLE
 #define VERTEX_QUAD
+#define MESH_AMP_SHADER
 #endif
 
 cbuffer ConstantBufferData : register(b0)
@@ -87,6 +88,22 @@ bool IsVisible(float4 boundingSphere)
 
     return true;
 }
+#ifdef MESH_AMP_SHADER
+#define THREADS_PER_WAVE 32
+#define AS_GROUP_SIZE THREADS_PER_WAVE
+struct Payload
+{
+    uint MeshletIndices[AS_GROUP_SIZE];
+};
+groupshared Payload s_Payload;
+
+
+[NumThreads(AS_GROUP_SIZE, 1, 1)]
+void ASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint gid : SV_GroupID)
+{
+    DispatchMesh(1, 1, 1, s_Payload);
+}
+#endif
 
 [NumThreads(128, 1, 1)]
 [OutputTopology("triangle")]

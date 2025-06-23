@@ -108,5 +108,28 @@
         "input_file": "MeshletPS.hlsl"
       }
     ]
+  },
+  {
+    "defines": [ "MESH_AMP_SHADER" ],
+    "shaders": [
+      {
+        "profile": "ps_6_5",
+        "entrypoint": "PSMain",
+        "name": "ModelViewer_MeshletAmplificationPS",
+        "input_file": "ModelViewer_MeshShader.hlsl"
+      },
+      {
+        "profile": "as_6_5",
+        "entrypoint": "ASMain",
+        "name": "ModelViewer_MeshletAmplificationAS",
+        "input_file": "ModelViewer_MeshShader.hlsl"
+      },
+      {
+        "profile": "ms_6_5",
+        "entrypoint": "MSMain",
+        "name": "ModelViewer_MeshletAmplificationMS",
+        "input_file": "ModelViewer_MeshShader.hlsl"
+      }
+    ]
   }
 ]

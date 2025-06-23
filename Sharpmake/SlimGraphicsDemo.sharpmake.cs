@@ -11,6 +11,7 @@ namespace SlimEngine
         {
             SourceRootPath = Path.Join(Globals.Root, "SlimGraphicsApplication");
             SourceFiles.Add(Globals.GetThisFilePath());
+            SourceFilesExtensions.Add(".hlsl", ".hlsli", ".slimshaderjson");
         }
 
         public override void ConfigureAll(Configuration conf, SlimEngineTarget target)
