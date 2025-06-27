@@ -23,6 +23,7 @@ cbuffer ModelBufferData : register(b1)
 #define UAV_INDEX_MESH_SHADER_PRIM_COUNT 3
 #define UAV_INDEX_VERTEX_SHADER_INVOCATIONS 4
 #define UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT 5
+#define UAV_INDEX_WAVE_INTRINSIC_COUNTER 6
 
 RWStructuredBuffer<uint> uav0 : register(u0);
 
@@ -88,6 +89,38 @@ bool IsVisible(float4 boundingSphere)
 
     return true;
 }
+
+bool IsVisibleFrustum(uint gid)
+{
+    MeshletCullData cull_data = MeshletCullingDatas[gid];
+    float4 sphere_pos = mul(float4(cull_data.spherepos_xyz_radius_w.xyz, 1.0), model.model_matrix);
+    float model_matrix_highest_scale = max(max(model.model_matrix[0][0], model.model_matrix[1][1]), model.model_matrix[2][2]);
+    sphere_pos.w = cull_data.spherepos_xyz_radius_w.w * model_matrix_highest_scale;
+    if (IsVisible(sphere_pos) == false)
+    {
+        uint original;
+        InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT], 1, original);
+        return false;
+    }
+    return true;
+}
+
+bool IsVisibleNormalCone(uint gid)
+{
+    MeshletCullData cull_data = MeshletCullingDatas[gid];
+
+    float3 cone_apex = mul(float4(cull_data.cone_apex_xyz.xyz, 1.0f), model.model_matrix).xyz;
+    float3 cone_axis = normalize(mul(cull_data.cone_axis_xyz_cone_cutoff_w.xyz, (float3x3) model.model_matrix));
+
+    if (dot(normalize(cone_apex - camera.camera_position.xyz), cone_axis) >= cull_data.cone_axis_xyz_cone_cutoff_w.w)
+    {
+        uint original;
+        InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT], 1, original);
+        return false;
+    }
+    return true;
+}
+
 #ifdef MESH_AMP_SHADER
 #define THREADS_PER_WAVE 32
 #define AS_GROUP_SIZE THREADS_PER_WAVE
@@ -97,13 +130,40 @@ struct Payload
 };
 groupshared Payload s_Payload;
 
-
 [NumThreads(AS_GROUP_SIZE, 1, 1)]
 void ASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint gid : SV_GroupID)
 {
-    DispatchMesh(1, 1, 1, s_Payload);
+    bool visible = false;
+
+    // Check bounds of meshlet cull data resource
+    if (dtid < model.meshlet_count)
+    {        
+        if (visible && model.meshlet_culling.y != 0)
+        {
+            visible = IsVisibleFrustum(dtid) == false;
+
+        }
+        
+        if (visible && model.meshlet_culling.x != 0)
+        {
+            visible = IsVisibleNormalCone(dtid) == false;
+        }
+    }
+    
+    // Compact visible meshlets into the export payload array
+    if (visible)
+    {
+        uint index = WavePrefixCountBits(visible);
+        s_Payload.MeshletIndices[index] = dtid;
+    }
+    
+    // Dispatch the required number of MS threadgroups to render the visible meshlets
+    uint visibleCount = WaveActiveCountBits(visible);
+    DispatchMesh(visibleCount, 1, 1, s_Payload);    
 }
 #endif
+
+
 
 [NumThreads(128, 1, 1)]
 [OutputTopology("triangle")]
@@ -127,28 +187,15 @@ void MSMain(
         bool reject = false; // TODO - TAKE MODEL MATRIX IN TO ACCOUNT!
         
         if (!reject && model.meshlet_culling.y != 0)
-        {      
-            // TODO - There is still a problem here when the model is scaled. Am I accounting for the sphere properly?? I don't think so
-            float4 sphere_pos = mul(float4(cull_data.spherepos_xyz_radius_w.xyz, cull_data.spherepos_xyz_radius_w.w), model.model_matrix);
-            if (IsVisible(sphere_pos) == false)
-            {
-                uint original;
-                InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT], 1, original);
-                reject = true;
-            }
+        {              
+            reject = IsVisibleFrustum(gid) == false;
+
         }
         
         if (!reject && model.meshlet_culling.x != 0)
         {      
-            float3 cone_apex = mul(float4(cull_data.cone_apex_xyz.xyz, 1.0f), model.model_matrix).xyz;
-            float3 cone_axis = normalize(mul(cull_data.cone_axis_xyz_cone_cutoff_w.xyz, (float3x3) model.model_matrix));
+            reject = IsVisibleNormalCone(gid) == false;
 
-            if (dot(normalize(cone_apex - camera.camera_position.xyz), cone_axis) >= cull_data.cone_axis_xyz_cone_cutoff_w.w)
-            {
-                uint original;
-                InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT], 1, original);
-                reject = true;
-            }
         }
         
         Meshlet m = Meshlets[gid];
@@ -289,32 +336,32 @@ PS_INPUT VSMain(uint id : SV_VertexID)
 
 	if (id == 1)
 	{
-		psOut.position = float4(-1, -1, 1, 1);
+		psOut.position = float4(-1, -1, 0, 1);
 		//psOut.UVs = float2(0, 0);
 	}
 	else if (id == 0)
 	{
-		psOut.position = float4(1, -1, 1, 1);
+		psOut.position = float4(1, -1, 0, 1);
 		//psOut.UVs = float2(1, 0);
 	}
 	else if (id == 2)
 	{
-		psOut.position = float4(1, 1, 1, 1);
+		psOut.position = float4(1, 1, 0, 1);
 		//psOut.UVs = float2(1, 1);
 	}
 	else if (id == 3)
 	{
-		psOut.position = float4(1, 1, 1, 1);
+		psOut.position = float4(1, 1, 0, 1);
 		//psOut.UVs = float2(1, 1);
 	}
 	else if (id == 4)
 	{
-		psOut.position = float4(-1, -1, 1, 1);
+		psOut.position = float4(-1, -1, 0, 1);
 		//psOut.UVs = float2(0, 0);
 	}
 	else //id = 5
 	{
-		psOut.position = float4(-1, 1, 1, 1);
+		psOut.position = float4(-1, 1, 0, 1);
 		//psOut.UVs = float2(0, 1);
 	}
     return psOut;
@@ -398,6 +445,7 @@ float4 ShadePixelOrder() : SV_TARGET0
 
 }
 
+//[WaveSize(64)]
 float4 PSMain(PS_INPUT input 
 #ifndef MESH_SHADER
 , uint vid : SV_PrimitiveID
@@ -470,6 +518,55 @@ float4 PSMain(PS_INPUT input
     else if (model.shading_mode == SHADING_MODE_PIXELORDER)
     {
         return ShadePixelOrder();
+    }
+    else if (model.shading_mode == SHADING_MODE_WAVE_INTRINSICS)
+    {
+        uint lane_size = model.wave_intrinsics.x;
+        uint laneCount = WaveGetLaneCount();
+        if (lane_size != laneCount)
+        {
+            return float4(1, 0, 0, 1);
+        }
+        if (model.wave_intrinsics.y == 0)
+        {
+            return float4((WaveGetLaneIndex() / float(lane_size)).xxx, 1.0);
+        }
+        else if (model.wave_intrinsics.y == 1)
+        {
+            float4 outputColor;
+            if (WaveIsFirstLane())
+            {
+                uint original;
+                InterlockedAdd(uav0[UAV_INDEX_WAVE_INTRINSIC_COUNTER], 1, original);
+                
+                float w = camera.screen_dimensions_and_depth_info.x;
+                float h = camera.screen_dimensions_and_depth_info.y;
+                float total_pixels = ((float) w * (float) h);
+                
+                float col = float(original) / (total_pixels / float(lane_size));
+                outputColor = float4(col.xxx, 1.0);
+            }
+            
+            outputColor = WaveReadLaneFirst(outputColor);
+
+            return outputColor;
+        }
+        else if (model.wave_intrinsics.y == 2)
+        {
+            uint lane_size = model.wave_intrinsics.x;
+            uint laneCount = WaveGetLaneCount();
+            // Example of vote intrinsics: WaveActiveBallot
+            // Active lanes ratios (# of total activelanes / # of total lanes).
+            uint4 activeLaneMask = WaveActiveBallot(true);
+            uint numActiveLanes = countbits(activeLaneMask.x) + countbits(activeLaneMask.y) + countbits(activeLaneMask.z) + countbits(activeLaneMask.w);
+            float activeRatio = (float) numActiveLanes / float(lane_size);
+            if (activeRatio >= 1.0)
+            {
+                return 1.0.xxxx;
+            }
+            return float4(activeRatio, 0, 0, 1.0);
+        }
+
     }
     
     if (model.shading_mode != SHADING_MODE_PIXELORDER)

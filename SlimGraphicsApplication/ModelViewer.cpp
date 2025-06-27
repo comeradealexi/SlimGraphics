@@ -147,6 +147,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		u32 UAV_INDEX_MESH_SHADER_PRIM_COUNT;
 		u32 UAV_INDEX_VERTEX_SHADER_INVOCATIONS;
 		u32 UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT;
+		u32 UAV_INDEX_WAVE_INTRINSIC_COUNTER;
 	} uav_readback_values = {};
 	readback_uav_buffer->read_memory(0, &uav_readback_values, sizeof(uav_readback_values));
 
@@ -229,6 +230,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			ImGui::Text("Meshlet Prims:   %u", uav_readback_values.UAV_INDEX_MESH_SHADER_PRIM_COUNT);
 			ImGui::Text("Meshlets Culled (By Cone Dir): %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT);
 			ImGui::Text("Meshlets Culled (By Sphere Frustum): %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT);
+			ImGui::Text("Wave Group Count: %u", uav_readback_values.UAV_INDEX_WAVE_INTRINSIC_COUNTER);
 			ImGui::PopID();
 		}
 
@@ -286,6 +288,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::RadioButton("Pixel Order", (int*)&render_mode, 3);
 		ImGui::RadioButton("Meshlet Order", (int*)&render_mode, 4);
 		ImGui::RadioButton("Meshlet Cull Angle", (int*)&render_mode, 5);
+		ImGui::RadioButton("Wave Intrinsics", (int*)&render_mode, 6);
 		ImGui::PopID();
 
 		if (render_mode == RenderMode::MeshletOrder || render_mode == RenderMode::MeshletCullAngle)
@@ -327,7 +330,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			}
 
 			if (pixel_shade_order_ranged_colour) pixel_shade_order_coloured = false;
-
+			
 			//cb_data.scale[0] = scale;
 			//cb_data.scale[1] = mod;
 			model_data.pixel_order_data1.z = pixel_shade_order_coloured ? 1.0f : 0.0f;
@@ -335,6 +338,21 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 
 			model_data.pixel_order_data2.x = pixel_shade_order_pixel_to_shade;
 			model_data.pixel_order_data2.y = pixel_shade_order_range;
+		}
+		else if (render_mode == RenderMode::WaveIntrinsics)
+		{
+			ImGui::PushID("Wave Intrinsics ID IMGUI");
+			if (ImGui::CollapsingHeader("Wave Intrinsics Order"))
+			{
+				ImGui::PushID("Wave Intrinsics Mode Radio Buttons");
+				ImGui::RadioButton("Lane Indices", (int*)&wave_intrinsic_render_mode, 0);
+				ImGui::RadioButton("Lane Order", (int*)&wave_intrinsic_render_mode, 1);
+				ImGui::RadioButton("Wave Usage Ratio", (int*)&wave_intrinsic_render_mode, 2);
+				ImGui::PopID();
+			}
+			ImGui::PopID();
+			model_data.wave_intrinsics.x = (int)device->GetWaveLaneCountMax();
+			model_data.wave_intrinsics.y = static_cast<int>(wave_intrinsic_render_mode);
 		}
 	}
 

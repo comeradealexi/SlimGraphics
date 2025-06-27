@@ -81,7 +81,12 @@ namespace sg
 			size_t GetMeshShaderMaxNumThreads() { return 128; };
 			size_t GetMeshShaderMaxOutputVerts() { return 256; };
 			size_t GetMeshShaderMaxOutputPrims() { return 256; };
-	   
+
+			bool SupportsWaveOps();
+			u32 GetWaveLaneCountMin();
+			u32 GetWaveLaneCountMax();
+			u32 GetTotalLaneCount();
+
 			//D3D12 Specific
 		public:
 			ComPtr<ID3D12DescriptorHeap> get_cbv_srv_uav_descriptor_heap();

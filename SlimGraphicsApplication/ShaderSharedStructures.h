@@ -26,6 +26,7 @@ struct ModelData
 	#define SHADING_MODE_PIXELORDER  3 
 	#define SHADING_MODE_MESHLETORDER  4 
 	#define SHADING_MODE_MESHLET_CULL_ANGLE  5
+	#define SHADING_MODE_WAVE_INTRINSICS  6
 
 	int shading_mode;
 	int meshlet_count;
@@ -39,6 +40,8 @@ struct ModelData
 
 	float4 pixel_order_data1; //x=multiplier, y=mod, z=use_colours, w=shade_over_time	
 	float4 pixel_order_data2;  //x=pixel_to_shade, y=colour_range
+
+	int4 wave_intrinsics; // x=lanesize, y=mode
 
 	int4 meshlet_culling; // x = cone culling, y = sphere frustum culling
 };

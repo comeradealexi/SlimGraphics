@@ -60,7 +60,8 @@ private:
 		PixelOrder,
 		MeshletOrder,
 		MeshletCullAngle,
-	} render_mode;
+		WaveIntrinsics,
+	} render_mode = RenderMode::Default;
 	int cull_mode = 0;
 	bool recreate_model = true;
 	bool render_wireframe = false;
@@ -107,7 +108,7 @@ private:
 
 
 	} mesh_shading;
-
+	
 	struct CPUCulling
 	{
 		bool accurate_cull_check = true;
@@ -117,5 +118,12 @@ private:
 		int stat_passed = 0;
 		int stat_failed = 0;
 	} cpu_culling;
+
+	enum class WaveIntrinsicRenderMode : int
+	{
+		LaneIndices,
+		LaneOrder,
+		WaveUsage,
+	} wave_intrinsic_render_mode = WaveIntrinsicRenderMode::LaneIndices;
 };
 

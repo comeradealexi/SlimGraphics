@@ -814,6 +814,27 @@ namespace sg
 
 		bool Device::SupportsMeshShaders() { return features.MeshShaderTier() >= D3D12_MESH_SHADER_TIER_1; }
 
+
+		bool Device::SupportsWaveOps()
+		{
+            return features.WaveOps();
+		}
+
+		sg::u32 Device::GetWaveLaneCountMin()
+		{
+            return features.WaveLaneCountMin();
+		}
+
+		sg::u32 Device::GetWaveLaneCountMax()
+		{
+            return features.WaveLaneCountMax();
+		}
+
+		sg::u32 Device::GetTotalLaneCount()
+		{
+            return features.TotalLaneCount();
+		}
+
 		u32 Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list)
         {
             swap_chain_buffer_count = buffer_count;
