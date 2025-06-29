@@ -163,6 +163,16 @@ void ASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint 
 }
 #endif
 
+#ifdef MESH_COMPUTE_CULL
+#define THREADS_PER_WAVE 128
+groupshared unsigned int shared_data[THREADS_PER_WAVE];
+
+[numthreads(THREADS_PER_WAVE, 1, 1)]
+void main( uint3 DTid : SV_DispatchThreadID )
+{
+    
+}
+#endif
 
 
 [NumThreads(128, 1, 1)]
