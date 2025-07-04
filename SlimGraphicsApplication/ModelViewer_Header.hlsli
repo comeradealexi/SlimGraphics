@@ -24,6 +24,7 @@ cbuffer ModelBufferData : register(b1)
 #define UAV_INDEX_VERTEX_SHADER_INVOCATIONS 4
 #define UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT 5
 #define UAV_INDEX_WAVE_INTRINSIC_COUNTER 6
+#define UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS 7
 
 RWStructuredBuffer<uint> uav0 : register(u0);
 
@@ -127,27 +128,39 @@ bool IsVisibleNormalCone(uint gid)
 struct Payload
 {
     uint MeshletIndices[AS_GROUP_SIZE];
+    uint AmplificationID;
 };
+// The groupshared payload data to export to dispatched mesh shader threadgroups
 groupshared Payload s_Payload;
 
 [NumThreads(AS_GROUP_SIZE, 1, 1)]
 void ASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint gid : SV_GroupID)
 {
-    bool visible = false;
+    {    
+        uint original;
+        InterlockedAdd(uav0[UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS], 1, original);
+    }
+
+    bool visible = true;
 
     // Check bounds of meshlet cull data resource
     if (dtid < model.meshlet_count)
     {        
         if (visible && model.meshlet_culling.y != 0)
         {
-            visible = IsVisibleFrustum(dtid) == false;
+            visible = IsVisibleFrustum(dtid);
 
         }
         
         if (visible && model.meshlet_culling.x != 0)
         {
-            visible = IsVisibleNormalCone(dtid) == false;
+            visible = IsVisibleNormalCone(dtid);
         }
+    }
+    
+    if (gtid == 0)
+    {
+        s_Payload.AmplificationID = (gid + 1); // Adding 3 simply to make the 0th element black colour
     }
     
     // Compact visible meshlets into the export payload array
@@ -159,7 +172,7 @@ void ASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint 
     
     // Dispatch the required number of MS threadgroups to render the visible meshlets
     uint visibleCount = WaveActiveCountBits(visible);
-    DispatchMesh(visibleCount, 1, 1, s_Payload);    
+    DispatchMesh(visibleCount, 1, 1, s_Payload);
 }
 #endif
 
@@ -178,19 +191,89 @@ void main( uint3 DTid : SV_DispatchThreadID )
 [NumThreads(128, 1, 1)]
 [OutputTopology("triangle")]
 void MSMain(
-    uint gtid : SV_GroupThreadID,
-    uint gid : SV_GroupID,
-    out indices uint3 tris[124],
-    out vertices PS_INPUT verts[64]
-)
-{
+    uint gtid : SV_GroupThreadID
+    ,uint gid : SV_GroupID
+#ifdef MESH_AMP_SHADER
+, in payload Payload payload
+#endif
+    ,out indices uint3 tris[124]
+   , out vertices PS_INPUT verts[64]
 
+)
+{ 
     {    
         uint original;
-    InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_INVOCATIONS], 1, original);
-        }
+        InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_INVOCATIONS], 1, original);
+    }
+    
 
+#ifdef MESH_AMP_SHADER 
+    // Load the meshlet from the AS payload data
+    uint meshletIndex = payload.MeshletIndices[gid];
+
+    bool reject = false;
+    
+    // Catch any out-of-range indices (in case too many MS threadgroups were dispatched from AS)
+    if (meshletIndex >= model.meshlet_count)
     {
+        reject = true;
+    }
+    // Load the meshlet
+    Meshlet m = Meshlets[meshletIndex];
+    
+    // Our vertex and primitive counts come directly from the meshlet
+    SetMeshOutputCounts(reject ? 0 : m.VertCount, reject ? 0 : m.PrimCount);
+    
+    if (reject)
+    {
+        return;
+    }
+    
+    uint original;
+    InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_PRIM_COUNT], m.PrimCount, original);
+        
+    if (gtid < m.VertCount)
+    {
+        uint offset = m.VertOffset + gtid;
+        {
+            uint vertexIndex = model.meshlet_vb_offset + UniqueVertexIndices[offset];
+            {
+                Vertex v = Vertices[vertexIndex];
+                float4 outpos;
+                outpos = mul(float4(v.position, 1.0f), model.model_matrix);
+                outpos = mul(outpos, camera.view_projection_matrix);
+                
+                float3 outnormals;
+                outnormals = normalize(mul(v.normals, (float3x3) model.model_matrix));
+        
+                verts[gtid].position = outpos;
+                verts[gtid].colour = v.colour;
+                verts[gtid].uvs = v.uvs;
+                verts[gtid].normals = outnormals;
+                
+                if (model.shading_mode == SHADING_MODE_AMPLIFICATION_ORDER)
+                {
+                    verts[gtid].MeshletIndex = payload.AmplificationID;
+                }
+                else
+                {
+                    verts[gtid].MeshletIndex = gid;
+                }              
+            }
+        }
+    }
+
+    if (gtid < m.PrimCount)
+    {
+        uint offset = m.PrimOffset + gtid;
+            {
+            uint packedIndices = PrimitiveIndices[offset];
+            tris[gtid] = uint3(packedIndices & 0xFF, (packedIndices >> 8) & 0xFF, (packedIndices >> 16) & 0xFF);
+        }
+    }
+#else 
+        
+        {        
     
         MeshletCullData cull_data = MeshletCullingDatas[gid];
         
@@ -218,100 +301,42 @@ void MSMain(
         
         uint original;
         InterlockedAdd(uav0[UAV_INDEX_MESH_SHADER_PRIM_COUNT], m.PrimCount, original);
-#if 0
-    SetMeshOutputCounts(4 * 10, 3*10);
-    if (gtid < m.VertCount)
-    {
-        uint vertexIndex = UniqueVertexIndices[m.VertOffset + gtid];
-        Vertex v = Vertices[vertexIndex];
-        float4 outpos;
-        outpos = mul(float4(v.position, 1.0f), model.model_matrix);
-        outpos = mul(outpos, camera.view_projection_matrix);
-        
-        verts[gtid].position = outpos;
-        verts[gtid].colour = v.colour;
-    }
-    if (gtid < 3)
-    {
-        uint offset = m.PrimOffset + (gtid * 3);
-        tris[gtid] = uint3(PrimitiveIndices.Load(offset + 0), PrimitiveIndices.Load(offset + 0), PrimitiveIndices.Load(offset + 0));
-    }
-#else
 
-       // SetMeshOutputCounts(m.VertCount, m.PrimCount);
-
-            if (gtid < m.VertCount)
+        if (gtid < m.VertCount)
+        {
+            uint offset = m.VertOffset + gtid;
+        {
+                uint vertexIndex = model.meshlet_vb_offset + UniqueVertexIndices[offset];
             {
-            //verts[gtid].position = float4(0, 0, 0, 0);
-            //verts[gtid].colour = float3(0, 0, 0);
-#if 1
-                uint offset = m.VertOffset + gtid;
-                uint size, num;
-                UniqueVertexIndices.GetDimensions(size, num);
-            //if (offset >= size)
-            //{
-            //    verts[gtid].position = float4(0, 0, 0, 0);
-            //    verts[gtid].colour = float3(0, 0, 0);
-            //
-            //}
-            //else
-            {
-                //verts[gtid].position = float4(0, 0, 0, 0);
-                //verts[gtid].colour = float3(0, 0, 0);
-                //verts[gtid].MeshletIndex = gid;
-
-#if 1
-                    uint vsize, vnum;
-                    Vertices.GetDimensions(vsize, vnum);
-                    uint vertexIndex = model.meshlet_vb_offset + UniqueVertexIndices[offset];
-                //if (vertexIndex >= vsize)
-                //{
-                //    verts[gtid].position = float4(0, 0, 0, 0);
-                //    verts[gtid].colour = float3(0, 0, 0);
-                //}
-                //else
-                {
-                        Vertex v = Vertices[vertexIndex];
-                        float4 outpos;
-                        outpos = mul(float4(v.position, 1.0f), model.model_matrix);
-                        outpos = mul(outpos, camera.view_projection_matrix);
-                    
-                        float3 outnormals;
-                        outnormals = normalize(mul(v.normals, (float3x3) model.model_matrix));
+                    Vertex v = Vertices[vertexIndex];
+                    float4 outpos;
+                    outpos = mul(float4(v.position, 1.0f), model.model_matrix);
+                    outpos = mul(outpos, camera.view_projection_matrix);
+                
+                    float3 outnormals;
+                    outnormals = normalize(mul(v.normals, (float3x3) model.model_matrix));
         
-                        verts[gtid].position = outpos;
-                        verts[gtid].colour = v.colour;
-                        verts[gtid].uvs = v.uvs;
-                        verts[gtid].normals = outnormals;
-                        verts[gtid].MeshletIndex = gid;
+                    verts[gtid].position = outpos;
+                    verts[gtid].colour = v.colour;
+                    verts[gtid].uvs = v.uvs;
+                    verts[gtid].normals = outnormals;
+                    verts[gtid].MeshletIndex = gid;
 
-                    }
-#endif
                 }
-#endif
             }
+        }
 
         if (gtid < m.PrimCount)
         {
             uint offset = m.PrimOffset + gtid;
-            uint size, num;
-            PrimitiveIndices.GetDimensions(size, num);
-
-            //if (offset >= size)
-            //{
-            //    tris[gtid] = uint3(0, 0, 0);
-            //
-            //}
-            //else
             {
                 uint packedIndices = PrimitiveIndices[offset];
                 tris[gtid] = uint3(packedIndices & 0xFF, (packedIndices >> 8) & 0xFF, (packedIndices >> 16) & 0xFF);
             }
-            //tris[gtid] = uint3(0, 0, 0);
         }
+    }    
 #endif
     }
-}
 
 #endif
 
@@ -466,10 +491,11 @@ float4 PSMain(PS_INPUT input
     uint vid = 0; // Not supported for mesh pipelines
 #endif
     
-    if (model.shading_mode == SHADING_MODE_MESHLETORDER)
+    if (model.shading_mode == SHADING_MODE_MESHLETORDER || model.shading_mode == SHADING_MODE_AMPLIFICATION_ORDER)
     {
      #ifdef MESH_SHADER
         uint meshletIndex = input.MeshletIndex;
+
         //float3 diffuseColor = float3(
         //    float(meshletIndex & 1),
         //    float(meshletIndex & 3) / 4,
@@ -480,7 +506,7 @@ float4 PSMain(PS_INPUT input
         //    float(meshletIndex & 7) / 8,
         //    float(meshletIndex & 15) / 16);
         
-        float3 diffuseColor = float3(
+            float3 diffuseColor = float3(
             float(meshletIndex & 7) / 8,
             float(meshletIndex & 15) / 16,
             float(meshletIndex & 31) / 32);

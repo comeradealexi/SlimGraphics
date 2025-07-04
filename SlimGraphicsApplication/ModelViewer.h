@@ -61,6 +61,7 @@ private:
 		MeshletOrder,
 		MeshletCullAngle,
 		WaveIntrinsics,
+		AmplificationOrder,
 	} render_mode = RenderMode::Default;
 	int cull_mode = 0;
 	bool recreate_model = true;
@@ -74,6 +75,7 @@ private:
 
 	bool mesh_shader_cone_culling = true;
 	bool mesh_shader_sphere_frustum_culling = true;
+	bool amplification_mesh_shader = true;
 
 
 	// Uav
@@ -102,12 +104,11 @@ private:
 	{
 		sg::Ptr<sg::Pipeline> pipeline;
 		sg::PipelineDesc::Mesh pipeline_desc;
+		sg::Ptr<sg::AmplificationShader> shader_amplification;
 		sg::Ptr<sg::MeshShader> shader_mesh;
 		sg::Ptr<sg::PixelShader> shader_pixel;
 		sg::BindingDesc binding_desc;
-
-
-	} mesh_shading;
+	} mesh_shading, amplification_mesh_shading;
 	
 	struct CPUCulling
 	{

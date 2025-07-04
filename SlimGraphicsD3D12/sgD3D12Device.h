@@ -52,6 +52,7 @@ namespace sg
 			Ptr<PixelShader> create_pixel_shader(const std::vector<uint8_t>& shader);
 			Ptr<ComputeShader> create_compute_shader(const std::vector<uint8_t>& shader);
 			Ptr<MeshShader> create_mesh_shader(const std::vector<uint8_t>& shader);
+			Ptr<AmplificationShader> create_amplification_shader(const std::vector<uint8_t>& shader);
 
 			//Returns current index to use
 			u32 create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list);

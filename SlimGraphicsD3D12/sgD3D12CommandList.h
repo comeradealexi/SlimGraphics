@@ -73,7 +73,7 @@ namespace sg
 			struct ActiveGeometryPass
 			{
 				RenderTargetView rtvs[8];
-				DepthStencilView dsv;
+				DepthStencilView* dsv;
 				bool rtv0_is_swap_chain = false;
 				VertexBufferView vbv;
 				IndexBufferView ibv;

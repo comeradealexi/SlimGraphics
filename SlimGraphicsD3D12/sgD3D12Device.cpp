@@ -491,6 +491,12 @@ namespace sg
 			return Ptr<MeshShader>(new MeshShader(shader));
 		}
 
+
+		sg::Ptr<sg::AmplificationShader> Device::create_amplification_shader(const std::vector<uint8_t>& shader)
+		{
+			return Ptr<AmplificationShader>(new AmplificationShader(shader));
+		}
+
 		Ptr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
         {
             Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline(false));

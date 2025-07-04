@@ -7,6 +7,8 @@
 
 using namespace sg;
 
+inline uint32_t DivRoundUp(uint32_t num, uint32_t den) { return (num + den - 1) / den; }
+
 ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI_FORMAT_R8G8B8A8_UNORM), depth_stencil_format(DXGI_FORMAT_D32_FLOAT), device(_device)
 {
 	if (!device->SupportsMeshShaders())
@@ -23,6 +25,11 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	mesh_shading.binding_desc.srv_binding_count = 5;
 	mesh_shading.binding_desc.uav_binding_count = 1;
 
+	amplification_mesh_shading.binding_desc = {};
+	amplification_mesh_shading.binding_desc.cbv_binding_count = 2;
+	amplification_mesh_shading.binding_desc.srv_binding_count = 5;
+	amplification_mesh_shading.binding_desc.uav_binding_count = 1;
+
 	{
 		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_VertexShader.PC_DXC");
 		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_PixelShader.PC_DXC");
@@ -36,11 +43,22 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 		shader_vertex_quad = device->create_vertex_shader(vertex_data);
 	}
 
+	// Mesh Shader
 	{
 		std::vector<uint8_t> mesh_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_MeshShader.PC_DXC");
 		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_PixelMeshShader.PC_DXC");
 		mesh_shading.shader_mesh = device->create_mesh_shader(mesh_data);
 		mesh_shading.shader_pixel = device->create_pixel_shader(pixel_data);
+	}
+
+	// Amplification + Mesh Shader
+	{
+		std::vector<uint8_t> amp_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_MeshletAmplificationAS.PC_DXC");
+		std::vector<uint8_t> mesh_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_MeshletAmplificationMS.PC_DXC");
+		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_MeshletAmplificationPS.PC_DXC");
+		amplification_mesh_shading.shader_amplification = device->create_amplification_shader(amp_data);
+		amplification_mesh_shading.shader_mesh = device->create_mesh_shader(mesh_data);
+		amplification_mesh_shading.shader_pixel = device->create_pixel_shader(pixel_data);
 	}
 
 	CreatePipeline();
@@ -148,6 +166,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		u32 UAV_INDEX_VERTEX_SHADER_INVOCATIONS;
 		u32 UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT;
 		u32 UAV_INDEX_WAVE_INTRINSIC_COUNTER;
+		u32 UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS;
 	} uav_readback_values = {};
 	readback_uav_buffer->read_memory(0, &uav_readback_values, sizeof(uav_readback_values));
 
@@ -220,7 +239,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 				model_info_idx++;
 			}
 		}
-
+		
 		ImGui::SeparatorText("UAV Readback:");
 		{
 			ImGui::PushID("UAV ReadbackInfo");
@@ -231,6 +250,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			ImGui::Text("Meshlets Culled (By Cone Dir): %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT);
 			ImGui::Text("Meshlets Culled (By Sphere Frustum): %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT);
 			ImGui::Text("Wave Group Count: %u", uav_readback_values.UAV_INDEX_WAVE_INTRINSIC_COUNTER);
+			ImGui::Text("Amplification Shader Invocations: %u", uav_readback_values.UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS);
 			ImGui::PopID();
 		}
 
@@ -268,6 +288,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 
 		ImGui::SeparatorText("Mesh Shader");
 		ImGui::BeginDisabled(!render_as_mesh_shader);
+		ImGui::Checkbox("Amplification Shader Stage", &amplification_mesh_shader);
 		ImGui::Checkbox("Cone Culling", &mesh_shader_cone_culling);
 		ImGui::Checkbox("Sphere Frustum Culling", &mesh_shader_sphere_frustum_culling);
 
@@ -289,6 +310,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::RadioButton("Meshlet Order", (int*)&render_mode, 4);
 		ImGui::RadioButton("Meshlet Cull Angle", (int*)&render_mode, 5);
 		ImGui::RadioButton("Wave Intrinsics", (int*)&render_mode, 6);
+		ImGui::RadioButton("Amplification Order", (int*)&render_mode, 7);
 		ImGui::PopID();
 
 		if (render_mode == RenderMode::MeshletOrder || render_mode == RenderMode::MeshletCullAngle)
@@ -426,7 +448,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 	{
 		if (render_as_mesh_shader)
 		{
-			command_list.set_pipeline(mesh_shading.pipeline.get());
+			command_list.set_pipeline(amplification_mesh_shader ? amplification_mesh_shading.pipeline.get() : mesh_shading.pipeline.get());
 			Binding b;
 			b.cbv_binding_count = 2;
 			b.set_cbv(cbv_camera, 0);
@@ -460,9 +482,21 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 
 				if (render_model_bool_array[render_idx])
 				{
-					u32 dispatch_value = static_cast<sg::u32>(mesh_part.mesh_shader_data.meshlets.size() * render_percentage);
+					u32 dispatch_value;
+					if (amplification_mesh_shader)
+					{
+						static constexpr u32 AMPLIFICATION_GROUP_SIZE = 32; // This must match what is used in shader. Todo: move to shared header
+						dispatch_value = DivRoundUp(mesh_part.mesh_shader_data.meshlets.size(), AMPLIFICATION_GROUP_SIZE);
+					}
+					else
+					{
+						dispatch_value = static_cast<sg::u32>(mesh_part.mesh_shader_data.meshlets.size() * render_percentage);
+					}
+
 					if (dispatch_value > 0)
+					{
 						command_list.dispatch_mesh(dispatch_value);
+					}
 				}
 				render_idx++;
 
@@ -563,6 +597,22 @@ void ModelViewer::CreatePipeline()
 		const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
 		mesh_shading.pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
 		mesh_shading.pipeline = device->create_pipeline(mesh_shading.pipeline_desc, mesh_shading.binding_desc);
+	}
+
+	// Amplification & Mesh shader pipeline
+	{
+		amplification_mesh_shading.pipeline_desc.amp_shader = amplification_mesh_shading.shader_amplification.get();
+		amplification_mesh_shading.pipeline_desc.mesh_shader = amplification_mesh_shading.shader_mesh.get();
+		amplification_mesh_shading.pipeline_desc.pixel_shader = amplification_mesh_shading.shader_pixel.get();
+		amplification_mesh_shading.pipeline_desc.render_target_count = 1;
+		amplification_mesh_shading.pipeline_desc.render_target_format_list[0] = render_target_format;
+		amplification_mesh_shading.pipeline_desc.depth_stencil_format = depth_stencil_format;
+		amplification_mesh_shading.pipeline_desc.depth_stencil_desc.depth_enable = depth_enable;
+		amplification_mesh_shading.pipeline_desc.depth_stencil_desc.depth_write = depth_write;
+		amplification_mesh_shading.pipeline_desc.rasterizer_desc.fill_mode = render_wireframe ? Rasterizer::FillMode::Wireframe : Rasterizer::FillMode::Solid;
+		const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
+		amplification_mesh_shading.pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
+		amplification_mesh_shading.pipeline = device->create_pipeline(amplification_mesh_shading.pipeline_desc, amplification_mesh_shading.binding_desc);
 	}
 
 }

@@ -197,6 +197,7 @@ namespace sg
 
 			active_geometry_pass.rtv0_is_swap_chain = rtv0_is_swap_chain;
 			active_geometry_pass.rtvs[0] = render_targets[0];
+			active_geometry_pass.dsv = depth_stencil;
 			
 			if (rtv0_is_swap_chain)
 			{
@@ -209,6 +210,9 @@ namespace sg
 			if (depth_stencil)
 			{
 				dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(global_dsv_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), depth_stencil->dsv, descriptor_increment_size_dsv);
+
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(depth_stencil->texture_resource->get().Get(), depth_stencil->texture_resource->get_read_resource_state(), D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				command_list->ResourceBarrier(1, &barrier);
 			}
 
 			command_list->OMSetRenderTargets(1, &rtvHandle, FALSE, depth_stencil ? &dsvHandle : nullptr);
@@ -251,6 +255,12 @@ namespace sg
 				command_list->ResourceBarrier(1, &barrier);
 			}
 		
+			if (active_geometry_pass.dsv)
+			{
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(active_geometry_pass.dsv->texture_resource->get().Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, active_geometry_pass.dsv->texture_resource->get_read_resource_state());
+				command_list->ResourceBarrier(1, &barrier);
+			}
+
 			//To allow bound resources to be transitioned back to a read state.
 			Binding default_binding;
 			bind(default_binding, PipelineType::Geometry);
@@ -406,7 +416,21 @@ namespace sg
 			clear_flags |= clear_depth ? D3D12_CLEAR_FLAG_DEPTH : (D3D12_CLEAR_FLAGS)0;
 			clear_flags |= clear_stencil ? D3D12_CLEAR_FLAG_STENCIL : (D3D12_CLEAR_FLAGS)0;
 
+			const D3D12_RESOURCE_STATES state_dest = dsv.texture_resource->get_read_resource_state();
+
+			//Barrier transition
+			{
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dsv.texture_resource->get().Get(), state_dest, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				command_list->ResourceBarrier(1, &barrier);
+			}
+
 			command_list->ClearDepthStencilView(dsvHandle, clear_flags, depth_value, stencil_value, 0, nullptr);
+
+			//Barrier transition
+			{
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dsv.texture_resource->get().Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, state_dest);
+				command_list->ResourceBarrier(1, &barrier);
+			}
 		}
 
 		void CommandList::flush_bound_uavs()
