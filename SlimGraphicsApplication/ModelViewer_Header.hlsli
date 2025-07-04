@@ -160,7 +160,7 @@ void ASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint 
     
     if (gtid == 0)
     {
-        s_Payload.AmplificationID = (gid + 1); // Adding 3 simply to make the 0th element black colour
+        s_Payload.AmplificationID = (gid + 1) * 6; // To make the 0th element black colour
     }
     
     // Compact visible meshlets into the export payload array
