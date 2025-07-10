@@ -37,3 +37,6 @@
 [submodule "SubModules/Sharpmake"]
 	path = SubModules/Sharpmake
 	url = https://github.com/ubisoft/Sharpmake
+[submodule "SubModules/lodepng"]
+	path = SubModules/lodepng
+	url = https://github.com/lvandeve/lodepng

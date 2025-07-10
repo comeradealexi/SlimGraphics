@@ -30,6 +30,7 @@ namespace SlimEngine
             conf.AddPrivateDependency<DirectXToolkitProject>(target);
             conf.AddPrivateDependency<ImGuiProject>(target);
             conf.AddPrivateDependency<ImPlotProject>(target);
+            conf.AddPrivateDependency<LodePNGProject>(target);
 
 
             conf.LibraryFiles.Add("GameInput.lib");
