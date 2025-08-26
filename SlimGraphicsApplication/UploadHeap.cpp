@@ -36,12 +36,11 @@ UploadHeap::Offset UploadHeap::allocate_upload_memory(sg::u32 size, sg::u32 alig
 
 	PerFrameData& data = frame_data();
 	Offset new_offset = AlignUp(data.upload_heap_offset, alignment);
-	new_offset += size;
 
 	if (new_offset <= data.upload_heap_size)
 	{
-		return_offset = data.upload_heap_offset;
-		data.upload_heap_offset = new_offset;
+		return_offset = new_offset;
+		data.upload_heap_offset = new_offset + size;
 	}
 
 	return return_offset;
@@ -61,6 +60,14 @@ void UploadHeap::upload_to_buffer(sg::Buffer* dest_buffer, sg::u32 dest_byte_off
 {
 	PerFrameData& data = frame_data();
 	data.command_list->copy_buffer_to_buffer(size, dest_buffer, dest_byte_offset, data.buffer.get(), upload_heap_offset);
+}
+
+
+void UploadHeap::upload_to_texture(sg::Texture* dest_texture, Offset upload_heap_offset, sg::u32 size)
+{
+	PerFrameData& data = frame_data();
+	data.command_list->copy_buffer_to_texture(size, dest_texture, data.buffer.get(), upload_heap_offset);
+
 }
 
 void UploadHeap::end_frame(CommandQueue* queue)

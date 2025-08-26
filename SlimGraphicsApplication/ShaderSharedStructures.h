@@ -74,6 +74,11 @@ struct MeshletCullData
 	int pad3;
 };
 
+struct TerrainData
+{
+
+};
+
 #ifdef __cplusplus
 } // namespace ShaderStructs
 #undef row_major

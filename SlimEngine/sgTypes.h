@@ -143,6 +143,19 @@ namespace sg
 		bool try_alignment_4kb = true;
 	};
 
+	struct TextureRegion
+	{
+		DXGI_FORMAT Format = DXGI_FORMAT_UNKNOWN;
+		u32 Width = 1;
+		u32 Height = 1;
+		u32 Depth = 1;
+
+		// The row pitch, or width, or physical size, in bytes, of the subresource data. 
+		// This must be a multiple of D3D12_TEXTURE_DATA_PITCH_ALIGNMENT (256), 
+		// and must be greater than or equal to the size of the data within a row.
+		u32 RowPitch;
+	};
+
 	namespace Rasterizer
 	{
 		enum class FillMode

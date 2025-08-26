@@ -13,6 +13,8 @@ public:
 	Offset allocate_upload_memory(sg::u32 size, sg::u32 alignment);
 	void write_upload_memory(Offset offset, const void* memory, sg::u32 size);
 	void upload_to_buffer(sg::Buffer* dest_buffer, sg::u32 dest_byte_offset, Offset upload_heap_offset, sg::u32 size);
+	void upload_to_texture(sg::Texture* dest_texture, Offset upload_heap_offset, sg::u32 size);
+
 	void end_frame(sg::CommandQueue* queue);
 
 private:

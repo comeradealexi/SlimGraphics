@@ -315,7 +315,7 @@ namespace sg
 		{
 			ID3D12Resource* buffer_dx12 = uav.buffer_resource->get().Get();
 
-			seAssert(descriptor_heap_index + 1 <= descriptor_heap_maximum, "maxium descriptor bindings exceeded");
+			seAssert(descriptor_heap_index + 1 <= descriptor_heap_maximum, "maximum descriptor bindings exceeded");
 			CD3DX12_GPU_DESCRIPTOR_HANDLE dest_gpu(descriptor_heap->GetGPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
 			CD3DX12_CPU_DESCRIPTOR_HANDLE dest_cpu(descriptor_heap->GetCPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
 
@@ -395,6 +395,42 @@ namespace sg
 			}
 			
 			command_list->CopyBufferRegion(dest->get().Get(), dest_offset, source->get().Get(), source_offset, size);
+
+			//Barrier transition
+			{
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), D3D12_RESOURCE_STATE_COPY_DEST, state_dest);
+				command_list->ResourceBarrier(1, &barrier);
+			}
+		}
+
+		void CommandList::copy_buffer_to_texture(u32 size, Texture* dest, Buffer* source, u32 source_offset)
+		{
+			seAssert((dest->get_size_bytes()) >= size, "Dest buffer not big enough\n");
+			seAssert((source->get_size_bytes() - source_offset) >= size, "Source buffer not big enough\n");
+			seAssert(dest && source, "no valid buffers");
+			seAssert(source->get_type() == BufferType::Upload, "only upload supported. Need to add different barrier transition for other types (to copy src)");
+			const D3D12_RESOURCE_STATES state_dest = dest->get_read_resource_state();
+
+			//Barrier transition
+			{
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), state_dest, D3D12_RESOURCE_STATE_COPY_DEST);
+				command_list->ResourceBarrier(1, &barrier);
+			}
+
+			const CD3DX12_TEXTURE_COPY_LOCATION tcl_dest(dest->get().Get(), 0);
+
+			D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint_src = {};
+			footprint_src.Offset = source_offset;
+			footprint_src.Footprint.Width = dest->resource_create_desc.width;
+			footprint_src.Footprint.Height = dest->resource_create_desc.height;
+			footprint_src.Footprint.Depth = dest->resource_create_desc.depth;
+			footprint_src.Footprint.Format = dest->resource_create_desc.format;
+			footprint_src.Footprint.RowPitch = (dest->resource_create_desc.width * sg_device->GetFormatBitsPerUnit(dest->resource_create_desc.format)) / 8;
+			seAssert(footprint_src.Footprint.RowPitch % D3D12_TEXTURE_DATA_PITCH_ALIGNMENT == 0, "Row pitch must align to D3D12_TEXTURE_DATA_PITCH_ALIGNMENT");
+
+			const CD3DX12_TEXTURE_COPY_LOCATION tcl_src(source->get().Get(), footprint_src);
+
+			command_list->CopyTextureRegion(&tcl_dest, 0, 0, 0, &tcl_src, nullptr);
 
 			//Barrier transition
 			{

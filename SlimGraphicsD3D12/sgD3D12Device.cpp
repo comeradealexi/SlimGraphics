@@ -275,6 +275,26 @@ namespace sg
                     seAssert(false, "TODO");
                 };
 
+            // Custom ImGui Texture
+			{
+				imgui_texture_viewer = {};
+				u32 idx = cbv_srv_uav_descriptor_heap_imgui->allocate();
+				imgui_texture_viewer.cpu_handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(cbv_srv_uav_descriptor_heap_imgui->get_cpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap_imgui->get_increment_size());
+				imgui_texture_viewer.gpu_handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(cbv_srv_uav_descriptor_heap_imgui->get_gpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap_imgui->get_increment_size());
+                ResourceCreateDesc rcd = {};
+                rcd.width = 1024;
+                rcd.height = 1024;
+                rcd.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+                //rcd.usage_flags = ResourceUsageFlags::RenderTarget | ResourceUsageFlags::UnorderedAccess;
+				sg::SizeAndAlignment size_align = calculate_resource_size_alignment(rcd);
+                imgui_texture_viewer.texture_memory = allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, size_align.size, size_align.alignment);
+                imgui_texture_viewer.texture = create_texture(imgui_texture_viewer.texture_memory, size_align.size, size_align.alignment, rcd);
+                imgui_texture_viewer.texture->get()->SetName(L"ImGui View Texture");
+                CD3DX12_SHADER_RESOURCE_VIEW_DESC srvd = CD3DX12_SHADER_RESOURCE_VIEW_DESC::Tex2D(rcd.format);
+                device->CreateShaderResourceView(imgui_texture_viewer.texture->get().Get(), &srvd, imgui_texture_viewer.cpu_handle);
+			}
+            
+
             if (!ImGui_ImplDX12_Init(&init_info))
             {
                 seAssert(false, "Error: ImGui_ImplDX12_Init failed!" );
@@ -299,6 +319,13 @@ namespace sg
 #endif
         }
 
+
+		void Device::set_imgui_viewer_texture(SharedPtr<Texture> texture)
+		{
+            imgui_texture_viewer.texture = texture;
+			CD3DX12_SHADER_RESOURCE_VIEW_DESC srvd = CD3DX12_SHADER_RESOURCE_VIEW_DESC::Tex2D(texture->resource_create_desc.format);
+			device->CreateShaderResourceView(imgui_texture_viewer.texture->get().Get(), &srvd, imgui_texture_viewer.cpu_handle);
+		}
 
 		D3D12_RESOURCE_DESC Device::create_dx12_resource_desc(const ResourceCreateDesc& desc)
 		{
@@ -456,6 +483,7 @@ namespace sg
             }
 
             out_command_list->device = device;
+            out_command_list->sg_device = this;
 
             out_command_list->global_cbv_srv_uav_descriptor_heap = cbv_srv_uav_descriptor_heap;
             out_command_list->global_rtv_descriptor_heap = rtv_descriptor_heap->get_heap();
@@ -649,7 +677,7 @@ namespace sg
 			CHECKHR(device6->CreatePlacedResource(d3d12_alloc.heap.Get(), d3d12_alloc.offset, &d3d12_desc, resource_state, nullptr, IID_PPV_ARGS(d3d12_texture.GetAddressOf())));
 
             bool uav_access = (resource_desc.usage_flags & ResourceUsageFlags::UnorderedAccess) == ResourceUsageFlags::UnorderedAccess;
-			SharedPtr<Texture> buffer(new Texture(size, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
+			SharedPtr<Texture> buffer(new Texture(size, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback, resource_desc));
 			buffer->memory = memory;
 			buffer->resource = d3d12_texture;
 			return buffer;
@@ -841,6 +869,32 @@ namespace sg
             return features.TotalLaneCount();
 		}
 
+        u32 Device::GetFormatBitsPerUnit(DXGI_FORMAT format)
+        {
+			return D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::GetBitsPerUnit(format);
+        }
+
+        u32 Device::GetFormatWidthAlignment(DXGI_FORMAT format)
+        {
+			return D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::GetWidthAlignment(format);
+        }
+
+        LPCSTR Device::GetFormatName(DXGI_FORMAT format)
+        {
+			return D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::GetName(format);
+        }
+
+
+		sg::u64 Device::CalculateResourceSize(u32 width, u32 height, u32 depth, u32 mip_levels, DXGI_FORMAT format)
+		{
+            SIZE_T size;
+            if (D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::CalculateResourceSize(width, height, depth, format, mip_levels, 1, size) == S_OK)
+            {
+                return size;
+            }
+            return 0;
+		}
+
 		u32 Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list)
         {
             swap_chain_buffer_count = buffer_count;
@@ -859,7 +913,7 @@ namespace sg
 
             for (u32 i = 0; i < swap_chain_buffer_count; i++)
             {
-                SharedPtr<Texture> texture_resource = SharedPtr<Texture>(new Texture(false));
+                SharedPtr<Texture> texture_resource = SharedPtr<Texture>(new Texture(false, {}));
                 rtv_list[i].texture_resource = texture_resource;
                 CHECKHR(swap_chain->GetBuffer(i, IID_PPV_ARGS(texture_resource->resource.GetAddressOf())));
 

@@ -41,6 +41,7 @@ namespace sg
 
 			void copy_buffer_to_buffer(Buffer* dest, Buffer* source);
 			void copy_buffer_to_buffer(u32 size, Buffer* dest, u32 dest_offset, Buffer* source, u32 source_offset);
+			void copy_buffer_to_texture(u32 size, Texture* dest, Buffer* source, u32 source_offset);
 
 			void clear_render_target_view(RenderTargetView rtv, float4 colour);
 
@@ -59,6 +60,7 @@ namespace sg
 			u32 descriptor_heap_maximum = 0;
 
 			ComPtr<ID3D12Device> device;
+			Device* sg_device = nullptr;
 			sg::SharedPtr<DescriptorHeap> global_cbv_srv_uav_descriptor_heap;
 			ComPtr<ID3D12DescriptorHeap> global_rtv_descriptor_heap;
 			ComPtr<ID3D12DescriptorHeap> global_dsv_descriptor_heap;

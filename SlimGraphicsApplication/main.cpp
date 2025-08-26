@@ -17,6 +17,7 @@
 #include "Camera.h"
 #include "ModelViewer.h"
 #include "DebugDraw.h"
+#include "Scene/Terrain.h"
 
 /*
 TODO:
@@ -306,6 +307,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	BasicGrid basic_grid(device);
 	Ptr<ModelViewer> model_viewer = Ptr<ModelViewer>(new ModelViewer(device));
 
+	Ptr< Terrain> terrain = Ptr<Terrain>(new Terrain(device));
 	volatile bool run = true;
 
 	u32 total_frame_idx = 0;
@@ -373,10 +375,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		//static float 
 		//ImPlot::PlotHistogram2D(,)
 		//ImGui::PlotHistogram("GPU Time", )
-		
+
 		ImGui::End();
 
 		ImGui::Begin("Slim Graphics", &bOpen, 0);
+
+		// https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples
+		
+		ImGui::Image((ImTextureID)device->imgui_texture_viewer_handle().ptr, ImVec2(device->imgui_texture_viewer_data().texture->resource_create_desc.width, device->imgui_texture_viewer_data().texture->resource_create_desc.height));
 
 		model_viewer->Update(delta_time, total_time, camera, *debug_draw);
 
@@ -432,7 +438,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				//ImGui::Text("ASInvocations: %ull", query_data.ASInvocations);
 				//ImGui::Text("MSInvocations: %ull", query_data.MSInvocations);
 				//ImGui::Text("MSPrimitives:  %ull", query_data.MSPrimitives);
-
 			}
 		}
 		ImGui::End();
@@ -503,6 +508,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 				stats_pool->begin_query(stat_query_idx, command_buffer.get());
 				model_viewer->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
+				terrain->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
 				stats_pool->end_query(stat_query_idx, command_buffer.get());
 				basic_grid.Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb);
 				debug_draw->Render(*command_buffer, cbv_cam);

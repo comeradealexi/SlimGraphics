@@ -4,6 +4,7 @@
 #include "sgD3D12Memory.h"
 #include "sgD3D12Shader.h"
 #include "sgD3D12DescriptorHeap.h"
+#include "d3dx12_property_format_table.h"
 
 namespace sg
 {
@@ -24,6 +25,7 @@ namespace sg
 		class Device
 		{
 		public:
+			class ImGuiTextureViewer;
 			static constexpr u64 DESCRIPTOR_COUNT = 1024;
 			static constexpr u64 ADAPTER_MEMORY_TO_CONSUME_PERCENTAGE = 70;
 			static constexpr u64 TEXTURE_POOL_PERCENTAGE = 40;
@@ -35,6 +37,9 @@ namespace sg
 			Device();
 			void imgui_init(u32 num_frames, DXGI_FORMAT format, DXGI_FORMAT depth_format, CommandQueue* command_queue);
 			void imgui_render(CommandList* command_list);
+			CD3DX12_GPU_DESCRIPTOR_HANDLE imgui_texture_viewer_handle() const { return imgui_texture_viewer.gpu_handle; }
+			ImGuiTextureViewer& imgui_texture_viewer_data() { return imgui_texture_viewer; }
+			void set_imgui_viewer_texture(SharedPtr<Texture> texture);
 
 			D3D12_RESOURCE_DESC create_dx12_resource_desc(const ResourceCreateDesc& desc);
 			SizeAndAlignment calculate_resource_size_alignment(const ResourceCreateDesc& desc);
@@ -88,6 +93,11 @@ namespace sg
 			u32 GetWaveLaneCountMax();
 			u32 GetTotalLaneCount();
 
+			u32 GetFormatBitsPerUnit(DXGI_FORMAT format);
+			u32 GetFormatWidthAlignment(DXGI_FORMAT format);
+			LPCSTR GetFormatName(DXGI_FORMAT format);
+			u64 CalculateResourceSize(u32 width, u32 height, u32 depth, u32 mip_levels, DXGI_FORMAT format);
+
 			//D3D12 Specific
 		public:
 			ComPtr<ID3D12DescriptorHeap> get_cbv_srv_uav_descriptor_heap();
@@ -118,6 +128,14 @@ namespace sg
 			SharedPtr<DescriptorHeap> rtv_descriptor_heap;
 			SharedPtr<DescriptorHeap> dsv_descriptor_heap;
 			SharedPtr<DescriptorHeap> sampler_descriptor_heap;
+
+			struct ImGuiTextureViewer
+			{
+				CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle;
+				CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle;
+				SharedPtr<Memory> texture_memory;
+				SharedPtr<Texture> texture;
+			} imgui_texture_viewer;
 		};
 	}
 }
