@@ -25,7 +25,7 @@ private:
 	sg::SharedPtr<sg::Texture> terrain_texture;
 	sg::SharedPtr<sg::TextureView> terrain_texture_view;
 	
-	Ptr<Pipeline> terrain_pipeline;
+	sg::Ptr<sg::Pipeline> terrain_pipeline;
 	sg::Ptr<sg::VertexShader> shader_vertex;
 	sg::Ptr<sg::PixelShader> shader_pixel;
 };

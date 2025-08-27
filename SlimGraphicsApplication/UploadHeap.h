@@ -22,7 +22,7 @@ private:
 
 	struct PerFrameData
 	{
-		sg::Ptr<sg::CommandList> command_list;
+		sg::SharedPtr<sg::CommandList> command_list;
 		sg::SharedPtr<sg::Buffer> buffer;
 		ComPtr<sg::QueueFence> fence;
 		sg::u32 upload_heap_size = 0;

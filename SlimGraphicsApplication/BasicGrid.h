@@ -14,7 +14,5 @@ public:
 	void Render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer);
 
 private:
-	sg::Ptr<sg::Pipeline> pipeline;
-	sg::Ptr<sg::VertexShader> vs;
-	sg::Ptr<sg::PixelShader> ps;
+	sg::SharedPtr<sg::Pipeline> pipeline;
 };

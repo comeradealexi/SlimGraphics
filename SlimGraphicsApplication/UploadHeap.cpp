@@ -9,8 +9,8 @@ UploadHeap::UploadHeap(sg::Device* device, sg::u32 buffer_count, sg::u32 size_pe
 	for (u32 i = 0; i < buffer_count; i++)
 	{
 		PerFrameData& data = per_frame_list[i];
-		SharedPtr<Memory> upload_heap = device->allocate_memory(MemoryType::Upload, MemorySubType::None, size_per_frame, 64ull * 1024);
-		data.buffer = device->create_buffer(upload_heap, size_per_frame, 64ull * 1024, BufferType::Upload, false);
+		SharedPtr<Memory> upload_heap = device->allocate_memory(MemoryType::Upload, MemorySubType::None, size_per_frame);
+		data.buffer = device->create_buffer(upload_heap, size_per_frame,BufferType::Upload, false);
 		data.command_list = device->create_command_buffer();
 		data.fence = device->create_queue_fence();
 		data.upload_heap_size = size_per_frame;

@@ -206,7 +206,7 @@ namespace sg
                     D3D12_HEAP_DESC desc = {};
                     desc.Properties.Type = D3D12_HEAP_TYPE_DEFAULT;
                     desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-                    desc.Flags = D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+                    desc.Flags = D3D12_HEAP_FLAG_ALLOW_ALL_BUFFERS_AND_TEXTURES | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
                     desc.SizeInBytes = ((total_memory_to_use * TEXTURE_POOL_PERCENTAGE) / 100);
                     device->CreateHeap(&desc, IID_PPV_ARGS(mempool_textures.heap.GetAddressOf()));
 
@@ -288,7 +288,7 @@ namespace sg
                 //rcd.usage_flags = ResourceUsageFlags::RenderTarget | ResourceUsageFlags::UnorderedAccess;
 				sg::SizeAndAlignment size_align = calculate_resource_size_alignment(rcd);
                 imgui_texture_viewer.texture_memory = allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, size_align.size, size_align.alignment);
-                imgui_texture_viewer.texture = create_texture(imgui_texture_viewer.texture_memory, size_align.size, size_align.alignment, rcd);
+                imgui_texture_viewer.texture = create_texture(imgui_texture_viewer.texture_memory, size_align.size, rcd);
                 imgui_texture_viewer.texture->get()->SetName(L"ImGui View Texture");
                 CD3DX12_SHADER_RESOURCE_VIEW_DESC srvd = CD3DX12_SHADER_RESOURCE_VIEW_DESC::Tex2D(rcd.format);
                 device->CreateShaderResourceView(imgui_texture_viewer.texture->get().Get(), &srvd, imgui_texture_viewer.cpu_handle);
@@ -434,20 +434,20 @@ namespace sg
         }
 
 
-		Ptr<GPUTimestampPool> Device::create_gpu_timestamp_pool(CommandQueue* queue, u32 max_timestamps)
+        SharedPtr<GPUTimestampPool> Device::create_gpu_timestamp_pool(CommandQueue* queue, u32 max_timestamps)
 		{
             ID3D12CommandQueue* d3d12_queue = queue->get().Get();
-            return Ptr<GPUTimestampPool>(new GPUTimestampPool(device.Get(), d3d12_queue, max_timestamps));
+            return SharedPtr<GPUTimestampPool>(new GPUTimestampPool(device.Get(), d3d12_queue, max_timestamps));
 		}
 
 
-		se::Ptr<sg::D3D12::GPUStatisticPool> Device::create_gpu_statistic_pool(CommandQueue* queue, u32 max_stats)
+        SharedPtr<sg::D3D12::GPUStatisticPool> Device::create_gpu_statistic_pool(CommandQueue* queue, u32 max_stats)
 		{
 			ID3D12CommandQueue* d3d12_queue = queue->get().Get();
-			return Ptr<GPUStatisticPool>(new GPUStatisticPool(device6.Get(), d3d12_queue, max_stats));
+			return SharedPtr<GPUStatisticPool>(new GPUStatisticPool(device6.Get(), d3d12_queue, max_stats));
 		}
 
-		Ptr<CommandQueue> Device::create_command_queue()
+        SharedPtr<CommandQueue> Device::create_command_queue()
         {
             ComPtr<ID3D12CommandQueue> queue;
             D3D12_COMMAND_QUEUE_DESC QueueDesc = {};
@@ -457,7 +457,7 @@ namespace sg
             return Ptr<CommandQueue>(new CommandQueue(queue));
         }
 
-        Ptr<CommandList> Device::create_command_buffer()
+        SharedPtr<CommandList> Device::create_command_buffer()
         {
             ComPtr<ID3D12GraphicsCommandList6> command_list;
             ComPtr<ID3D12CommandAllocator> command_allocator;
@@ -466,7 +466,7 @@ namespace sg
             CHECKHR(device6->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, command_allocator.Get(), nullptr, IID_PPV_ARGS(&command_list)));
             CHECKHR(command_list->Close());
 
-            Ptr<CommandList> out_command_list = Ptr<CommandList>(new CommandList(command_list, command_allocator));
+            SharedPtr<CommandList> out_command_list(new CommandList(command_list, command_allocator));
             //cbv srv uav
             {
                 ComPtr<ID3D12DescriptorHeap> heap;
@@ -498,36 +498,36 @@ namespace sg
             return out_command_list;
         }
 
-        Ptr<VertexShader> Device::create_vertex_shader(const std::vector<uint8_t>& shader)
+        SharedPtr<VertexShader> Device::create_vertex_shader(const std::vector<uint8_t>& shader)
         {
-            return Ptr<VertexShader>(new VertexShader(shader));
+            return SharedPtr<VertexShader>(new VertexShader(shader));
         }
 
-        Ptr<PixelShader> Device::create_pixel_shader(const std::vector<uint8_t>& shader)
+        SharedPtr<PixelShader> Device::create_pixel_shader(const std::vector<uint8_t>& shader)
         {
-            return Ptr<PixelShader>(new PixelShader(shader));
+            return SharedPtr<PixelShader>(new PixelShader(shader));
         }
 
-		sg::Ptr<sg::ComputeShader> Device::create_compute_shader(const std::vector<uint8_t>& shader)
+		sg::SharedPtr<sg::ComputeShader> Device::create_compute_shader(const std::vector<uint8_t>& shader)
 		{
-			return Ptr<ComputeShader>(new ComputeShader(shader));
+			return SharedPtr<ComputeShader>(new ComputeShader(shader));
 		}
 
 
-		sg::Ptr<sg::MeshShader> Device::create_mesh_shader(const std::vector<uint8_t>& shader)
+		sg::SharedPtr<sg::MeshShader> Device::create_mesh_shader(const std::vector<uint8_t>& shader)
 		{
-			return Ptr<MeshShader>(new MeshShader(shader));
+			return SharedPtr<MeshShader>(new MeshShader(shader));
 		}
 
 
-		sg::Ptr<sg::AmplificationShader> Device::create_amplification_shader(const std::vector<uint8_t>& shader)
+		sg::SharedPtr<sg::AmplificationShader> Device::create_amplification_shader(const std::vector<uint8_t>& shader)
 		{
-			return Ptr<AmplificationShader>(new AmplificationShader(shader));
+			return SharedPtr<AmplificationShader>(new AmplificationShader(shader));
 		}
 
-		Ptr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
+        SharedPtr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
         {
-            Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline(false));
+            SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc));
 
             out_pipeline->topology = translate(pipeline_desc.primitive_topology);
 
@@ -584,9 +584,9 @@ namespace sg
         }
 
 
-		se::Ptr<sg::Pipeline> Device::create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc)
+        SharedPtr<Pipeline> Device::create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc)
 		{
-			Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline(true));
+            SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc));
 
 			D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
             psoDesc.CS = pipeline_desc.compute_shader->shader_code;
@@ -602,14 +602,14 @@ namespace sg
             return out_pipeline;
 		}
 
-		sg::Ptr<sg::Pipeline> Device::create_pipeline(const PipelineDesc::Mesh& pipeline_desc, const BindingDesc& binding_desc)
+        SharedPtr<Pipeline> Device::create_pipeline(const PipelineDesc::Mesh& pipeline_desc, const BindingDesc& binding_desc)
 		{
             if (!SupportsMeshShaders())
             {
                 return nullptr;
             }
 
-			Ptr<Pipeline> out_pipeline = Ptr<Pipeline>(new Pipeline(false));
+            SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc));
 
 			out_pipeline->topology = translate(pipeline_desc.primitive_topology);
 
@@ -649,10 +649,10 @@ namespace sg
 			return out_pipeline;
 		}
 
-		sg::SharedPtr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type, bool uav_access)
+		sg::SharedPtr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, BufferType type, bool uav_access)
 		{
             const D3D12_RESOURCE_FLAGS flags = uav_access ? (D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) : D3D12_RESOURCE_FLAG_NONE;
-            const D3D12_RESOURCE_ALLOCATION_INFO rai = { size, alignment };
+            const D3D12_RESOURCE_ALLOCATION_INFO rai = { size, DefaultAlignment::BUFFER_ALIGNMENT };
 			const CD3DX12_RESOURCE_DESC ResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(rai, flags);
 
             Allocation& d3d12_alloc = memory->alloc;
@@ -667,7 +667,7 @@ namespace sg
 		}
 
 
-		se::SharedPtr<sg::D3D12::Texture> Device::create_texture(SharedPtr<Memory> memory, u32 size, u32 alignment, const ResourceCreateDesc& resource_desc)
+		se::SharedPtr<sg::D3D12::Texture> Device::create_texture(SharedPtr<Memory> memory, u32 size, const ResourceCreateDesc& resource_desc)
 		{
 			D3D12_RESOURCE_DESC d3d12_desc = create_dx12_resource_desc(resource_desc);
 

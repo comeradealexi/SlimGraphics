@@ -287,8 +287,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					// Create GPU Buffers
 					{ // Meshlets
 						const size_t meshlet_byte_size = mesh_shader_data.meshlets.size() * sizeof(mesh_shader_data.meshlets[0]);
-						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, meshlet_byte_size, 1024 * 64);
-						mesh_shader_data.gpu_meshlets = device->create_buffer(ml_mem, meshlet_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, true);
+						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, meshlet_byte_size);
+						mesh_shader_data.gpu_meshlets = device->create_buffer(ml_mem, meshlet_byte_size, BufferType::GeneralDataBuffer, true);
 						mesh_shader_data.gpu_meshlets_view = device->create_unordered_access_view(mesh_shader_data.gpu_meshlets, sizeof(mesh_shader_data.meshlets[0]), mesh_shader_data.meshlets.size());
 						mesh_shader_data.gpu_meshlets_view_srv = device->create_shader_resource_view(mesh_shader_data.gpu_meshlets, sizeof(mesh_shader_data.meshlets[0]), mesh_shader_data.meshlets.size());
 
@@ -298,8 +298,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					}
 					{
 						const size_t unique_meshlet_verts_byte_size = mesh_shader_data.meshlet_vertices.size() * sizeof(mesh_shader_data.meshlet_vertices[0]);
-						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, unique_meshlet_verts_byte_size, 1024 * 64);
-						mesh_shader_data.gpu_unique_vertex_indices = device->create_buffer(ml_mem, unique_meshlet_verts_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, true);
+						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, unique_meshlet_verts_byte_size);
+						mesh_shader_data.gpu_unique_vertex_indices = device->create_buffer(ml_mem, unique_meshlet_verts_byte_size, BufferType::GeneralDataBuffer, true);
 						mesh_shader_data.gpu_unique_vertex_indices_view = device->create_unordered_access_view(mesh_shader_data.gpu_unique_vertex_indices, sizeof(mesh_shader_data.meshlet_vertices[0]), mesh_shader_data.meshlet_vertices.size());
 						mesh_shader_data.gpu_unique_vertex_indices_view_srv = device->create_shader_resource_view(mesh_shader_data.gpu_unique_vertex_indices, sizeof(mesh_shader_data.meshlet_vertices[0]), mesh_shader_data.meshlet_vertices.size());
 
@@ -309,8 +309,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					}
 					{
 						const size_t primitive_indices_byte_size = mesh_shader_data.meshlet_triangles_gpu.size() * sizeof(mesh_shader_data.meshlet_triangles_gpu[0]);
-						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, primitive_indices_byte_size, 1024 * 64);
-						mesh_shader_data.gpu_primitive_indices = device->create_buffer(ml_mem, primitive_indices_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, true);
+						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, primitive_indices_byte_size);
+						mesh_shader_data.gpu_primitive_indices = device->create_buffer(ml_mem, primitive_indices_byte_size, BufferType::GeneralDataBuffer, true);
 						mesh_shader_data.gpu_primitive_indices_view = device->create_unordered_access_view(mesh_shader_data.gpu_primitive_indices, sizeof(mesh_shader_data.meshlet_triangles_gpu[0]), mesh_shader_data.meshlet_triangles_gpu.size());
 						mesh_shader_data.gpu_primitive_indices_view_srv = device->create_shader_resource_view(mesh_shader_data.gpu_primitive_indices, sizeof(mesh_shader_data.meshlet_triangles_gpu[0]), mesh_shader_data.meshlet_triangles_gpu.size());
 
@@ -320,8 +320,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					}
 					{ // Meshlets Cull Data
 						const size_t meshlet_byte_size = mesh_shader_data.meshlet_bounds.size() * sizeof(ShaderStructs::MeshletCullData);
-						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, meshlet_byte_size, 1024 * 64);
-						mesh_shader_data.gpu_culldata = device->create_buffer(ml_mem, meshlet_byte_size, 1024 * 64, BufferType::GeneralDataBuffer, true);
+						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, meshlet_byte_size);
+						mesh_shader_data.gpu_culldata = device->create_buffer(ml_mem, meshlet_byte_size, BufferType::GeneralDataBuffer, true);
 						mesh_shader_data.gpu_culldata_view = device->create_unordered_access_view(mesh_shader_data.gpu_culldata, sizeof(ShaderStructs::MeshletCullData), mesh_shader_data.meshlet_bounds.size());
 						mesh_shader_data.gpu_culldata_view_srv = device->create_shader_resource_view(mesh_shader_data.gpu_culldata, sizeof(ShaderStructs::MeshletCullData), mesh_shader_data.meshlet_bounds.size());
 
@@ -398,8 +398,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 			//Vertex Buffer
 			{
 				const size_t vertex_byte_size = vertices.size() * sizeof(Vertex);
-				SharedPtr<Memory> vb_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, vertex_byte_size, 1024 * 64);
-				vb = device->create_buffer(vb_mem, vertex_byte_size, 1024 * 64, BufferType::Vertex, false);
+				SharedPtr<Memory> vb_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, vertex_byte_size);
+				vb = device->create_buffer(vb_mem, vertex_byte_size, BufferType::Vertex, false);
 				vbv = device->create_vertex_buffer_view(vb, 0, vertex_byte_size, stride);
 				vb_srv = device->create_shader_resource_view(vb, sizeof(Vertex), vertices.size());
 				
@@ -411,8 +411,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 			//Index Buffer
 			{
 				const size_t index_byte_size = indices.size() * sizeof(uint32_t);
-				SharedPtr<Memory> ib_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, index_byte_size, 1024 * 64);
-				ib = device->create_buffer(ib_mem, index_byte_size, 1024 * 64, BufferType::Index, false);
+				SharedPtr<Memory> ib_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, index_byte_size);
+				ib = device->create_buffer(ib_mem, index_byte_size,BufferType::Index, false);
 				ibv = device->create_index_buffer_view(ib, 0, index_byte_size, DXGI_FORMAT_R32_UINT);
 
 				UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(index_byte_size, 256);

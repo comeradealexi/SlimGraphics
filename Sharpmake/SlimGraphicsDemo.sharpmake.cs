@@ -23,7 +23,8 @@ namespace SlimEngine
             conf.IncludePaths.Add(Path.Join(Globals.ExternalsPath, @"assimp-5.3.1\include"));
 
             conf.AddPrivateDependency<SlimEngineProject>(target);
-            conf.AddPrivateDependency<SlimGraphicsD3D12>(target); ;
+            conf.AddPrivateDependency<SlimGraphicsD3D12>(target);
+            conf.AddPrivateDependency<SlimGraphicsShared>(target); ;
             conf.AddPrivateDependency<MeshOptimizerProject>(target);
             conf.AddPrivateDependency<D3D12MAProject>(target);
             conf.AddPrivateDependency<DirectXMeshProject>(target);
@@ -31,7 +32,6 @@ namespace SlimEngine
             conf.AddPrivateDependency<ImGuiProject>(target);
             conf.AddPrivateDependency<ImPlotProject>(target);
             conf.AddPrivateDependency<LodePNGProject>(target);
-
 
             conf.LibraryFiles.Add("GameInput.lib");
             conf.LibraryFiles.Add("assimp-vc143-mt.lib");
@@ -44,7 +44,9 @@ namespace SlimEngine
             conf.LibraryPaths.Add(Path.Join(Globals.ExternalsPath, @"GameInput\lib\x64"));
 
             conf.EventPostBuild.Add("xcopy " + Path.Join(Globals.ExternalsPath, @"assimp-5.3.1\bin\RelWithDebInfo\assimp-vc143-mt.dll") + " " + SourceRootPath + " /y");
-            conf.EventPreBuild.Add(Path.Join(Globals.Root, @"Binaries\SlimShaderCompiler.exe") + " " + SourceRootPath + " " + Path.Join(SourceRootPath, "ShaderBin_" + target.Optimization) + " PC_DXC");
+
+            string SimpleIncExe = Path.Join(Globals.SubmodulesPath,@"SimpleInc\Bin\Release\SimpleInc.exe") + " \"$(MSBuildBinPath)\" " +  Path.Join(Globals.Root, @"Sharpmake\SimpleIncTemp");
+            conf.EventPreBuild.Add(SimpleIncExe + " " + Path.Join(Globals.Root, @"Binaries\SlimShaderCompiler.exe") + " " + SourceRootPath + " " + Path.Join(SourceRootPath, "ShaderBin_" + target.Optimization) + " PC_DXC");
 
             conf.VcxprojUserFile = new Configuration.VcxprojUserFileSettings();
             conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = SourceRootPath;

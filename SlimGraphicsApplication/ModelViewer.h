@@ -33,16 +33,16 @@ private:
 	RenderGeo render_geo = RenderGeo::Model;
 
 	sg::SharedPtr<sg::Device> device;
-	sg::Ptr<sg::Pipeline> pipeline;
-	sg::Ptr<sg::Pipeline> pipeline_fullscreen_triangle;
-	sg::Ptr<sg::Pipeline> pipeline_fullscreen_quad;
+	sg::SharedPtr<sg::Pipeline> pipeline;
+	sg::SharedPtr<sg::Pipeline> pipeline_fullscreen_triangle;
+	sg::SharedPtr<sg::Pipeline> pipeline_fullscreen_quad;
 
 	sg::BindingDesc pipeline_binding_desc;
 	sg::PipelineDesc::Graphics pipeline_desc;
-	sg::Ptr<sg::VertexShader> shader_vertex;
-	sg::Ptr<sg::VertexShader> shader_vertex_triangle;
-	sg::Ptr<sg::VertexShader> shader_vertex_quad;
-	sg::Ptr<sg::PixelShader> shader_pixel;
+	sg::SharedPtr<sg::VertexShader> shader_vertex;
+	sg::SharedPtr<sg::VertexShader> shader_vertex_triangle;
+	sg::SharedPtr<sg::VertexShader> shader_vertex_quad;
+	sg::SharedPtr<sg::PixelShader> shader_pixel;
 	sg::Ptr<Model> model;
 	Model::InitData model_init_data;
 	bool* render_model_bool_array = nullptr;
@@ -102,11 +102,11 @@ private:
 
 	struct MeshShaderRendering
 	{
-		sg::Ptr<sg::Pipeline> pipeline;
+		sg::SharedPtr<sg::Pipeline> pipeline;
 		sg::PipelineDesc::Mesh pipeline_desc;
-		sg::Ptr<sg::AmplificationShader> shader_amplification;
-		sg::Ptr<sg::MeshShader> shader_mesh;
-		sg::Ptr<sg::PixelShader> shader_pixel;
+		sg::SharedPtr<sg::AmplificationShader> shader_amplification;
+		sg::SharedPtr<sg::MeshShader> shader_mesh;
+		sg::SharedPtr<sg::PixelShader> shader_pixel;
 		sg::BindingDesc binding_desc;
 	} mesh_shading, amplification_mesh_shading;
 	

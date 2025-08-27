@@ -40,3 +40,6 @@
 [submodule "SubModules/lodepng"]
 	path = SubModules/lodepng
 	url = https://github.com/lvandeve/lodepng
+[submodule "SubModules/SimpleInc"]
+	path = SubModules/SimpleInc
+	url = https://github.com/comeradealexi/SimpleInc

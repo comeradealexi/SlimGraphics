@@ -72,9 +72,6 @@ private:
 	sg::SharedPtr<sg::Pipeline> pipeline_depth;
 	sg::SharedPtr<sg::Pipeline> pipeline_no_depth;
 
-	sg::Ptr<sg::VertexShader> shader_vertex;
-	sg::Ptr<sg::PixelShader> shader_pixel;
-
 	struct VertexFormat
 	{
 		DirectX::XMFLOAT3 position;

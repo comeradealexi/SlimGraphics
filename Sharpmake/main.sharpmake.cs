@@ -71,6 +71,7 @@ namespace SlimEngine
                 conf.AddProject<D3D12MAProject>(target);
                 conf.AddProject<DirectXMeshProject>(target);
                 conf.AddProject<DirectXToolkitProject>(target);
+                conf.AddProject<SlimGraphicsShared>(target);
                 conf.AddProject<SlimGraphicsD3D12>(target);
                 conf.AddProject<SlimGraphicsApplicationProject>(target);
                 conf.SetStartupProject<SlimGraphicsApplicationProject>();
@@ -84,7 +85,7 @@ namespace SlimEngine
         public static void SharpmakeMain(Sharpmake.Arguments arguments)
         {
             CommandLine.ExecuteOnType(typeof(Globals));
-
+            
             KitsRootPaths.SetUseKitsRootForDevEnv(DevEnv.vs2022, KitsRootEnum.KitsRoot10, Options.Vc.General.WindowsTargetPlatformVersion.Latest);
             arguments.Generate<SlimGraphicsSolution>();
         }

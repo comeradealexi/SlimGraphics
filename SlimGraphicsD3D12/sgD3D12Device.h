@@ -44,31 +44,31 @@ namespace sg
 			D3D12_RESOURCE_DESC create_dx12_resource_desc(const ResourceCreateDesc& desc);
 			SizeAndAlignment calculate_resource_size_alignment(const ResourceCreateDesc& desc);
 
-			SharedPtr<Memory> allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment);
+			SharedPtr<Memory> allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment = DefaultAlignment::BUFFER_ALIGNMENT);
 			ComPtr<QueueFence> create_queue_fence();
 
-			Ptr<GPUTimestampPool> create_gpu_timestamp_pool(CommandQueue* queue, u32 max_timestamps);
-			Ptr<GPUStatisticPool> create_gpu_statistic_pool(CommandQueue* queue, u32 max_stats);
+			SharedPtr<GPUTimestampPool> create_gpu_timestamp_pool(CommandQueue* queue, u32 max_timestamps);
+			SharedPtr<GPUStatisticPool> create_gpu_statistic_pool(CommandQueue* queue, u32 max_stats);
 
-			Ptr<CommandQueue> create_command_queue();
-			Ptr<CommandList> create_command_buffer();
+			SharedPtr<CommandQueue> create_command_queue();
+			SharedPtr<CommandList> create_command_buffer();
 
-			Ptr<VertexShader> create_vertex_shader(const std::vector<uint8_t>& shader);
-			Ptr<PixelShader> create_pixel_shader(const std::vector<uint8_t>& shader);
-			Ptr<ComputeShader> create_compute_shader(const std::vector<uint8_t>& shader);
-			Ptr<MeshShader> create_mesh_shader(const std::vector<uint8_t>& shader);
-			Ptr<AmplificationShader> create_amplification_shader(const std::vector<uint8_t>& shader);
+			SharedPtr<VertexShader> create_vertex_shader(const std::vector<uint8_t>& shader);
+			SharedPtr<PixelShader> create_pixel_shader(const std::vector<uint8_t>& shader);
+			SharedPtr<ComputeShader> create_compute_shader(const std::vector<uint8_t>& shader);
+			SharedPtr<MeshShader> create_mesh_shader(const std::vector<uint8_t>& shader);
+			SharedPtr<AmplificationShader> create_amplification_shader(const std::vector<uint8_t>& shader);
 
 			//Returns current index to use
 			u32 create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list);
 			u32 present_swap_chain(CommandQueue* command_queue);
 
-			Ptr<Pipeline> create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc);
-			Ptr<Pipeline> create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc);
-			Ptr<Pipeline> create_pipeline(const PipelineDesc::Mesh& pipeline_desc, const BindingDesc& binding_desc);
+			SharedPtr<Pipeline> create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc);
+			SharedPtr<Pipeline> create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc);
+			SharedPtr<Pipeline> create_pipeline(const PipelineDesc::Mesh& pipeline_desc, const BindingDesc& binding_desc);
 
-			SharedPtr<Buffer> create_buffer(SharedPtr<Memory> memory, u32 size, u32 alignment, BufferType type, bool uav_access);
-			SharedPtr<Texture> create_texture(SharedPtr<Memory> memory, u32 size, u32 alignment, const ResourceCreateDesc& resource_desc);
+			SharedPtr<Buffer> create_buffer(SharedPtr<Memory> memory, u32 size, BufferType type, bool uav_access);
+			SharedPtr<Texture> create_texture(SharedPtr<Memory> memory, u32 size, const ResourceCreateDesc& resource_desc);
 
 			// DXGI_FORMAT_UNKNOWN means use default target format
 			RenderTargetView create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN);

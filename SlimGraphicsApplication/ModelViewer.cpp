@@ -136,13 +136,13 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	model_init_data.file_path = model_file_list[0];
 
 
-	uav_memory = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
-	uav_buffer = device->create_buffer(uav_memory, 64ull * 1024, 64ull * 1024, BufferType::GeneralDataBuffer, true);
+	uav_memory = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024);
+	uav_buffer = device->create_buffer(uav_memory, 64ull * 1024, BufferType::GeneralDataBuffer, true);
 	uav = device->create_unordered_access_view(uav_buffer, sizeof(u32), (64ull * 1024) / sizeof(u32));
 	srv = device->create_shader_resource_view(uav_buffer, sizeof(u32), (64ull * 1024) / sizeof(u32));
 
-	readback_uav_memory = device->allocate_memory(MemoryType::Readback, MemorySubType::Buffer, 64ull * 1024, 64ull * 1024);
-	readback_uav_buffer = device->create_buffer(readback_uav_memory, 64ull * 1024, 64ull * 1024, BufferType::GeneralDataBuffer, false);
+	readback_uav_memory = device->allocate_memory(MemoryType::Readback, MemorySubType::Buffer, 64ull * 1024);
+	readback_uav_buffer = device->create_buffer(readback_uav_memory, 64ull * 1024, BufferType::GeneralDataBuffer, false);
 
 	// Defaults
 	model_data.vertex_shading_mod = 1.0f;
@@ -561,8 +561,8 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 void ModelViewer::CreatePipeline()
 {
 	pipeline_desc.input_layout = Model::Vertex::make_input_layout();
-	pipeline_desc.vertex_shader = shader_vertex.get();
-	pipeline_desc.pixel_shader = shader_pixel.get();
+	pipeline_desc.vertex_shader = shader_vertex;
+	pipeline_desc.pixel_shader = shader_pixel;
 	pipeline_desc.render_target_count = 1;
 	pipeline_desc.render_target_format_list[0] = render_target_format;
 	pipeline_desc.depth_stencil_format = depth_stencil_format;
@@ -576,18 +576,18 @@ void ModelViewer::CreatePipeline()
 
 	pipeline_desc.input_layout = {};
 
-	pipeline_desc.vertex_shader = shader_vertex_triangle.get();
+	pipeline_desc.vertex_shader = shader_vertex_triangle;
 	pipeline_fullscreen_triangle = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
 	seAssert(pipeline_fullscreen_triangle != nullptr, "Failed to create model view pipeline");
 
-	pipeline_desc.vertex_shader = shader_vertex_quad.get();
+	pipeline_desc.vertex_shader = shader_vertex_quad;
 	pipeline_fullscreen_quad = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
 	seAssert(pipeline_fullscreen_quad != nullptr, "Failed to create model view pipeline");
 
 	// Mesh shader pipeline
 	{
-		mesh_shading.pipeline_desc.mesh_shader = mesh_shading.shader_mesh.get();
-		mesh_shading.pipeline_desc.pixel_shader = mesh_shading.shader_pixel.get();
+		mesh_shading.pipeline_desc.mesh_shader = mesh_shading.shader_mesh;
+		mesh_shading.pipeline_desc.pixel_shader = mesh_shading.shader_pixel;
 		mesh_shading.pipeline_desc.render_target_count = 1;
 		mesh_shading.pipeline_desc.render_target_format_list[0] = render_target_format;
 		mesh_shading.pipeline_desc.depth_stencil_format = depth_stencil_format;
@@ -601,9 +601,9 @@ void ModelViewer::CreatePipeline()
 
 	// Amplification & Mesh shader pipeline
 	{
-		amplification_mesh_shading.pipeline_desc.amp_shader = amplification_mesh_shading.shader_amplification.get();
-		amplification_mesh_shading.pipeline_desc.mesh_shader = amplification_mesh_shading.shader_mesh.get();
-		amplification_mesh_shading.pipeline_desc.pixel_shader = amplification_mesh_shading.shader_pixel.get();
+		amplification_mesh_shading.pipeline_desc.amp_shader = amplification_mesh_shading.shader_amplification;
+		amplification_mesh_shading.pipeline_desc.mesh_shader = amplification_mesh_shading.shader_mesh;
+		amplification_mesh_shading.pipeline_desc.pixel_shader = amplification_mesh_shading.shader_pixel;
 		amplification_mesh_shading.pipeline_desc.render_target_count = 1;
 		amplification_mesh_shading.pipeline_desc.render_target_format_list[0] = render_target_format;
 		amplification_mesh_shading.pipeline_desc.depth_stencil_format = depth_stencil_format;

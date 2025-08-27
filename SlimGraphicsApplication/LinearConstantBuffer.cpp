@@ -7,8 +7,8 @@ SimpleLinearConstantBuffer::SimpleLinearConstantBuffer(sg::SharedPtr<sg::Device>
 {
 	device = _device;
 	
-	SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, size, 64ull * 1024);
-	constant_buffer = device->create_buffer(mem, size, 64ull * 1024, BufferType::Constant, false);
+	SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, size);
+	constant_buffer = device->create_buffer(mem, size, BufferType::Constant, false);
 }
 
 void SimpleLinearConstantBuffer::BeginFrame(UploadHeap* upload_heap)

@@ -10,16 +10,16 @@ BasicGrid::BasicGrid(sg::SharedPtr<sg::Device>& _device)
 {
 	std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\BasicGrid_VertexShader.PC_DXC");
 	std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\BasicGrid_PixelShader.PC_DXC");
-	vs = _device->create_vertex_shader(vertex_data);
-	ps = _device->create_pixel_shader(pixel_data);
+	sg::SharedPtr<sg::VertexShader> vs = _device->create_vertex_shader(vertex_data);
+	sg::SharedPtr<sg::PixelShader> ps = _device->create_pixel_shader(pixel_data);
 
 	sg::BindingDesc pipeline_binding_desc;
 	pipeline_binding_desc.cbv_binding_count = 1;
 
 	sg::PipelineDesc::Graphics pipeline_desc;
 	pipeline_desc.input_layout = {};
-	pipeline_desc.vertex_shader = vs.get();
-	pipeline_desc.pixel_shader = ps.get();
+	pipeline_desc.vertex_shader = vs;
+	pipeline_desc.pixel_shader = ps;
 	pipeline_desc.render_target_count = 1;
 	pipeline_desc.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	pipeline_desc.depth_stencil_format = DXGI_FORMAT_D32_FLOAT;

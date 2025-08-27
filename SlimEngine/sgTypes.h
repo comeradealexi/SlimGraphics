@@ -133,6 +133,9 @@ namespace sg
 
 	struct ResourceCreateDesc
 	{
+		ResourceCreateDesc() { }
+		ResourceCreateDesc(u32 w, u32 h, DXGI_FORMAT fmt, ResourceUsageFlags flags = ResourceUsageFlags::None) : width(w), height(h), format(fmt), usage_flags(flags) { }
+
 		u32 width = 1;
 		u32 height = 1;
 		u32 depth = 1;
@@ -308,13 +311,13 @@ namespace sg
 	{
 		struct Compute
 		{
-			ComputeShader* compute_shader = nullptr;
+			SharedPtr<ComputeShader> compute_shader;
 		};
 
 		struct Graphics
 		{
-			VertexShader* vertex_shader = nullptr;
-			PixelShader* pixel_shader = nullptr;
+			SharedPtr<VertexShader> vertex_shader;
+			SharedPtr<PixelShader> pixel_shader;
 
 			Topology topology = Topology::Triangle;
 			PrimitiveTopology primitive_topology = PrimitiveTopology::Trianglelist;
@@ -332,9 +335,9 @@ namespace sg
 
 		struct Mesh
 		{
-			AmplificationShader* amp_shader = nullptr;
-			MeshShader* mesh_shader = nullptr;
-			PixelShader* pixel_shader = nullptr;
+			SharedPtr<AmplificationShader> amp_shader;
+			SharedPtr<MeshShader> mesh_shader;
+			SharedPtr<PixelShader> pixel_shader;
 
 			Topology topology = Topology::Triangle;
 			PrimitiveTopology primitive_topology = PrimitiveTopology::Trianglelist;

@@ -11,21 +11,21 @@ DebugDraw::DebugDraw(sg::Device& device)
 
 	for (auto& upload_buffer : upload_buffers)
 	{
-		SharedPtr<Memory> upload_heap = device.allocate_memory(MemoryType::Upload, MemorySubType::None, total_byte_size, 64ull * 1024);
-		upload_buffer = device.create_buffer(upload_heap, total_byte_size, 64ull * 1024, BufferType::Upload, false);
+		SharedPtr<Memory> upload_heap = device.allocate_memory(MemoryType::Upload, MemorySubType::None, total_byte_size);
+		upload_buffer = device.create_buffer(upload_heap, total_byte_size, BufferType::Upload, false);
 	}
 
 	// VB
 	{
-		SharedPtr<Memory> vb_mem = device.allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, max_vertex_size, 64ull * 1024);
-		gpu_vertex_buffer = device.create_buffer(vb_mem, max_vertex_size, 64ull * 1024, BufferType::Vertex, false);
+		SharedPtr<Memory> vb_mem = device.allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, max_vertex_size);
+		gpu_vertex_buffer = device.create_buffer(vb_mem, max_vertex_size, BufferType::Vertex, false);
 		gpu_vertex_buffer_view = device.create_vertex_buffer_view(gpu_vertex_buffer, 0, max_vertex_size, sizeof(VertexFormat));
 	}
 
 	// IB
 	{
-		SharedPtr<Memory> ib_mem = device.allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, max_index_size, 64ull * 1024);
-		gpu_index_buffer = device.create_buffer(ib_mem, max_index_size, 64ull * 1024, BufferType::Index, false);
+		SharedPtr<Memory> ib_mem = device.allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, max_index_size);
+		gpu_index_buffer = device.create_buffer(ib_mem, max_index_size, BufferType::Index, false);
 		gpu_index_buffer_view = device.create_index_buffer_view(gpu_index_buffer, 0, max_index_size, DXGI_FORMAT_R16_UINT);
 	}
 
@@ -33,16 +33,16 @@ DebugDraw::DebugDraw(sg::Device& device)
 	{
 		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\DebugWireframeShader_VertexShader.PC_DXC");
 		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\DebugWireframeShader_PixelShader.PC_DXC");
-		shader_vertex = device.create_vertex_shader(vertex_data);
-		shader_pixel = device.create_pixel_shader(pixel_data);
+		sg::SharedPtr<sg::VertexShader> shader_vertex = device.create_vertex_shader(vertex_data);
+		sg::SharedPtr<sg::PixelShader> shader_pixel = device.create_pixel_shader(pixel_data);
 
 		sg::BindingDesc pipeline_binding_desc = {}; 
 		pipeline_binding_desc.cbv_binding_count = 1;
 
 		sg::PipelineDesc::Graphics pipeline_desc;
 		pipeline_desc.input_layout = make_input_layout();
-		pipeline_desc.vertex_shader = shader_vertex.get();
-		pipeline_desc.pixel_shader = shader_pixel.get();
+		pipeline_desc.vertex_shader = shader_vertex;
+		pipeline_desc.pixel_shader = shader_pixel;
 		pipeline_desc.render_target_count = 1;
 		pipeline_desc.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 		pipeline_desc.depth_stencil_desc.depth_enable = true;

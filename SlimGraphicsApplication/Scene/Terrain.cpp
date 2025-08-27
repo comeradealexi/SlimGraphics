@@ -8,6 +8,7 @@ using namespace sg;
 
 Terrain::Terrain(SharedPtr<Device>& _device) : device(_device)
 {
+	height_textures_list.push_back("..\\SlimGraphicsAssets\\Textures\\TestImages\\MultiCol512.png");
 	height_textures_list.push_back("..\\SlimGraphicsAssets\\Textures\\iceland_heightmap.png");
 	height_textures_list.push_back("..\\SlimGraphicsAssets\\Textures\\snowdon.png");
 	height_textures_list.push_back("..\\SlimGraphicsAssets\\Textures\\louisd.png");
@@ -50,12 +51,15 @@ void Terrain::LoadHeightmapTexture(sg::Ptr<UploadHeap>& upload_heap)
 		const sg::u64 res_size = device->CalculateResourceSize(w, h, 1, 0, rcd.format);
 		seAssert(res_size == bitmap_data.size(), "expecting sizes to match");
 		SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, size_align.size, size_align.alignment);
-		terrain_texture = device->create_texture(mem, size_align.size, size_align.alignment, rcd);
+		terrain_texture = device->create_texture(mem, size_align.size, rcd);
+		sg::SharedPtr<sg::Buffer> terrain_buffer = device->create_buffer(mem, size_align.size, sg::BufferType::Texture, false);
 
 		device->set_imgui_viewer_texture(terrain_texture);
 
 		UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(size_align.size, size_align.alignment);
 		upload_heap->write_upload_memory(upload_offset, bitmap_data.data(), bitmap_data.size());
+
 		upload_heap->upload_to_texture(terrain_texture.get(), upload_offset, bitmap_data.size());
+		//upload_heap->upload_to_buffer(terrain_buffer.get(), 0, upload_offset, bitmap_data.size());
 	}
 }
