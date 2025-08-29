@@ -10,6 +10,7 @@ namespace sg
 		class DescriptorHeap
 		{
 		public:
+			static constexpr u32 INVALID_HEAP_INDEX = (u32)~0;
 			DescriptorHeap(ComPtr<ID3D12DescriptorHeap> d3d12_heap, u32 count, u32 in_heap_increment_size);
 
 			u32 allocate();

@@ -19,6 +19,4 @@ namespace sg
 
 	SharedPtr<Texture> create_texture(Device& device, const ResourceCreateDesc& resource_create_desc);
 	SharedPtr<Buffer> create_buffer(Device& device, u32 size, BufferType type = BufferType::GeneralDataBuffer, bool uav_access = true);
-
-
 }

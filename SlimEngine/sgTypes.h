@@ -372,9 +372,6 @@ namespace sg
 	using UAVBinding = u32;
 	using SamplerBinding = u32;
 
-	using RTVBinding = u32;
-	using DSVBinding = u32;
-
 	struct BaseBinding : public BindingDesc
 	{
 		static constexpr u32 INVALID_BINDING = (u32)~0;

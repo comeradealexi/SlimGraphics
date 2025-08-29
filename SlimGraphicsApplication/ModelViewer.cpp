@@ -500,12 +500,15 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				}
 				render_idx++;
 
-				for (const meshopt_Bounds& meshlet_bounds :  mesh_part.mesh_shader_data.meshlet_bounds)
+				if (debug_draw.IsEnabled())
 				{
-					DirectX::XMFLOAT3 pos;
-					DirectX::XMStoreFloat3(&pos, DirectX::XMVector3Transform(DirectX::XMLoadFloat3((DirectX::XMFLOAT3*)meshlet_bounds.center), model_data.model_matrix));
-					float diameter = meshlet_bounds.radius * 2.0f * model_scale;
-					debug_draw.DrawSphere(DebugDraw::ColourRGBA(255,0,0), pos, diameter, 9);
+					for (const meshopt_Bounds& meshlet_bounds : mesh_part.mesh_shader_data.meshlet_bounds)
+					{
+						DirectX::XMFLOAT3 pos;
+						DirectX::XMStoreFloat3(&pos, DirectX::XMVector3Transform(DirectX::XMLoadFloat3((DirectX::XMFLOAT3*)meshlet_bounds.center), model_data.model_matrix));
+						float diameter = meshlet_bounds.radius * 2.0f * model_scale;
+						debug_draw.DrawSphere(DebugDraw::ColourRGBA(255, 0, 0), pos, diameter, 9);
+					}
 				}
 			}
 		}

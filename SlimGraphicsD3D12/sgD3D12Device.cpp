@@ -480,15 +480,16 @@ namespace sg
                 out_command_list->descriptor_heap_increment = increment_size;
                 out_command_list->descriptor_heap_maximum = cbvSrvHeapDesc.NumDescriptors;
                 out_command_list->descriptor_heap = heap;
+
+				cbvSrvHeapDesc.NumDescriptors = 1;
+				cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+				cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+				CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
+                out_command_list->non_shader_descriptor_heap = heap;
             }
 
             out_command_list->device = device;
             out_command_list->sg_device = this;
-
-            out_command_list->global_cbv_srv_uav_descriptor_heap = cbv_srv_uav_descriptor_heap;
-            out_command_list->global_rtv_descriptor_heap = rtv_descriptor_heap->get_heap();
-            out_command_list->global_dsv_descriptor_heap = dsv_descriptor_heap->get_heap();
-            out_command_list->global_sampler_descriptor_heap = sampler_descriptor_heap->get_heap();
             
             out_command_list->descriptor_increment_size_cbv_srv_uav = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
             out_command_list->descriptor_increment_size_rtv = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
@@ -684,14 +685,15 @@ namespace sg
 		}
 
 
-        RenderTargetView Device::create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format /*= DXGI_FORMAT_UNKNOWN*/)
+        SharedPtr<RenderTargetView> Device::create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format /*= DXGI_FORMAT_UNKNOWN*/)
 		{
             seAssert(texture.get(), "Invalid texture pointer");
 
-            RenderTargetView rtv;
-            rtv.texture_resource = texture;
-            rtv.rtv = rtv_descriptor_heap->allocate();
-			CD3DX12_CPU_DESCRIPTOR_HANDLE rtv_handle(rtv_descriptor_heap->get_cpu_handle_heap_start(), rtv.rtv, rtv_descriptor_heap->get_increment_size());
+            SharedPtr<RenderTargetView> rtv(new RenderTargetView());
+            rtv->texture_resource = texture;
+            rtv->heap_index = rtv_descriptor_heap->allocate();
+            rtv->rtv_handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtv_descriptor_heap->get_cpu_handle_heap_start(), rtv->heap_index, rtv_descriptor_heap->get_increment_size());
+            rtv->heap = rtv_descriptor_heap;
 
             D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
             D3D12_RENDER_TARGET_VIEW_DESC* rtv_desc_ptr = format == DXGI_FORMAT_UNKNOWN ? (D3D12_RENDER_TARGET_VIEW_DESC*)nullptr : &rtv_desc;
@@ -701,31 +703,41 @@ namespace sg
                 seAssert(false, "Code path not texted and rtv_desc not filled out fully");
             }
 
-			device->CreateRenderTargetView(texture->resource.Get(), rtv_desc_ptr, rtv_handle);
+			device->CreateRenderTargetView(texture->resource.Get(), rtv_desc_ptr, rtv->rtv_handle);
             return rtv;
 		}
 
+		void Device::free_render_target_view(RenderTargetView* rtv)
+		{
+            rtv_descriptor_heap->free(rtv->heap_index);
+		}
 
-        DepthStencilView Device::create_depth_stencil_view(SharedPtr<Texture>& texture, DXGI_FORMAT format /*= DXGI_FORMAT_UNKNOWN*/)
+		SharedPtr<DepthStencilView> Device::create_depth_stencil_view(SharedPtr<Texture>& texture, DXGI_FORMAT format /*= DXGI_FORMAT_UNKNOWN*/)
 		{
 			seAssert(texture.get(), "Invalid texture pointer");
 
-			DepthStencilView dsv;
-            dsv.texture_resource = texture;
-            dsv.dsv = dsv_descriptor_heap->allocate();
-			CD3DX12_CPU_DESCRIPTOR_HANDLE dsv_handle(dsv_descriptor_heap->get_cpu_handle_heap_start(), dsv.dsv, dsv_descriptor_heap->get_increment_size());
+			SharedPtr<DepthStencilView> dsv(new DepthStencilView());
+            dsv->texture_resource = texture;
+            dsv->heap_index = dsv_descriptor_heap->allocate();
+			dsv->dsv_handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(dsv_descriptor_heap->get_cpu_handle_heap_start(), dsv->heap_index, dsv_descriptor_heap->get_increment_size());
+            dsv->heap = dsv_descriptor_heap;
 
 			D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
             D3D12_DEPTH_STENCIL_VIEW_DESC* dsv_desc_ptr = format == DXGI_FORMAT_UNKNOWN ? (D3D12_DEPTH_STENCIL_VIEW_DESC*)nullptr : &dsv_desc;
 			if (dsv_desc_ptr)
 			{
                 dsv_desc_ptr->Format = format;
-				seAssert(false, "Code path not texted and rtv_desc not filled out fully");
+				seAssert(false, "Code path not teted and rtv_desc not filled out fully");
 			}
 
-			device->CreateDepthStencilView(texture->resource.Get(), dsv_desc_ptr, dsv_handle);
+			device->CreateDepthStencilView(texture->resource.Get(), dsv_desc_ptr, dsv->dsv_handle);
 			return dsv;
 
+		}
+
+		void Device::free_depth_stencil_view(DepthStencilView* dsv)
+		{
+			rtv_descriptor_heap->free(dsv->heap_index);
 		}
 
 		sg::ConstantBufferView Device::create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size)
@@ -768,11 +780,6 @@ namespace sg
 				desc_uint.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
 			}
 
-			//u32 idx = cbv_srv_uav_descriptor_heap->allocate();
-			//CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, //cbv_srv_uav_descriptor_heap->get_increment_size());
-            //
-			//device->CreateShaderResourceView(buffer->get().Get(), &desc, cpu_handle);
-
             ShaderResourceView srv;
             srv.desc = desc;
             srv.desc_uint = desc_uint;
@@ -805,18 +812,12 @@ namespace sg
 				desc_uint.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
 			}
 
-			//u32 idx = cbv_srv_uav_descriptor_heap->allocate();
-			//CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, //cbv_srv_uav_descriptor_heap->get_increment_size());
-            //
-			//device->CreateUnorderedAccessView(buffer->get().Get(),nullptr, &desc, cpu_handle);
-
             UnorderedAccessView uav;
             uav.desc = desc;
             uav.desc_uint = desc_uint;
             uav.buffer_resource = buffer;
 			return uav;
 		}
-
 
 		VertexBufferView Device::create_vertex_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, u64 stride)
 		{
@@ -895,7 +896,7 @@ namespace sg
             return 0;
 		}
 
-		u32 Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list)
+		u32 Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, SharedPtr<RenderTargetView>* rtv_list)
         {
             swap_chain_buffer_count = buffer_count;
 
@@ -914,12 +915,8 @@ namespace sg
             for (u32 i = 0; i < swap_chain_buffer_count; i++)
             {
                 SharedPtr<Texture> texture_resource = SharedPtr<Texture>(new Texture(false, {}));
-                rtv_list[i].texture_resource = texture_resource;
-                CHECKHR(swap_chain->GetBuffer(i, IID_PPV_ARGS(texture_resource->resource.GetAddressOf())));
-
-                rtv_list[i].rtv = rtv_descriptor_heap->allocate();
-                CD3DX12_CPU_DESCRIPTOR_HANDLE rtv_handle(rtv_descriptor_heap->get_cpu_handle_heap_start(), rtv_list[i].rtv, rtv_descriptor_heap->get_increment_size());
-                device->CreateRenderTargetView(texture_resource->resource.Get(), nullptr, rtv_handle);
+                CHECKHR(swap_chain->GetBuffer(i, IID_PPV_ARGS(texture_resource->resource.GetAddressOf())))
+                rtv_list[i] = create_render_target_view(texture_resource);
             }
 
             return SUCCEEDED(hr) ? 0 : ~0;
@@ -934,17 +931,18 @@ namespace sg
             return swap_chain_current_index;
         }
 
-        ComPtr<ID3D12DescriptorHeap> Device::get_cbv_srv_uav_descriptor_heap()
-        {
-            return cbv_srv_uav_descriptor_heap->get_heap();
-        }
-
         ComPtr<ID3D12DescriptorHeap> Device::get_rtv_descriptor_heap()
         {
             return rtv_descriptor_heap->get_heap();
         }
 
-        u32 Device::get_rtv_descriptor_heap_increment_size()
+
+		ComPtr<ID3D12DescriptorHeap> Device::get_sampler_descriptor_heap()
+		{
+            return sampler_descriptor_heap->get_heap();
+		}
+
+		u32 Device::get_rtv_descriptor_heap_increment_size()
         {
             return rtv_descriptor_heap->get_increment_size();
         }
@@ -1006,13 +1004,6 @@ namespace sg
 				cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 				cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 
-				{
-					ComPtr<ID3D12DescriptorHeap> heap;
-					CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
-					heap->SetName(L"Device CBV SRV UAV Heap");
-					u32 increment_size = device->GetDescriptorHandleIncrementSize(cbvSrvHeapDesc.Type);
-					cbv_srv_uav_descriptor_heap = SharedPtr<DescriptorHeap>(new DescriptorHeap(heap, cbvSrvHeapDesc.NumDescriptors, increment_size));
-				}
 				{
 					cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 					ComPtr<ID3D12DescriptorHeap> heap;

@@ -167,11 +167,11 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	SharedPtr<PixelShader> ps_b = sg::create_pixel_shader(*device, "ShaderBin_Debug\\Basic_Buffer_PixelShader.PC_DXC");
 	SharedPtr<ComputeShader> cs = sg::create_compute_shader(*device, "ShaderBin_Debug\\Basic_ComputeShader.PC_DXC");
 
-	RenderTargetView rtvs[frame_count];
+	SharedPtr<RenderTargetView> rtvs[frame_count];
 	u32 current_frame_idx = device->create_swap_chain(wnd->g_hWnd, queue.get(), frame_count, back_buffer_format, w, h, rtvs);
 
 	// Depth buffer
-	DepthStencilView dsv;
+	SharedPtr<DepthStencilView> dsv;
 	SharedPtr<Texture> dsv_tex;
 	{
 		ResourceCreateDesc rd(w, h, DXGI_FORMAT_D32_FLOAT, ResourceUsageFlags::DepthStencil);
@@ -417,7 +417,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 			command_buffer->end_geometry_pass();
 
-			command_buffer->start_geometry_pass(1, &rtvs[current_frame_idx], vp, sc, true, &dsv);
+			command_buffer->start_geometry_pass(1, &rtvs[current_frame_idx], vp, sc, true, dsv);
 			{ // Model Viewer
 				sg::ConstantBufferView cbv_cam = linear_cb->AllocateAndWrite<ShaderStructs::CameraData>(camera.GetCameraShaderData());
 

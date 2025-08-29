@@ -24,14 +24,17 @@ namespace sg
 				}
 			}
 			seAssert(false, "Ran out of descriptors");
-			return (u32)~0;
+			return DescriptorHeap::INVALID_HEAP_INDEX;
 		}
 
 		void DescriptorHeap::free(u32 heap_index)
 		{
-			std::lock_guard lg(mutex);
-			seAssert(free_list[heap_index] == true, "Freeing descriptor to bad index");
-			free_list[heap_index] = false;
+			if (heap_index != DescriptorHeap::INVALID_HEAP_INDEX)
+			{
+				std::lock_guard lg(mutex);
+				seAssert(free_list[heap_index] == true, "Freeing descriptor to bad index");
+				free_list[heap_index] = false;
+			}
 		}
 
 		CD3DX12_CPU_DESCRIPTOR_HANDLE DescriptorHeap::get_cpu_handle_at_offset(u32 index_offset)

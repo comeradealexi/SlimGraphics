@@ -23,7 +23,7 @@ namespace sg
 			CHECKHR(command_list->Reset(command_allocator.Get(), nullptr));
 			descriptor_heap_index = 0;
 
-			ID3D12DescriptorHeap* heaps[2] = { descriptor_heap.Get(), global_sampler_descriptor_heap.Get() };
+			ID3D12DescriptorHeap* heaps[2] = { descriptor_heap.Get(), sg_device->get_sampler_descriptor_heap().Get() };
 			command_list->SetDescriptorHeaps(2, heaps);
 		}
 
@@ -187,7 +187,7 @@ namespace sg
 			flush_bound_uavs();
 		}
 
-		void CommandList::start_geometry_pass(u32 render_target_count, RenderTargetView* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain, DepthStencilView* depth_stencil)
+		void CommandList::start_geometry_pass(u32 render_target_count, SharedPtr<RenderTargetView>* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain, SharedPtr<DepthStencilView> depth_stencil)
 		{
 			seAssert(render_target_count == 1, "Only 1 supported atm TODO"); //TODO DON'T FORGET VIEWPORTS AND SCISSORS
 			seAssert(rtv0_is_swap_chain == true, "need to add barrier support for this.");
@@ -201,21 +201,17 @@ namespace sg
 			
 			if (rtv0_is_swap_chain)
 			{
-				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(render_targets[0].texture_resource->get().Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(render_targets[0]->texture_resource->get().Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 				command_list->ResourceBarrier(1, &barrier);
 			}
 
-			CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(global_rtv_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), render_targets->rtv, descriptor_increment_size_rtv);
-			CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle;
 			if (depth_stencil)
 			{
-				dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(global_dsv_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), depth_stencil->dsv, descriptor_increment_size_dsv);
-
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(depth_stencil->texture_resource->get().Get(), depth_stencil->texture_resource->get_read_resource_state(), D3D12_RESOURCE_STATE_DEPTH_WRITE);
 				command_list->ResourceBarrier(1, &barrier);
 			}
 
-			command_list->OMSetRenderTargets(1, &rtvHandle, FALSE, depth_stencil ? &dsvHandle : nullptr);
+			command_list->OMSetRenderTargets(1, &render_targets[0]->rtv_handle, FALSE, depth_stencil ? &depth_stencil->dsv_handle : nullptr);
 			command_list->RSSetViewports(1, &d3d_viewport);
 			command_list->RSSetScissorRects(1, &d3d_scissor);
 		}
@@ -251,7 +247,7 @@ namespace sg
 
 			if (active_geometry_pass.rtv0_is_swap_chain)
 			{
-				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(active_geometry_pass.rtvs[0].texture_resource->get().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(active_geometry_pass.rtvs[0]->texture_resource->get().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 				command_list->ResourceBarrier(1, &barrier);
 			}
 		
@@ -288,7 +284,7 @@ namespace sg
 			seAssert(descriptor_heap_index + 1 <= descriptor_heap_maximum, "maxium descriptor bindings exceeded");
 			CD3DX12_GPU_DESCRIPTOR_HANDLE dest_gpu(descriptor_heap->GetGPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
 			CD3DX12_CPU_DESCRIPTOR_HANDLE dest_cpu(descriptor_heap->GetCPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
-
+			descriptor_heap_index++;
 			device->CreateUnorderedAccessView(uav.buffer_resource->get().Get(), nullptr, &uav.desc_uint, dest_cpu);
 
 			D3D12_RESOURCE_BARRIER barrier = {};
@@ -299,15 +295,13 @@ namespace sg
 			FLOAT clear_values[4] = { value, value, value, value };
 
 			// Surely this is wrong, allocating, using then freeing instantly.... ? But this descriptor heap isn't bound on the command list anyway
-			u32 idx = global_cbv_srv_uav_descriptor_heap->allocate();
-			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(global_cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, global_cbv_srv_uav_descriptor_heap->get_increment_size());
+			// https://learn.microsoft.com/en-gb/windows/win32/direct3d12/non-shader-visible-descriptor-heaps?redirectedfrom=MSDN
+			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(non_shader_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), 0, descriptor_heap_increment);
 			device->CreateUnorderedAccessView(buffer_dx12, nullptr, &uav.desc_uint, cpu_handle);
 
 			command_list->ResourceBarrier(1, &barrier);
 			command_list->ClearUnorderedAccessViewFloat(dest_gpu, cpu_handle, buffer_dx12, clear_values, 0, nullptr);
 			command_list->ResourceBarrier(1, &barrier);
-
-			global_cbv_srv_uav_descriptor_heap->free(idx);
 		}
 
 
@@ -318,7 +312,7 @@ namespace sg
 			seAssert(descriptor_heap_index + 1 <= descriptor_heap_maximum, "maximum descriptor bindings exceeded");
 			CD3DX12_GPU_DESCRIPTOR_HANDLE dest_gpu(descriptor_heap->GetGPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
 			CD3DX12_CPU_DESCRIPTOR_HANDLE dest_cpu(descriptor_heap->GetCPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
-
+			descriptor_heap_index++;
 			device->CreateUnorderedAccessView(uav.buffer_resource->get().Get(), nullptr, &uav.desc_uint, dest_cpu);
 
 			D3D12_RESOURCE_BARRIER barrier = {};
@@ -329,16 +323,13 @@ namespace sg
 			UINT clear_values[4] = { value, value, value, value };
 
 			// Surely this is wrong, allocating, using then freeing instantly.... ? But this descriptor heap isn't bound on the command list anyway
-			u32 idx = global_cbv_srv_uav_descriptor_heap->allocate();
-			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(global_cbv_srv_uav_descriptor_heap->get_cpu_handle_heap_start(), idx, global_cbv_srv_uav_descriptor_heap->get_increment_size());
+			// https://learn.microsoft.com/en-gb/windows/win32/direct3d12/non-shader-visible-descriptor-heaps?redirectedfrom=MSDN
+			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(non_shader_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), 0, descriptor_heap_increment);
 			device->CreateUnorderedAccessView(buffer_dx12,nullptr,&uav.desc_uint, cpu_handle);
 
 			command_list->ResourceBarrier(1, &barrier);
 			command_list->ClearUnorderedAccessViewUint(dest_gpu, cpu_handle, buffer_dx12, clear_values, 0, nullptr);
 			command_list->ResourceBarrier(1, &barrier);
-
-			global_cbv_srv_uav_descriptor_heap->free(idx);
-
 		}
 
 		void CommandList::copy_buffer_to_buffer(Buffer* dest, Buffer* source)
@@ -439,32 +430,30 @@ namespace sg
 			}
 		}
 
-		void CommandList::clear_render_target_view(RenderTargetView rtv, float4 colour)
+		void CommandList::clear_render_target_view(SharedPtr<RenderTargetView>& rtv, float4 colour)
 		{
-			CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(global_rtv_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), rtv.rtv, descriptor_increment_size_rtv);
-			command_list->ClearRenderTargetView(rtvHandle, colour.data(), 0, nullptr);
+			command_list->ClearRenderTargetView(rtv->rtv_handle, colour.data(), 0, nullptr);
 		}
 
-		void CommandList::clear_depth_stencil_view(DepthStencilView& dsv, bool clear_depth, bool clear_stencil, float depth_value /*= 1.0f*/, u8 stencil_value /*= 0*/ )
+		void CommandList::clear_depth_stencil_view(SharedPtr<DepthStencilView>& dsv, bool clear_depth, bool clear_stencil, float depth_value /*= 1.0f*/, u8 stencil_value /*= 0*/ )
 		{
-			CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(global_dsv_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), dsv.dsv, descriptor_increment_size_dsv);
 			D3D12_CLEAR_FLAGS clear_flags = {};
 			clear_flags |= clear_depth ? D3D12_CLEAR_FLAG_DEPTH : (D3D12_CLEAR_FLAGS)0;
 			clear_flags |= clear_stencil ? D3D12_CLEAR_FLAG_STENCIL : (D3D12_CLEAR_FLAGS)0;
 
-			const D3D12_RESOURCE_STATES state_dest = dsv.texture_resource->get_read_resource_state();
+			const D3D12_RESOURCE_STATES state_dest = dsv->texture_resource->get_read_resource_state();
 
 			//Barrier transition
 			{
-				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dsv.texture_resource->get().Get(), state_dest, D3D12_RESOURCE_STATE_DEPTH_WRITE);
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dsv->texture_resource->get().Get(), state_dest, D3D12_RESOURCE_STATE_DEPTH_WRITE);
 				command_list->ResourceBarrier(1, &barrier);
 			}
 
-			command_list->ClearDepthStencilView(dsvHandle, clear_flags, depth_value, stencil_value, 0, nullptr);
+			command_list->ClearDepthStencilView(dsv->dsv_handle, clear_flags, depth_value, stencil_value, 0, nullptr);
 
 			//Barrier transition
 			{
-				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dsv.texture_resource->get().Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, state_dest);
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dsv->texture_resource->get().Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, state_dest);
 				command_list->ResourceBarrier(1, &barrier);
 			}
 		}

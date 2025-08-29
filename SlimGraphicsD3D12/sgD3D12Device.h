@@ -27,7 +27,7 @@ namespace sg
 		public:
 			class ImGuiTextureViewer;
 			static constexpr u64 DESCRIPTOR_COUNT = 1024;
-			static constexpr u64 ADAPTER_MEMORY_TO_CONSUME_PERCENTAGE = 70;
+			static constexpr u64 ADAPTER_MEMORY_TO_CONSUME_PERCENTAGE = 60;
 			static constexpr u64 TEXTURE_POOL_PERCENTAGE = 40;
 			static constexpr u64 TARGET_POOL_PERCENTAGE = 40;
 			static constexpr u64 BUFFER_POOL_PERCENTAGE = 20;
@@ -60,7 +60,7 @@ namespace sg
 			SharedPtr<AmplificationShader> create_amplification_shader(const std::vector<uint8_t>& shader);
 
 			//Returns current index to use
-			u32 create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, RenderTargetView* rtv_list);
+			u32 create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, SharedPtr<RenderTargetView>* rtv_list);
 			u32 present_swap_chain(CommandQueue* command_queue);
 
 			SharedPtr<Pipeline> create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc);
@@ -71,10 +71,12 @@ namespace sg
 			SharedPtr<Texture> create_texture(SharedPtr<Memory> memory, u32 size, const ResourceCreateDesc& resource_desc);
 
 			// DXGI_FORMAT_UNKNOWN means use default target format
-			RenderTargetView create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN);
+			SharedPtr<RenderTargetView> create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN);
+			void free_render_target_view(RenderTargetView* rtv);
 
 			// DXGI_FORMAT_UNKNOWN means use default target format
-			DepthStencilView create_depth_stencil_view(SharedPtr<Texture>& texture, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN);
+			SharedPtr<DepthStencilView> create_depth_stencil_view(SharedPtr<Texture>& texture, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN);
+			void free_depth_stencil_view(DepthStencilView* dsv);
 
 			ConstantBufferView create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size);
 			ShaderResourceView create_shader_resource_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count);
@@ -100,8 +102,8 @@ namespace sg
 
 			//D3D12 Specific
 		public:
-			ComPtr<ID3D12DescriptorHeap> get_cbv_srv_uav_descriptor_heap();
 			ComPtr<ID3D12DescriptorHeap> get_rtv_descriptor_heap();
+			ComPtr<ID3D12DescriptorHeap> get_sampler_descriptor_heap();
 			u32 get_rtv_descriptor_heap_increment_size();
 
 			ComPtr<ID3D12Device> get_device() { return device; }
@@ -123,7 +125,6 @@ namespace sg
 			PoolPIMPL mempool_targets;
 			PoolPIMPL mempool_buffers;
 
-			SharedPtr<DescriptorHeap> cbv_srv_uav_descriptor_heap;
 			SharedPtr<DescriptorHeap> cbv_srv_uav_descriptor_heap_imgui;
 			SharedPtr<DescriptorHeap> rtv_descriptor_heap;
 			SharedPtr<DescriptorHeap> dsv_descriptor_heap;

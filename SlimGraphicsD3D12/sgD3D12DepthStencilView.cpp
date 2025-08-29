@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "sgD3D12DepthStencilView.h"
+#include "sgD3D12Device.h"
 
 namespace sg
 {
@@ -7,7 +8,7 @@ namespace sg
 	{
 		DepthStencilView::~DepthStencilView()
 		{
-
+			heap->free(heap_index);
 		}
 	}
 }
