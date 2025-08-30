@@ -187,21 +187,19 @@ namespace sg
 			flush_bound_uavs();
 		}
 
-		void CommandList::start_geometry_pass(u32 render_target_count, SharedPtr<RenderTargetView>* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain, SharedPtr<DepthStencilView> depth_stencil)
+		void CommandList::start_geometry_pass(u32 render_target_count, SharedPtr<RenderTargetView>* render_targets, const Viewport& viewport, const ScissorRect scissor, SharedPtr<DepthStencilView> depth_stencil)
 		{
 			seAssert(render_target_count == 1, "Only 1 supported atm TODO"); //TODO DON'T FORGET VIEWPORTS AND SCISSORS
-			seAssert(rtv0_is_swap_chain == true, "need to add barrier support for this.");
 
 			const D3D12_VIEWPORT d3d_viewport = translate(viewport);
 			const D3D12_RECT d3d_scissor = translate(scissor);
 
-			active_geometry_pass.rtv0_is_swap_chain = rtv0_is_swap_chain;
 			active_geometry_pass.rtvs[0] = render_targets[0];
 			active_geometry_pass.dsv = depth_stencil;
 			
-			if (rtv0_is_swap_chain)
+			// RTV Transition
 			{
-				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(render_targets[0]->texture_resource->get().Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(render_targets[0]->texture_resource->get().Get(), render_targets[0]->texture_resource->get_read_resource_state(), D3D12_RESOURCE_STATE_RENDER_TARGET);
 				command_list->ResourceBarrier(1, &barrier);
 			}
 
@@ -245,9 +243,9 @@ namespace sg
 			unbind_vertex_buffer();
 			unbind_index_buffer();
 
-			if (active_geometry_pass.rtv0_is_swap_chain)
+			// RTV Transition
 			{
-				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(active_geometry_pass.rtvs[0]->texture_resource->get().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(active_geometry_pass.rtvs[0]->texture_resource->get().Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, active_geometry_pass.rtvs[0]->texture_resource->get_read_resource_state());
 				command_list->ResourceBarrier(1, &barrier);
 			}
 		
@@ -292,7 +290,7 @@ namespace sg
 			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 			barrier.UAV.pResource = buffer_dx12;
 
-			FLOAT clear_values[4] = { value, value, value, value };
+			const FLOAT clear_values[4] = { value, value, value, value };
 
 			// Surely this is wrong, allocating, using then freeing instantly.... ? But this descriptor heap isn't bound on the command list anyway
 			// https://learn.microsoft.com/en-gb/windows/win32/direct3d12/non-shader-visible-descriptor-heaps?redirectedfrom=MSDN
@@ -320,7 +318,7 @@ namespace sg
 			barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 			barrier.UAV.pResource = buffer_dx12;
 
-			UINT clear_values[4] = { value, value, value, value };
+			const UINT clear_values[4] = { value, value, value, value };
 
 			// Surely this is wrong, allocating, using then freeing instantly.... ? But this descriptor heap isn't bound on the command list anyway
 			// https://learn.microsoft.com/en-gb/windows/win32/direct3d12/non-shader-visible-descriptor-heaps?redirectedfrom=MSDN
@@ -367,7 +365,6 @@ namespace sg
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(source->get().Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 				command_list->ResourceBarrier(1, &barrier);
 			}
-
 		}
 
 
@@ -392,6 +389,25 @@ namespace sg
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), D3D12_RESOURCE_STATE_COPY_DEST, state_dest);
 				command_list->ResourceBarrier(1, &barrier);
 			}
+		}
+
+
+		void CommandList::copy_texture_to_texture(Texture& dest, Texture& source)
+		{
+			const D3D12_RESOURCE_STATES state_dest = dest.get_read_resource_state();
+			const D3D12_RESOURCE_STATES state_source = source.get_read_resource_state();
+
+			CD3DX12_RESOURCE_BARRIER barriers[2] = {
+				CD3DX12_RESOURCE_BARRIER::Transition(dest.get().Get(), state_dest, D3D12_RESOURCE_STATE_COPY_DEST),
+				CD3DX12_RESOURCE_BARRIER::Transition(source.get().Get(), state_source, D3D12_RESOURCE_STATE_COPY_SOURCE)
+			};
+			command_list->ResourceBarrier(2, barriers);
+			{
+				command_list->CopyResource(dest.get().Get(), source.get().Get());
+			}
+			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(dest.get().Get(), D3D12_RESOURCE_STATE_COPY_DEST, state_dest);
+			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(source.get().Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, state_source);
+			command_list->ResourceBarrier(2, barriers);
 		}
 
 		void CommandList::copy_buffer_to_texture(u32 size, Texture* dest, Buffer* source, u32 source_offset)

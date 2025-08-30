@@ -63,6 +63,7 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 	CreatePipeline();
 
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/lpshead/head.OBJ");
 	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/teapot.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/cow.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/stanford-bunny.obj");
@@ -132,7 +133,21 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	model_file_list.push_back("../SlimGraphicsAssets/GL/three_objects.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/GL/venusm.obj");
 
-
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/buddha/buddha.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Mirror.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Original.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Sphere.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Water.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Empty-CO.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Empty-RG.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Empty-Squashed.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Empty-White.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Glossy.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Glossy-Floor.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/erato/erato.obj");
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/mori_knob/testObj.obj");	
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/Nefertiti.obj");	
+	
 	model_init_data.file_path = model_file_list[0];
 
 

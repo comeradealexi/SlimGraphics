@@ -79,6 +79,11 @@ struct TerrainData
 
 };
 
+struct MagnifyingGlassData
+{
+	float4 coordinates; // Source Pixel index = x,y, output texture size =  z,w
+};
+
 #ifdef __cplusplus
 } // namespace ShaderStructs
 #undef row_major

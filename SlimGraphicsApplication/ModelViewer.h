@@ -97,7 +97,7 @@ private:
 	float pixel_shade_order_range = 0.0f;
 
 	// rotate
-	bool rotate_model = false;
+	bool rotate_model = true;
 	float rotate_value = 0.0f;
 
 	struct MeshShaderRendering

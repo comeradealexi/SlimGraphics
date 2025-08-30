@@ -19,6 +19,7 @@
 #include "ModelViewer.h"
 #include "DebugDraw.h"
 #include "Scene/Terrain.h"
+#include "MagnifyingGlass/MagnifyingGlass.h"
 
 /*
 TODO:
@@ -167,8 +168,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	SharedPtr<PixelShader> ps_b = sg::create_pixel_shader(*device, "ShaderBin_Debug\\Basic_Buffer_PixelShader.PC_DXC");
 	SharedPtr<ComputeShader> cs = sg::create_compute_shader(*device, "ShaderBin_Debug\\Basic_ComputeShader.PC_DXC");
 
-	SharedPtr<RenderTargetView> rtvs[frame_count];
-	u32 current_frame_idx = device->create_swap_chain(wnd->g_hWnd, queue.get(), frame_count, back_buffer_format, w, h, rtvs);
+	SharedPtr<RenderTargetView> backbuffer_rtvs[frame_count];
+	u32 current_frame_idx = device->create_swap_chain(wnd->g_hWnd, queue.get(), frame_count, back_buffer_format, w, h, backbuffer_rtvs);
 
 	// Depth buffer
 	SharedPtr<DepthStencilView> dsv;
@@ -177,6 +178,19 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ResourceCreateDesc rd(w, h, DXGI_FORMAT_D32_FLOAT, ResourceUsageFlags::DepthStencil);
 		dsv_tex = sg::create_texture(*device, rd);
 		dsv = device->create_depth_stencil_view(dsv_tex);
+	}
+
+	// Output render target
+	SharedPtr<Texture> final_render_target;
+	SharedPtr<RenderTargetView> final_rtv;
+	{
+		ResourceCreateDesc rcd = {};
+		rcd.width = w;
+		rcd.height = h;
+		rcd.format = back_buffer_format;
+		rcd.usage_flags = ResourceUsageFlags::RenderTarget | ResourceUsageFlags::UnorderedAccess;
+		final_render_target = create_texture(*device, rcd);
+		final_rtv = device->create_render_target_view(final_render_target);
 	}
 
 	//Pipeline
@@ -234,7 +248,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	UnorderedAccessView uav_uav = device->create_unordered_access_view(bfr_uav, sizeof(float) * 4, 1);
 	ShaderResourceView srv_uav = device->create_shader_resource_view(bfr_uav, sizeof(float) * 4, 1);
 
-	Ptr<UploadHeap> frame_upload_heap(new UploadHeap(device.get(), frame_count, 1024 * 1024 * 32));
+	Ptr<UploadHeap> frame_upload_heap(new UploadHeap(device.get(), frame_count, 1024 * 1024 * 128));
 	Ptr<SimpleLinearConstantBuffer> linear_cb(new SimpleLinearConstantBuffer(device, 1024 * 1024));
 
 	Camera camera;
@@ -245,7 +259,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	BasicGrid basic_grid(device);
 	Ptr<ModelViewer> model_viewer = Ptr<ModelViewer>(new ModelViewer(device));
-
+	Ptr<MagnifyingGlass> magnifying_glass(new MagnifyingGlass(device));
 	Ptr< Terrain> terrain = Ptr<Terrain>(new Terrain(device));
 	volatile bool run = true;
 
@@ -319,11 +333,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 		ImGui::Begin("Slim Graphics", &bOpen, 0);
 
+		device->imgui_update();
+
 		// https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples
 		
-		ImGui::Image((ImTextureID)device->imgui_texture_viewer_handle().ptr, ImVec2(device->imgui_texture_viewer_data().texture->resource_create_desc.width, device->imgui_texture_viewer_data().texture->resource_create_desc.height ));
+		//ImGui::Image((ImTextureID)device->imgui_texture_viewer_handle().ptr, ImVec2(device->imgui_texture_viewer_data().texture->resource_create_desc.width, device->imgui_texture_viewer_data().texture->resource_create_desc.height ));
 
 		model_viewer->Update(delta_time, total_time, camera, *debug_draw);
+		magnifying_glass->Update(delta_time, total_time, camera, *debug_draw);
 
 		camera.Update(delta_time, total_time, *input);
 		if (ImGui::CollapsingHeader("Performance"))
@@ -385,10 +402,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				command_buffer->dispatch();
 			}
 
-			command_buffer->start_geometry_pass(1, &rtvs[current_frame_idx], vp, sc, true);
+			command_buffer->start_geometry_pass(1, &final_rtv, vp, sc);
 			{
 				float4 colour = { 0.0f,1.0f,0.0f,1.0f };
-				command_buffer->clear_render_target_view(rtvs[current_frame_idx], colour);
+				command_buffer->clear_render_target_view(final_rtv, colour);
 			}
 			command_buffer->clear_depth_stencil_view(dsv, true, false);
 			{
@@ -417,7 +434,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 			command_buffer->end_geometry_pass();
 
-			command_buffer->start_geometry_pass(1, &rtvs[current_frame_idx], vp, sc, true, dsv);
+			command_buffer->start_geometry_pass(1, &final_rtv, vp, sc, dsv);
 			{ // Model Viewer
 				sg::ConstantBufferView cbv_cam = linear_cb->AllocateAndWrite<ShaderStructs::CameraData>(camera.GetCameraShaderData());
 
@@ -430,13 +447,16 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			}
 			command_buffer->end_geometry_pass();
 
-			command_buffer->start_geometry_pass(1, &rtvs[current_frame_idx], vp, sc, true);
+			command_buffer->start_geometry_pass(1, &final_rtv, vp, sc);
 			{
 				ImGui::Render();
 				device->imgui_render(command_buffer.get());
 			}
 			command_buffer->end_geometry_pass();
 		}
+
+		command_buffer->copy_texture_to_texture(*(backbuffer_rtvs[current_frame_idx]->texture_resource), *final_render_target);
+
 		timestamp_pool->end_timestamp(gpu_timestamp_idx, command_buffer.get());
 		timestamp_pool->end_frame(command_buffer.get());
 		stats_pool->end_frame(command_buffer.get());

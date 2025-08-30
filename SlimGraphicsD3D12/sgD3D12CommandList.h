@@ -30,7 +30,7 @@ namespace sg
 			void draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location);
 			void draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i32 base_vertex_location, u32 start_instance_location);
 
-			void start_geometry_pass(u32 render_target_count, SharedPtr<RenderTargetView>* render_targets, const Viewport& viewport, const ScissorRect scissor, bool rtv0_is_swap_chain = false, SharedPtr<DepthStencilView> depth_stencil = nullptr);
+			void start_geometry_pass(u32 render_target_count, SharedPtr<RenderTargetView>* render_targets, const Viewport& viewport, const ScissorRect scissor, SharedPtr<DepthStencilView> depth_stencil = nullptr);
 			void end_geometry_pass();
 
 			void dispatch(u32 x = 1, u32 y = 1, u32 z = 1);
@@ -40,6 +40,7 @@ namespace sg
 			void clear_buffer_uint(UnorderedAccessView& uav, ShaderResourceView& srv, sg::u32 value);
 
 			void copy_buffer_to_buffer(Buffer* dest, Buffer* source);
+			void copy_texture_to_texture(Texture& dest, Texture& source);
 			void copy_buffer_to_buffer(u32 size, Buffer* dest, u32 dest_offset, Buffer* source, u32 source_offset);
 			void copy_buffer_to_texture(u32 size, Texture* dest, Buffer* source, u32 source_offset);
 
@@ -74,7 +75,6 @@ namespace sg
 			{
 				SharedPtr<RenderTargetView> rtvs[8];
 				SharedPtr<DepthStencilView> dsv;
-				bool rtv0_is_swap_chain = false;
 				VertexBufferView vbv;
 				IndexBufferView ibv;
 			} active_geometry_pass;

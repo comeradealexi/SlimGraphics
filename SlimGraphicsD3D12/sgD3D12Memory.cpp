@@ -8,7 +8,7 @@ namespace sg
 	{
 
 
-		Memory::Memory(MemoryType type_, Allocation alloc_) : type(type_), alloc(alloc_)
+		Memory::Memory(MemoryType type_, D3D12MA::Allocation* alloc_) : type(type_), alloc(alloc_)
 		{
 		}
 	}

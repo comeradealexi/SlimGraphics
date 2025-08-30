@@ -52,7 +52,7 @@ void Terrain::LoadHeightmapTexture(sg::Ptr<UploadHeap>& upload_heap)
 		seAssert(res_size == bitmap_data.size(), "expecting sizes to match");
 		SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, size_align.size, size_align.alignment);
 		terrain_texture = device->create_texture(mem, size_align.size, rcd);
-		sg::SharedPtr<sg::Buffer> terrain_buffer = device->create_buffer(mem, size_align.size, sg::BufferType::Texture, false);
+		//sg::SharedPtr<sg::Buffer> terrain_buffer = device->create_buffer(mem, size_align.size, sg::BufferType::Texture, false);
 
 		device->set_imgui_viewer_texture(terrain_texture);
 

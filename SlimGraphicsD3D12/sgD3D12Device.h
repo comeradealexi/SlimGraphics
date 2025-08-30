@@ -6,36 +6,44 @@
 #include "sgD3D12DescriptorHeap.h"
 #include "d3dx12_property_format_table.h"
 
+//D3D12 Memory Allocator
+#include <D3D12MemAlloc.h>
+
 namespace sg
 {
 	namespace D3D12
 	{
-		struct PoolPIMPL
+		struct MemoryManager
 		{
-			PoolPIMPL();
-			~PoolPIMPL();
-			inline ID3D12Heap* operator->()
+		public:
+			enum class PoolTypes
 			{
-				return heap.Get();
-			}
-			ComPtr<D3D12MA::VirtualBlock> virtual_block;
-			ComPtr<ID3D12Heap> heap;
+				Textures,
+				Targets,
+				Buffers,
+				Upload,
+				Readback,
+				Max
+			};
+			static constexpr char* PoolTypeNames[(u32)PoolTypes::Max] = { "Textures", "Targets", "Buffers", "Upload", "Readback" };
+
+			D3D12MA::Pool* GetPool(PoolTypes type) { return pools[(u32)type]; }
+
+			D3D12MA::ALLOCATOR_DESC desc;
+			D3D12MA::Allocator* allocator;
+			D3D12MA::Pool* pools[(u32)PoolTypes::Max];
 		};
 
 		class Device
 		{
 		public:
 			class ImGuiTextureViewer;
-			static constexpr u64 DESCRIPTOR_COUNT = 1024;
-			static constexpr u64 ADAPTER_MEMORY_TO_CONSUME_PERCENTAGE = 60;
-			static constexpr u64 TEXTURE_POOL_PERCENTAGE = 40;
-			static constexpr u64 TARGET_POOL_PERCENTAGE = 40;
-			static constexpr u64 BUFFER_POOL_PERCENTAGE = 20;
-			static_assert(TEXTURE_POOL_PERCENTAGE + TARGET_POOL_PERCENTAGE + BUFFER_POOL_PERCENTAGE == 100, "Pool sizes must equal 100%");
+			static constexpr u64 DESCRIPTOR_COUNT = 2048;
 
 		public:
 			Device();
 			void imgui_init(u32 num_frames, DXGI_FORMAT format, DXGI_FORMAT depth_format, CommandQueue* command_queue);
+			void imgui_update();
 			void imgui_render(CommandList* command_list);
 			CD3DX12_GPU_DESCRIPTOR_HANDLE imgui_texture_viewer_handle() const { return imgui_texture_viewer.gpu_handle; }
 			ImGuiTextureViewer& imgui_texture_viewer_data() { return imgui_texture_viewer; }
@@ -117,13 +125,13 @@ namespace sg
 			ComPtr<ID3D12Device6> device6;
 			ComPtr<IDXGIFactory4> factory;
 			ComPtr<IDXGISwapChain1> swap_chain;
+			ComPtr<IDXGIAdapter4> hardware_adapter_4;
+			DXGI_ADAPTER_DESC3 adapter_description;
 			u32 swap_chain_current_index = 0;
 			u32 swap_chain_buffer_count = 0;
 			CD3DX12FeatureSupport features;
 
-			PoolPIMPL mempool_textures;
-			PoolPIMPL mempool_targets;
-			PoolPIMPL mempool_buffers;
+			MemoryManager memory_manager;
 
 			SharedPtr<DescriptorHeap> cbv_srv_uav_descriptor_heap_imgui;
 			SharedPtr<DescriptorHeap> rtv_descriptor_heap;
