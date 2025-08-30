@@ -82,6 +82,7 @@ struct TerrainData
 struct MagnifyingGlassData
 {
 	float4 coordinates; // Source Pixel index = x,y, output texture size =  z,w
+	float4 scale; // x = scale
 };
 
 #ifdef __cplusplus

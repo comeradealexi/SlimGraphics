@@ -183,6 +183,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	// Output render target
 	SharedPtr<Texture> final_render_target;
 	SharedPtr<RenderTargetView> final_rtv;
+	ShaderResourceView final_srv;
 	{
 		ResourceCreateDesc rcd = {};
 		rcd.width = w;
@@ -191,6 +192,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		rcd.usage_flags = ResourceUsageFlags::RenderTarget | ResourceUsageFlags::UnorderedAccess;
 		final_render_target = create_texture(*device, rcd);
 		final_rtv = device->create_render_target_view(final_render_target);
+		final_srv = device->create_shader_resource_view(final_render_target);
 	}
 
 	//Pipeline
@@ -260,6 +262,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	BasicGrid basic_grid(device);
 	Ptr<ModelViewer> model_viewer = Ptr<ModelViewer>(new ModelViewer(device));
 	Ptr<MagnifyingGlass> magnifying_glass(new MagnifyingGlass(device));
+	device->set_imgui_viewer_texture(magnifying_glass->render_texture);
 	Ptr< Terrain> terrain = Ptr<Terrain>(new Terrain(device));
 	volatile bool run = true;
 
@@ -337,10 +340,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 		// https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples
 		
-		//ImGui::Image((ImTextureID)device->imgui_texture_viewer_handle().ptr, ImVec2(device->imgui_texture_viewer_data().texture->resource_create_desc.width, device->imgui_texture_viewer_data().texture->resource_create_desc.height ));
-
 		model_viewer->Update(delta_time, total_time, camera, *debug_draw);
-		magnifying_glass->Update(delta_time, total_time, camera, *debug_draw);
+		magnifying_glass->Update(wnd->g_hWnd, *input, delta_time, total_time, camera, *debug_draw);
 
 		camera.Update(delta_time, total_time, *input);
 		if (ImGui::CollapsingHeader("Performance"))
@@ -434,10 +435,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 			command_buffer->end_geometry_pass();
 
+			sg::ConstantBufferView cbv_cam = linear_cb->AllocateAndWrite<ShaderStructs::CameraData>(camera.GetCameraShaderData());
+
 			command_buffer->start_geometry_pass(1, &final_rtv, vp, sc, dsv);
 			{ // Model Viewer
-				sg::ConstantBufferView cbv_cam = linear_cb->AllocateAndWrite<ShaderStructs::CameraData>(camera.GetCameraShaderData());
-
 				stats_pool->begin_query(stat_query_idx, command_buffer.get());
 				model_viewer->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
 				terrain->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
@@ -447,7 +448,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			}
 			command_buffer->end_geometry_pass();
 
-			command_buffer->start_geometry_pass(1, &final_rtv, vp, sc);
+			command_buffer->copy_texture_to_texture(*(backbuffer_rtvs[current_frame_idx]->texture_resource), *final_render_target);
+
+			// Magnify
+			{
+				magnifying_glass->Render(*command_buffer, cbv_cam, final_srv, *linear_cb);
+			}
+
+			command_buffer->start_geometry_pass(1, &backbuffer_rtvs[current_frame_idx], vp, sc);
 			{
 				ImGui::Render();
 				device->imgui_render(command_buffer.get());
@@ -455,7 +463,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			command_buffer->end_geometry_pass();
 		}
 
-		command_buffer->copy_texture_to_texture(*(backbuffer_rtvs[current_frame_idx]->texture_resource), *final_render_target);
 
 		timestamp_pool->end_timestamp(gpu_timestamp_idx, command_buffer.get());
 		timestamp_pool->end_frame(command_buffer.get());

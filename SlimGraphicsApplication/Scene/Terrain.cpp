@@ -54,7 +54,7 @@ void Terrain::LoadHeightmapTexture(sg::Ptr<UploadHeap>& upload_heap)
 		terrain_texture = device->create_texture(mem, size_align.size, rcd);
 		//sg::SharedPtr<sg::Buffer> terrain_buffer = device->create_buffer(mem, size_align.size, sg::BufferType::Texture, false);
 
-		device->set_imgui_viewer_texture(terrain_texture);
+		//device->set_imgui_viewer_texture(terrain_texture);
 
 		UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(size_align.size, size_align.alignment);
 		upload_heap->write_upload_memory(upload_offset, bitmap_data.data(), bitmap_data.size());

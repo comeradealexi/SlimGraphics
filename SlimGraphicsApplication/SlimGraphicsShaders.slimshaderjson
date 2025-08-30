@@ -131,5 +131,20 @@
         "input_file": "ModelViewer_MeshShader.hlsl"
       }
     ]
+  },
+  {
+    "input_file": "MagnifyingGlass/MagnifyingGlass.hlsl",
+    "shaders": [
+      {
+        "profile": "vs_6_5",
+        "entrypoint": "VSMain",
+        "name": "MagnifyingGlass_VS"
+      },
+      {
+        "profile": "ps_6_5",
+        "entrypoint": "PSMain",
+        "name": "MagnifyingGlass_PS"
+      }
+    ]
   }
 ]

@@ -7,17 +7,21 @@
 #include "LinearConstantBuffer.h"
 #include "Camera.h"
 #include "DebugDraw.h"
+#include "sgPlatformForwardDeclare.h"
 
 class MagnifyingGlass
 {
 public:
 	MagnifyingGlass(sg::SharedPtr<sg::Device>& _device);
 
-	void Update(float delta_time, float total_time, const Camera& camera, DebugDraw& debug_draw);
-	void Render(sg::CommandList& command_list, sg::SharedPtr<sg::ShaderResourceView> read_texture, SimpleLinearConstantBuffer& cbuffer);
+	void Update(HWND hwnd, const se::GameInput& input, float delta_time, float total_time, const Camera& camera, DebugDraw& debug_draw);
+	void Render(sg::CommandList& command_list, sg::ConstantBufferView& cbv_camera, sg::ShaderResourceView read_texture, SimpleLinearConstantBuffer& cbuffer);
 
-	sg::u32 target_size = 128;
+	bool active = false;
+	sg::u32 target_size = 512;
 	sg::SharedPtr<sg::Texture> render_texture;
 	sg::SharedPtr<sg::RenderTargetView> render_target_view;
 	sg::SharedPtr<sg::Device> device;
+	sg::SharedPtr<sg::Pipeline> pipeline;
+	ShaderStructs::MagnifyingGlassData constant_data = {};
 };

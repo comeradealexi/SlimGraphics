@@ -809,6 +809,19 @@ namespace sg
             return srv;
 		}
 
+
+		sg::D3D12::ShaderResourceView Device::create_shader_resource_view(SharedPtr<Texture> texture)
+		{
+			ShaderResourceView srv;
+            srv.texture_resource = texture;
+            srv.desc = {};
+            srv.desc.Format = texture->resource_create_desc.format;
+            srv.desc.ViewDimension = translate_srv(texture->resource_create_desc.dimension);
+            srv.desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srv.desc.Texture2D.MipLevels = texture->resource_create_desc.mip_count;
+            return srv;
+		}
+
 		sg::D3D12::UnorderedAccessView Device::create_unordered_access_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count)
 		{
             D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};

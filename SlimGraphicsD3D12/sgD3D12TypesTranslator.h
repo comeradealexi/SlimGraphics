@@ -55,6 +55,24 @@ namespace sg
 			}
 		}
 
+		static D3D12_SRV_DIMENSION translate_srv(ResourceDimension rd)
+		{
+			switch (rd)
+			{
+			case ResourceDimension::Buffer:
+				return D3D12_SRV_DIMENSION_BUFFER;
+			case ResourceDimension::Texture1D:
+				return D3D12_SRV_DIMENSION_TEXTURE1D;
+			case ResourceDimension::Texture2D:
+				return D3D12_SRV_DIMENSION_TEXTURE2D;
+			case ResourceDimension::Texture3D:
+				return D3D12_SRV_DIMENSION_TEXTURE3D;
+			default:
+				seAssert(false, "missing resource dim");
+				return D3D12_SRV_DIMENSION_UNKNOWN;
+			}
+		}
+
 		static D3D12_RESOURCE_STATES get_d3d12_resource_read_state(BufferType type, bool is_readback = false)
 		{
 			D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;

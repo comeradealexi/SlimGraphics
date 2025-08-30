@@ -124,7 +124,8 @@ namespace sg
 				for (u32 i = 0; i < bind.srv_binding_count; i++)
 				{
 					ShaderResourceView& srv = bind.d3d12_srvs[i];
-					device->CreateShaderResourceView(srv.buffer_resource->get().Get(), &srv.desc, dest_cpu);
+					ID3D12Resource* pResource = srv.buffer_resource ? srv.buffer_resource->get().Get() : srv.texture_resource->get().Get();
+					device->CreateShaderResourceView(pResource, &srv.desc, dest_cpu);
 					dest_cpu.Offset(descriptor_heap_increment);
 				}
 
