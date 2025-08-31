@@ -45,8 +45,7 @@ namespace SlimEngine
 
             conf.EventPostBuild.Add("xcopy " + Path.Join(Globals.ExternalsPath, @"assimp-5.3.1\bin\RelWithDebInfo\assimp-vc143-mt.dll") + " " + SourceRootPath + " /y");
 
-            string SimpleIncExe = Path.Join(Globals.SubmodulesPath,@"SimpleInc\Bin\Release\SimpleInc.exe") + " \"$(MSBuildBinPath)\" " +  Path.Join(Globals.Root, @"Sharpmake\SimpleIncTemp");
-            conf.EventPreBuild.Add(SimpleIncExe + " " + Path.Join(Globals.Root, @"Binaries\SlimShaderCompiler.exe") + " " + SourceRootPath + " " + Path.Join(SourceRootPath, "ShaderBin_" + target.Optimization) + " PC_DXC");
+            conf.EventPreBuild.Add(Path.Join(Globals.Root, @"Binaries\SlimShaderCompiler.exe") + " " + SourceRootPath + " " + Path.Join(SourceRootPath, "ShaderBin_" + target.Optimization) + " PC_DXC");
 
             conf.VcxprojUserFile = new Configuration.VcxprojUserFileSettings();
             conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = SourceRootPath;
