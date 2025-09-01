@@ -3,7 +3,7 @@
 #include <imgui.h>
 #include <seEngineBasicFileIO.h>
 #include "Camera.h"
-
+#include <algorithm>
 
 using namespace sg;
 
@@ -148,6 +148,10 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/mori_knob/testObj.obj");	
 	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/Nefertiti.obj");	
 	
+
+	model_file_list.push_back("../SlimGraphicsAssets/Bistro_v5_2/BistroInterior.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/Bistro_v5_2/BistroInterior_Wine.fbx");
+
 	model_init_data.file_path = model_file_list[0];
 
 
@@ -411,15 +415,28 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		recreate_pipeline |= ImGui::Combo("Cull Mode", &cull_mode, "Back\0Front\0None\0", 3);
 	}
 
-	if (ImGui::CollapsingHeader("CPU Culling"))
+	if (ImGui::CollapsingHeader("CPU Optimisations"))
 	{
+		ImGui::SeparatorText("Culling");
 		ImGui::Checkbox("Accurate Culling", &cpu_culling.accurate_cull_check);
 		ImGui::Checkbox("Cull All", &cpu_culling.cull_all);
 		ImGui::Checkbox("Cull None", &cpu_culling.cull_none);
 		ImGui::InputInt("Passed", &cpu_culling.stat_passed, 1, 100, ImGuiInputTextFlags_ReadOnly);
 		ImGui::InputInt("Failed", &cpu_culling.stat_failed, 1, 100, ImGuiInputTextFlags_ReadOnly);
+		ImGui::SeparatorText("Sorting");
+		ImGui::Checkbox("Sort", &cpu_sorting.sort);
+		ImGui::BeginDisabled(!cpu_sorting.sort);
+		ImGui::Checkbox("Front To Back", &cpu_sorting.front_to_back);
+		ImGui::EndDisabled();
+
 		cpu_culling.stat_passed	= 0;
 		cpu_culling.stat_failed	= 0;
+	}
+
+	if (ImGui::CollapsingHeader("Model Debug Drawing"))
+	{
+		ImGui::Checkbox("Model Parts", &debug_drawing.render_model_parts);
+		ImGui::Checkbox("Meshlet Parts", &debug_drawing.render_meshlet_parts);
 	}
 	
 	ImGui::End();
@@ -461,6 +478,34 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 
 	if (model)
 	{
+		std::vector<Model::MeshPart*> render_list_ordered;
+		render_list_ordered.reserve(model->GetMeshParts().size());
+		
+		for (size_t i = 0; i < model->GetMeshParts().size(); i++)
+		{
+			if (!render_model_bool_array[i])
+				continue;
+
+			if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), model->GetMeshParts().at(i)))
+				continue;
+
+			render_list_ordered.push_back(&(model->GetMeshParts().at(i)));
+		}
+
+		if (cpu_sorting.sort && render_list_ordered.size() > 1)
+		{
+			std::sort(render_list_ordered.begin(), render_list_ordered.end(), [&](Model::MeshPart* a, Model::MeshPart* b) -> bool
+				{					
+					DirectX::XMVECTOR a_pos = DirectX::XMVector3Transform(DirectX::XMLoadFloat3(&a->aabb.Center), model_data.model_matrix);
+					float a_distance = fabsf(DirectX::XMVector3Length(DirectX::XMVectorSubtract(a_pos, DirectX::XMLoadFloat3A(&camera.GetPosition()))).m128_f32[0]);
+
+					DirectX::XMVECTOR b_pos = DirectX::XMVector3Transform(DirectX::XMLoadFloat3(&b->aabb.Center), model_data.model_matrix);
+					float b_distance = fabsf(DirectX::XMVector3Length(DirectX::XMVectorSubtract(b_pos, DirectX::XMLoadFloat3A(&camera.GetPosition()))).m128_f32[0]);
+
+					return cpu_sorting.front_to_back ? a_distance < b_distance : a_distance > b_distance;
+				});
+		}
+
 		if (render_as_mesh_shader)
 		{
 			command_list.set_pipeline(amplification_mesh_shader ? amplification_mesh_shading.pipeline.get() : mesh_shading.pipeline.get());
@@ -471,15 +516,14 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			b.set_uav(uav, 0);
 			b.srv_binding_count = 5;
 			b.set_srv(model->GetVertexBufferSRV(), 0);
-			int render_idx = 0;
 			command_list.clear_buffer_uint(uav, srv, 0);
 
-			for (Model::MeshPart& mesh_part : model->GetMeshParts())
+			for (Model::MeshPart* mesh_part_ptr : render_list_ordered)
 			{
-				if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), mesh_part))
-					continue;
+				Model::MeshPart& mesh_part = *mesh_part_ptr;
 
-				//debug_draw->DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
+				if (debug_drawing.render_model_parts)
+					debug_draw.DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
 
 				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 1);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_unique_vertex_indices_view_srv, 2);
@@ -495,27 +539,23 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 
 				command_list.bind(b, PipelineType::Geometry);
 
-				if (render_model_bool_array[render_idx])
+				u32 dispatch_value;
+				if (amplification_mesh_shader)
 				{
-					u32 dispatch_value;
-					if (amplification_mesh_shader)
-					{
-						static constexpr u32 AMPLIFICATION_GROUP_SIZE = 32; // This must match what is used in shader. Todo: move to shared header
-						dispatch_value = DivRoundUp(mesh_part.mesh_shader_data.meshlets.size(), AMPLIFICATION_GROUP_SIZE);
-					}
-					else
-					{
-						dispatch_value = static_cast<sg::u32>(mesh_part.mesh_shader_data.meshlets.size() * render_percentage);
-					}
-
-					if (dispatch_value > 0)
-					{
-						command_list.dispatch_mesh(dispatch_value);
-					}
+					static constexpr u32 AMPLIFICATION_GROUP_SIZE = 32; // This must match what is used in shader. Todo: move to shared header
+					dispatch_value = DivRoundUp(mesh_part.mesh_shader_data.meshlets.size(), AMPLIFICATION_GROUP_SIZE);
 				}
-				render_idx++;
+				else
+				{
+					dispatch_value = static_cast<sg::u32>(mesh_part.mesh_shader_data.meshlets.size() * render_percentage);
+				}
 
-				if (debug_draw.IsEnabled())
+				if (dispatch_value > 0)
+				{
+					command_list.dispatch_mesh(dispatch_value);
+				}
+
+				if (debug_draw.IsEnabled() && debug_drawing.render_meshlet_parts)
 				{
 					for (const meshopt_Bounds& meshlet_bounds : mesh_part.mesh_shader_data.meshlet_bounds)
 					{
@@ -543,12 +583,12 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			command_list.bind_index_buffer(model->GetIndexBufferView());
 
 			int render_idx = 0;
-			for (Model::MeshPart& mesh_part : model->GetMeshParts())
+			for (Model::MeshPart* mesh_part_ptr : render_list_ordered)
 			{
-				if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), mesh_part))
-					continue;
+				Model::MeshPart& mesh_part = *mesh_part_ptr;
 
-				//debug_draw->DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
+				if (debug_drawing.render_model_parts)
+					debug_draw.DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
 
 				model_data.primitive_count = mesh_part.draw_count / 3;
 				model_data.vertex_count = mesh_part.vertex_count;
@@ -563,11 +603,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 					break;
 				}
 
-				if (render_model_bool_array[render_idx])
-				{
-					command_list.draw_indexed_instanced(static_cast<sg::u32>(mesh_part.draw_count * render_percentage), 1, mesh_part.ib_offset, mesh_part.vb_offset, 0);
-				}
-				render_idx++;
+				command_list.draw_indexed_instanced(static_cast<sg::u32>(mesh_part.draw_count* render_percentage), 1, mesh_part.ib_offset, mesh_part.vb_offset, 0);
 			}
 		}
 

@@ -120,6 +120,19 @@ private:
 		int stat_failed = 0;
 	} cpu_culling;
 
+	struct CPUSorting
+	{
+		bool sort = false;
+		bool front_to_back = true;
+
+	} cpu_sorting;
+
+	struct DebugMeshDrawing
+	{
+		bool render_model_parts = false;
+		bool render_meshlet_parts = false;
+	} debug_drawing;
+
 	enum class WaveIntrinsicRenderMode : int
 	{
 		LaneIndices,

@@ -340,6 +340,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 		// https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples
 		
+		debug_draw->Update();
 		model_viewer->Update(delta_time, total_time, camera, *debug_draw);
 		magnifying_glass->Update(wnd->g_hWnd, *input, delta_time, total_time, camera, *debug_draw);
 

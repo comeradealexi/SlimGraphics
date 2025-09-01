@@ -102,12 +102,12 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 
 				// AABB
 				{
-					const float dist_x = fabsf(bounding_box_max.x - bounding_box_min.x);
-					const float dist_y = fabsf(bounding_box_max.y - bounding_box_min.y);
-					const float dist_z = fabsf(bounding_box_max.z - bounding_box_min.z);
-					mesh.aabb.Center.x = bounding_box_min.x + (dist_x / 2);
-					mesh.aabb.Center.y = bounding_box_min.y + (dist_y / 2);
-					mesh.aabb.Center.z = bounding_box_min.z + (dist_z / 2);
+					const float dist_x = fabsf(mesh.bounding_box_max.x - mesh.bounding_box_min.x);
+					const float dist_y = fabsf(mesh.bounding_box_max.y - mesh.bounding_box_min.y);
+					const float dist_z = fabsf(mesh.bounding_box_max.z - mesh.bounding_box_min.z);
+					mesh.aabb.Center.x = mesh.bounding_box_min.x + (dist_x / 2);
+					mesh.aabb.Center.y = mesh.bounding_box_min.y + (dist_y / 2);
+					mesh.aabb.Center.z = mesh.bounding_box_min.z + (dist_z / 2);
 					mesh.aabb.Extents.x = dist_x / 2;
 					mesh.aabb.Extents.y = dist_y / 2;
 					mesh.aabb.Extents.z = dist_z / 2;

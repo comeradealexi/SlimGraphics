@@ -1,5 +1,6 @@
 #include "DebugDraw.h"
 #include <seEngineBasicFileIO.h>
+#include <imgui.h>
 
 using namespace sg;
 
@@ -188,5 +189,13 @@ void DebugDraw::Render(sg::CommandList& command_list, sg::ConstantBufferView& cb
 
 		buffer_index++;
 		buffer_index = buffer_index % UPLOAD_BUFFER_COUNT;
+	}
+}
+
+void DebugDraw::Update()
+{
+	if (ImGui::CollapsingHeader("Debug Draw"))
+	{
+		ImGui::Checkbox("Enabled", &options.enabled);
 	}
 }

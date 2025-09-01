@@ -16,6 +16,7 @@ public:
 	void Update(float fTimeDelta, float fTotalTime, const se::GameInput& input);
 	void SetWidthHeight(float _width, float _height);
 	void SetPosition(DirectX::XMFLOAT3A pos) { position = pos; }
+	const DirectX::XMFLOAT3A& GetPosition() const { return position; }
 	const ShaderStructs::CameraData& GetCameraShaderData() const { return shader_data; }
 
 	bool IsInFrustum_Accurate(const DirectX::BoundingSphere& sphere) const;

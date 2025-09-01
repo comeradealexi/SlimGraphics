@@ -41,6 +41,7 @@ public:
 	void DrawSphere(ColourRGBA colour, DirectX::XMFLOAT3 centre, float diameter = 1.0f, size_t tessellation = 3);	
 	void DrawGeoSphere(ColourRGBA colour, DirectX::XMFLOAT3 centre, float diameter = 1.0f, size_t tessellation = 3);
 	void Render(sg::CommandList& command_list, sg::ConstantBufferView& cbv_camera);
+	void Update();
 
 	static inline sg::InputLayout::Desc make_input_layout(sg::u32* out_stride = nullptr)
 	{
