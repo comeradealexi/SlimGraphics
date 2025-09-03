@@ -24,6 +24,11 @@
         "input_file": "ModelViewer_PixelShader.hlsl"
       },
       {
+        "name": "ModelViewer_PixelShader_EDS",
+        "defines": [ "FORCE_EARLY_DEPTH_STENCIL" ],
+        "input_file": "ModelViewer_PixelShader.hlsl"
+      },
+      {
         "name": "ModelViewer_PixelMeshShader",
         "input_file": "ModelViewer_PixelMeshShader.hlsl"
       },

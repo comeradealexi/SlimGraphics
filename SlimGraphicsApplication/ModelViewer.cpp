@@ -4,6 +4,7 @@
 #include <seEngineBasicFileIO.h>
 #include "Camera.h"
 #include <algorithm>
+#include "sgUtils.h"
 
 using namespace sg;
 
@@ -31,16 +32,12 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	amplification_mesh_shading.binding_desc.uav_binding_count = 1;
 
 	{
-		std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_VertexShader.PC_DXC");
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_PixelShader.PC_DXC");
-		shader_vertex = device->create_vertex_shader(vertex_data);
-		shader_pixel = device->create_pixel_shader(pixel_data);
+		shader_vertex = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShader.PC_DXC");
+		shader_pixel = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelShader.PC_DXC");
+		shader_pixel_eds = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelShader_EDS.PC_DXC");
 
-		vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_VertexShaderTriangle.PC_DXC");
-		shader_vertex_triangle = device->create_vertex_shader(vertex_data);
-
-		vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_VertexShaderQuad.PC_DXC");
-		shader_vertex_quad = device->create_vertex_shader(vertex_data);
+		shader_vertex_triangle = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderTriangle.PC_DXC");
+		shader_vertex_quad = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderQuad.PC_DXC");
 	}
 
 	// Mesh Shader
@@ -216,6 +213,9 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::BeginDisabled(!device->SupportsMeshShaders());
 		ImGui::Checkbox("Render with Mesh Shader", &render_as_mesh_shader);
 		ImGui::EndDisabled();
+		ImGui::BeginDisabled(render_as_mesh_shader);
+		ImGui::Checkbox("Use Early Depth Stencil (Non Mesh Shader Only)", &use_eds_strucutred_buffer);
+		ImGui::EndDisabled();
 		ImGui::BeginDisabled(scale_model_to_1);
 		ImGui::SliderFloat("Render Scale", &model_scale, 0.0f, 20.0f);
 		ImGui::EndDisabled();
@@ -238,24 +238,27 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			ImGui::Text("Bounding Box Min: %3.3f, %3.3f, %3.3f", model->bounding_box_min.x, model->bounding_box_min.y, model->bounding_box_min.z);
 			ImGui::Text("Bounding Box Max: %3.3f, %3.3f, %3.3f", model->bounding_box_max.x, model->bounding_box_max.y, model->bounding_box_max.z);
 
-			size_t model_info_idx = 0;
-			for (Model::MeshPart& mesh_part : model->GetMeshParts())
+			if (ImGui::CollapsingHeader("Model Parts"))
 			{
-				ImGui::PushID("ModelInfo");
-				ImGui::PushID(model_info_idx);
-				ImGui::SeparatorText("Mesh Part:"); ImGui::SameLine(); ImGui::Text("%i", model_info_idx + 1);
-				ImGui::Checkbox("Render", render_model_bool_array + model_info_idx);
-				ImGui::Text("Triangles: %u", mesh_part.draw_count / 3);
-				ImGui::Text("Vertex Count: %u", mesh_part.vertex_count);
-				ImGui::Text("Vertex Cache Miss (ACMR): %0.2f", mesh_part.vertex_cache_miss_acmr);
-				ImGui::Text("Vertex Cache Miss (ATVR): %0.2f", mesh_part.vertex_cache_miss_atvr);
-				ImGui::Text("Bounds: %3.3f, %3.3f, %3.3f", mesh_part.max_extent.x, mesh_part.max_extent.y, mesh_part.max_extent.z);
-				ImGui::Text("Bounding Box Min: %3.3f, %3.3f, %3.3f", mesh_part.bounding_box_min.x, mesh_part.bounding_box_min.y, mesh_part.bounding_box_min.z);
-				ImGui::Text("Bounding Box Max: %3.3f, %3.3f, %3.3f", mesh_part.bounding_box_max.x, mesh_part.bounding_box_max.y, mesh_part.bounding_box_max.z);
+				size_t model_info_idx = 0;
+				for (Model::MeshPart& mesh_part : model->GetMeshParts())
+				{
+					ImGui::PushID("ModelInfo");
+					ImGui::PushID(model_info_idx);
+					ImGui::SeparatorText("Mesh Part:"); ImGui::SameLine(); ImGui::Text("%i", model_info_idx + 1);
+					ImGui::Checkbox("Render", render_model_bool_array + model_info_idx);
+					ImGui::Text("Triangles: %u", mesh_part.draw_count / 3);
+					ImGui::Text("Vertex Count: %u", mesh_part.vertex_count);
+					ImGui::Text("Vertex Cache Miss (ACMR): %0.2f", mesh_part.vertex_cache_miss_acmr);
+					ImGui::Text("Vertex Cache Miss (ATVR): %0.2f", mesh_part.vertex_cache_miss_atvr);
+					ImGui::Text("Bounds: %3.3f, %3.3f, %3.3f", mesh_part.max_extent.x, mesh_part.max_extent.y, mesh_part.max_extent.z);
+					ImGui::Text("Bounding Box Min: %3.3f, %3.3f, %3.3f", mesh_part.bounding_box_min.x, mesh_part.bounding_box_min.y, mesh_part.bounding_box_min.z);
+					ImGui::Text("Bounding Box Max: %3.3f, %3.3f, %3.3f", mesh_part.bounding_box_max.x, mesh_part.bounding_box_max.y, mesh_part.bounding_box_max.z);
 
-				ImGui::PopID();
-				ImGui::PopID();
-				model_info_idx++;
+					ImGui::PopID();
+					ImGui::PopID();
+					model_info_idx++;
+				}
 			}
 		}
 		
@@ -569,7 +572,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 		}
 		else
 		{
-			command_list.set_pipeline(pipeline.get());
+			command_list.set_pipeline(use_eds_strucutred_buffer ? pipeline_eds.get() : pipeline.get());
 
 			Binding b;
 			b.cbv_binding_count = 2;
@@ -627,6 +630,16 @@ void ModelViewer::CreatePipeline()
 	pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
 	pipeline = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
 	seAssert(pipeline != nullptr, "Failed to create model view pipeline");
+	
+	// ROV Variant
+	{
+		pipeline_desc.pixel_shader = shader_pixel_eds;
+		pipeline_eds = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
+		seAssert(pipeline_eds != nullptr, "Failed to create model view pipeline");
+
+		// Restore original ps
+		pipeline_desc.pixel_shader = shader_pixel;
+	}
 
 	pipeline_desc.input_layout = {};
 

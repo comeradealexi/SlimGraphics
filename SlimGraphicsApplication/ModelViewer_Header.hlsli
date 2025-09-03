@@ -28,6 +28,7 @@ cbuffer ModelBufferData : register(b1)
 
 RWStructuredBuffer<uint> uav0 : register(u0);
 
+
 struct VS_INPUT
 {
     float3 position : POSITION;
@@ -481,6 +482,9 @@ float4 ShadePixelOrder() : SV_TARGET0
 }
 
 //[WaveSize(64)]
+#ifdef FORCE_EARLY_DEPTH_STENCIL
+[earlydepthstencil]
+#endif
 float4 PSMain(PS_INPUT input 
 #ifndef MESH_SHADER
 , uint vid : SV_PrimitiveID
@@ -604,7 +608,7 @@ float4 PSMain(PS_INPUT input
         }
 
     }
-    
+
     if (model.shading_mode != SHADING_MODE_PIXELORDER)
     {
         uint original;
