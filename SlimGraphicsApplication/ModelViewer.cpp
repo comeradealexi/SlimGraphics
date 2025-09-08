@@ -42,20 +42,17 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 	// Mesh Shader
 	{
-		std::vector<uint8_t> mesh_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_MeshShader.PC_DXC");
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_PixelMeshShader.PC_DXC");
-		mesh_shading.shader_mesh = device->create_mesh_shader(mesh_data);
-		mesh_shading.shader_pixel = device->create_pixel_shader(pixel_data);
+		mesh_shading.shader_mesh = create_mesh_shader(*device, "ShaderBin_Debug\\ModelViewer_MeshShader.PC_DXC");
+		mesh_shading.shader_pixel = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelMeshShader.PC_DXC");
+		mesh_shading.shader_pixel_eds = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelMeshShader_EDS.PC_DXC");
 	}
 
 	// Amplification + Mesh Shader
 	{
-		std::vector<uint8_t> amp_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_MeshletAmplificationAS.PC_DXC");
-		std::vector<uint8_t> mesh_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_MeshletAmplificationMS.PC_DXC");
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\ModelViewer_MeshletAmplificationPS.PC_DXC");
-		amplification_mesh_shading.shader_amplification = device->create_amplification_shader(amp_data);
-		amplification_mesh_shading.shader_mesh = device->create_mesh_shader(mesh_data);
-		amplification_mesh_shading.shader_pixel = device->create_pixel_shader(pixel_data);
+		amplification_mesh_shading.shader_amplification = create_amplification_shader(*device, "ShaderBin_Debug\\ModelViewer_MeshletAmplificationAS.PC_DXC");
+		amplification_mesh_shading.shader_mesh = create_mesh_shader(*device, "ShaderBin_Debug\\ModelViewer_MeshletAmplificationMS.PC_DXC");
+		amplification_mesh_shading.shader_pixel = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_MeshletAmplificationPS.PC_DXC");
+		amplification_mesh_shading.shader_pixel_eds = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_MeshletAmplificationPS_EDS.PC_DXC");
 	}
 
 	CreatePipeline();
@@ -213,9 +210,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::BeginDisabled(!device->SupportsMeshShaders());
 		ImGui::Checkbox("Render with Mesh Shader", &render_as_mesh_shader);
 		ImGui::EndDisabled();
-		ImGui::BeginDisabled(render_as_mesh_shader);
-		ImGui::Checkbox("Use Early Depth Stencil (Non Mesh Shader Only)", &use_eds_strucutred_buffer);
-		ImGui::EndDisabled();
+		ImGui::Checkbox("Force Early Depth Stencil", &use_eds);
 		ImGui::BeginDisabled(scale_model_to_1);
 		ImGui::SliderFloat("Render Scale", &model_scale, 0.0f, 20.0f);
 		ImGui::EndDisabled();
@@ -240,6 +235,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 
 			if (ImGui::CollapsingHeader("Model Parts"))
 			{
+				ImGui::Indent();
 				size_t model_info_idx = 0;
 				for (Model::MeshPart& mesh_part : model->GetMeshParts())
 				{
@@ -259,6 +255,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 					ImGui::PopID();
 					model_info_idx++;
 				}
+				ImGui::Unindent();
 			}
 		}
 		
@@ -511,7 +508,9 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 
 		if (render_as_mesh_shader)
 		{
-			command_list.set_pipeline(amplification_mesh_shader ? amplification_mesh_shading.pipeline.get() : mesh_shading.pipeline.get());
+			MeshShaderRendering& mesh_shader_rendering = amplification_mesh_shader ? amplification_mesh_shading : mesh_shading;
+			command_list.set_pipeline(use_eds ? mesh_shader_rendering.pipeline_eds.get() : mesh_shader_rendering.pipeline.get());
+
 			Binding b;
 			b.cbv_binding_count = 2;
 			b.set_cbv(cbv_camera, 0);
@@ -572,7 +571,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 		}
 		else
 		{
-			command_list.set_pipeline(use_eds_strucutred_buffer ? pipeline_eds.get() : pipeline.get());
+			command_list.set_pipeline(use_eds ? pipeline_eds.get() : pipeline.get());
 
 			Binding b;
 			b.cbv_binding_count = 2;
@@ -664,6 +663,9 @@ void ModelViewer::CreatePipeline()
 		const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
 		mesh_shading.pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
 		mesh_shading.pipeline = device->create_pipeline(mesh_shading.pipeline_desc, mesh_shading.binding_desc);
+
+		mesh_shading.pipeline_desc.pixel_shader = mesh_shading.shader_pixel_eds;
+		mesh_shading.pipeline_eds = device->create_pipeline(mesh_shading.pipeline_desc, mesh_shading.binding_desc);
 	}
 
 	// Amplification & Mesh shader pipeline
@@ -680,6 +682,9 @@ void ModelViewer::CreatePipeline()
 		const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
 		amplification_mesh_shading.pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
 		amplification_mesh_shading.pipeline = device->create_pipeline(amplification_mesh_shading.pipeline_desc, amplification_mesh_shading.binding_desc);
+
+		amplification_mesh_shading.pipeline_desc.pixel_shader = amplification_mesh_shading.shader_pixel_eds;
+		amplification_mesh_shading.pipeline_eds = device->create_pipeline(amplification_mesh_shading.pipeline_desc, amplification_mesh_shading.binding_desc);
 	}
 
 }

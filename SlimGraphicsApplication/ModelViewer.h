@@ -79,7 +79,7 @@ private:
 	// Without EDS, the UAV we write to per-pixel causes every single rasterised pixel to invoke the pixel shader
 	// so rendering front to back has zero impact on the number of pixel shaders invoked
 	// by forcing EDS we make it invoke the pixel shader so it is more like traditional rendering.
-	bool use_eds_strucutred_buffer = true; 
+	bool use_eds = true; 
 	
 	bool mesh_shader_cone_culling = true;
 	bool mesh_shader_sphere_frustum_culling = true;
@@ -111,10 +111,12 @@ private:
 	struct MeshShaderRendering
 	{
 		sg::SharedPtr<sg::Pipeline> pipeline;
+		sg::SharedPtr<sg::Pipeline> pipeline_eds;
 		sg::PipelineDesc::Mesh pipeline_desc;
 		sg::SharedPtr<sg::AmplificationShader> shader_amplification;
 		sg::SharedPtr<sg::MeshShader> shader_mesh;
 		sg::SharedPtr<sg::PixelShader> shader_pixel;
+		sg::SharedPtr<sg::PixelShader> shader_pixel_eds;
 		sg::BindingDesc binding_desc;
 	} mesh_shading, amplification_mesh_shading;
 	

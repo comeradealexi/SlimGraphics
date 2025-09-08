@@ -33,6 +33,11 @@
         "input_file": "ModelViewer_PixelMeshShader.hlsl"
       },
       {
+        "name": "ModelViewer_PixelMeshShader_EDS",
+        "defines": [ "FORCE_EARLY_DEPTH_STENCIL" ],
+        "input_file": "ModelViewer_PixelMeshShader.hlsl"
+      },
+      {
         "name": "DebugWireframeShader_PixelShader",
         "input_file": "DebugWireframeShader.hlsl"
       },
@@ -121,6 +126,13 @@
         "profile": "ps_6_5",
         "entrypoint": "PSMain",
         "name": "ModelViewer_MeshletAmplificationPS",
+        "input_file": "ModelViewer_MeshShader.hlsl"
+      },
+      {
+        "profile": "ps_6_5",
+        "entrypoint": "PSMain",
+        "defines": [ "FORCE_EARLY_DEPTH_STENCIL" ],
+        "name": "ModelViewer_MeshletAmplificationPS_EDS",
         "input_file": "ModelViewer_MeshShader.hlsl"
       },
       {
