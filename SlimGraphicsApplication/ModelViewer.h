@@ -142,12 +142,15 @@ private:
 		bool render_model_parts = false;
 		bool render_meshlet_parts = false;
 	} debug_drawing;
-
+	
 	enum class WaveIntrinsicRenderMode : int
 	{
 		LaneIndices,
 		LaneOrder,
 		WaveUsage,
+		HelperLaneViewer,
+		WaveCount,
 	} wave_intrinsic_render_mode = WaveIntrinsicRenderMode::LaneIndices;
 };
 
+	

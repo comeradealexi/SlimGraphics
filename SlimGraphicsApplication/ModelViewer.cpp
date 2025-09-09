@@ -268,7 +268,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			ImGui::Text("Meshlet Prims:   %u", uav_readback_values.UAV_INDEX_MESH_SHADER_PRIM_COUNT);
 			ImGui::Text("Meshlets Culled (By Cone Dir): %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT);
 			ImGui::Text("Meshlets Culled (By Sphere Frustum): %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT);
-			ImGui::Text("Wave Group Count: %u", uav_readback_values.UAV_INDEX_WAVE_INTRINSIC_COUNTER);
+			ImGui::Text("%s: %u", wave_intrinsic_render_mode == WaveIntrinsicRenderMode::HelperLaneViewer ? "Non Helper Pixel Count" : "Wave Group Count", uav_readback_values.UAV_INDEX_WAVE_INTRINSIC_COUNTER);
 			ImGui::Text("Amplification Shader Invocations: %u", uav_readback_values.UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS);
 			ImGui::PopID();
 		}
@@ -382,16 +382,20 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		}
 		else if (render_mode == RenderMode::WaveIntrinsics)
 		{
+			ImGui::Indent();
 			ImGui::PushID("Wave Intrinsics ID IMGUI");
 			if (ImGui::CollapsingHeader("Wave Intrinsics Order"))
 			{
 				ImGui::PushID("Wave Intrinsics Mode Radio Buttons");
 				ImGui::RadioButton("Lane Indices", (int*)&wave_intrinsic_render_mode, 0);
 				ImGui::RadioButton("Lane Order", (int*)&wave_intrinsic_render_mode, 1);
-				ImGui::RadioButton("Wave Usage Ratio", (int*)&wave_intrinsic_render_mode, 2);
+				ImGui::RadioButton("Wave Usage Ratio", (int*)&wave_intrinsic_render_mode, 2); 
+				ImGui::RadioButton("Helper Lane", (int*)&wave_intrinsic_render_mode, 3);
+				ImGui::RadioButton("Wave Count", (int*)&wave_intrinsic_render_mode, 4);
 				ImGui::PopID();
 			}
 			ImGui::PopID();
+			ImGui::Unindent();
 			model_data.wave_intrinsics.x = (int)device->GetWaveLaneCountMax();
 			model_data.wave_intrinsics.y = static_cast<int>(wave_intrinsic_render_mode);
 		}

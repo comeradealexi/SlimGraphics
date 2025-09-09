@@ -495,6 +495,12 @@ float4 PSMain(PS_INPUT input
     uint vid = 0; // Not supported for mesh pipelines
 #endif
     
+    if (model.shading_mode != SHADING_MODE_PIXELORDER)
+    {
+        uint original;
+        InterlockedAdd(uav0[UAV_INDEX_PIXELS_SHADED], 1, original);
+    }
+    
     if (model.shading_mode == SHADING_MODE_MESHLETORDER || model.shading_mode == SHADING_MODE_AMPLIFICATION_ORDER)
     {
      #ifdef MESH_SHADER
@@ -563,56 +569,84 @@ float4 PSMain(PS_INPUT input
     {
         uint lane_size = model.wave_intrinsics.x;
         uint laneCount = WaveGetLaneCount();
-        if (lane_size != laneCount)
-        {
-            return float4(1, 0, 0, 1);
-        }
-        if (model.wave_intrinsics.y == 0)
-        {
-            return float4((WaveGetLaneIndex() / float(lane_size)).xxx, 1.0);
-        }
-        else if (model.wave_intrinsics.y == 1)
-        {
-            float4 outputColor;
-            if (WaveIsFirstLane())
+        
+            if (model.wave_intrinsics.y == 0)
             {
-                uint original;
-                InterlockedAdd(uav0[UAV_INDEX_WAVE_INTRINSIC_COUNTER], 1, original);
-                
-                float w = camera.screen_dimensions_and_depth_info.x;
-                float h = camera.screen_dimensions_and_depth_info.y;
-                float total_pixels = ((float) w * (float) h);
-                
-                float col = float(original) / (total_pixels / float(lane_size));
-                outputColor = float4(col.xxx, 1.0);
+                return float4((WaveGetLaneIndex() / float(lane_size)).xxx, 1.0);
             }
+            else if (model.wave_intrinsics.y == 1)
+            {
+                float4 outputColor;
+                if (WaveIsFirstLane())
+                {
+                    uint original;
+                    InterlockedAdd(uav0[UAV_INDEX_WAVE_INTRINSIC_COUNTER], 1, original);
+                
+                    float w = camera.screen_dimensions_and_depth_info.x;
+                    float h = camera.screen_dimensions_and_depth_info.y;
+                    float total_pixels = ((float) w * (float) h);
+                
+                    float col = float(original) / (total_pixels / float(lane_size));
+                    outputColor = float4(col.xxx, 1.0);
+                }
             
-            outputColor = WaveReadLaneFirst(outputColor);
+                outputColor = WaveReadLaneFirst(outputColor);
 
-            return outputColor;
-        }
-        else if (model.wave_intrinsics.y == 2)
-        {
-            uint lane_size = model.wave_intrinsics.x;
-            uint laneCount = WaveGetLaneCount();
+                return outputColor;
+            }
+            else if (model.wave_intrinsics.y == 2)
+            {
             // Example of vote intrinsics: WaveActiveBallot
             // Active lanes ratios (# of total activelanes / # of total lanes).
-            uint4 activeLaneMask = WaveActiveBallot(true);
-            uint numActiveLanes = countbits(activeLaneMask.x) + countbits(activeLaneMask.y) + countbits(activeLaneMask.z) + countbits(activeLaneMask.w);
-            float activeRatio = (float) numActiveLanes / float(lane_size);
-            if (activeRatio >= 1.0)
-            {
-                return 1.0.xxxx;
+                uint4 activeLaneMask = WaveActiveBallot(true);
+                uint numActiveLanes = countbits(activeLaneMask.x) + countbits(activeLaneMask.y) + countbits(activeLaneMask.z) + countbits(activeLaneMask.w);
+                float activeRatio = (float) numActiveLanes / float(lane_size);
+                if (activeRatio >= 1.0)
+                {
+                    return 1.0.xxxx;
+                }
+                return float4(activeRatio, 0, 0, 1.0);
             }
-            return float4(activeRatio, 0, 0, 1.0);
-        }
-
-    }
-
-    if (model.shading_mode != SHADING_MODE_PIXELORDER)
-    {
-        uint original;
-        InterlockedAdd(uav0[UAV_INDEX_PIXELS_SHADED], 1, original);
+            else if (model.wave_intrinsics.y == 3)
+            {
+            // IsHelperLane   
+                bool quad_has_helpers = false;
+                bool is_helper = IsHelperLane();
+            
+                if (is_helper)
+                {
+                    uint original;
+                    InterlockedAdd(uav0[UAV_INDEX_WAVE_INTRINSIC_COUNTER], 1, original);
+                }
+            
+                uint4 wave_count = WaveActiveBallot(is_helper);
+                uint result = countbits(wave_count);
+                if (result > 0)
+                {
+                    return float4(1.0, 0.0, 0.0, 1.0);
+                }
+                return float4(1.0, 1.0, 1.0, 1.0);
+            }
+            else if (model.wave_intrinsics.y == 4)
+            {
+            //if (laneCount == 4)
+            //{
+            //    return float4(0, 1, 0, 1);
+            //}
+            //if (laneCount == 8)
+            //{
+            //    return float4(0, 0, 1, 1);
+            //}
+            //if (laneCount == 16)
+            //{
+            //    return float4(1, 0, 1, 1);
+            //}
+                if (lane_size != laneCount)
+                {
+                    return float4((laneCount / lane_size).xxx, 1);
+                }
+                return float4(1, 0, 0, 1);
+            }
     }
     
     return float4(input.colour.xyz, 1) * abs(dot(float3(0,0,1), input.normals));
