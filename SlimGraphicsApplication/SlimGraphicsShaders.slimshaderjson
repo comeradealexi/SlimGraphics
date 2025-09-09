@@ -1,6 +1,6 @@
 [
   {
-    "profile": "ps_6_6",
+    "profile": "ps_6_5",
     "entrypoint": "PSMain",
     "shaders": [
       {
