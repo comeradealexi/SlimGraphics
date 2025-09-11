@@ -46,7 +46,7 @@ DebugDraw::DebugDraw(sg::Device& device)
 		pipeline_desc.pixel_shader = shader_pixel;
 		pipeline_desc.render_target_count = 1;
 		pipeline_desc.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-		pipeline_desc.depth_stencil_desc.depth_enable = true;
+		pipeline_desc.depth_stencil_desc.depth_enable = false;
 		pipeline_desc.depth_stencil_desc.depth_write = false;
 		pipeline_desc.rasterizer_desc.fill_mode = Rasterizer::FillMode::Wireframe;
 		pipeline_desc.rasterizer_desc.cull_mode = Rasterizer::CullMode::None;
@@ -169,7 +169,7 @@ void DebugDraw::Render(sg::CommandList& command_list, sg::ConstantBufferView& cb
 		command_list.copy_buffer_to_buffer(vertex_size, gpu_vertex_buffer.get(), 0, upload.get(), 0);
 		command_list.copy_buffer_to_buffer(index_size, gpu_index_buffer.get(), 0, upload.get(), vertex_size);
 
-		command_list.set_pipeline(pipeline_no_depth.get());
+		command_list.set_pipeline(options.depth_test ? pipeline_depth.get() : pipeline_no_depth.get());
 
 		command_list.bind_vertex_buffer(gpu_vertex_buffer_view);
 		command_list.bind_index_buffer(gpu_index_buffer_view);
@@ -197,5 +197,6 @@ void DebugDraw::Update()
 	if (ImGui::CollapsingHeader("Debug Draw"))
 	{
 		ImGui::Checkbox("Enabled", &options.enabled);
+		ImGui::Checkbox("Depth Test", &options.depth_test);
 	}
 }

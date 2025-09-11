@@ -439,8 +439,11 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 
 	if (ImGui::CollapsingHeader("Model Debug Drawing"))
 	{
-		ImGui::Checkbox("Model Parts", &debug_drawing.render_model_parts);
+		ImGui::PushID("Model Debug Draw");
+		ImGui::Checkbox("Model Parts (AABB)", &debug_drawing.render_model_parts_aabb);
+		ImGui::Checkbox("Model Parts (Sphere)", &debug_drawing.render_model_parts_sphere);
 		ImGui::Checkbox("Meshlet Parts", &debug_drawing.render_meshlet_parts);
+		ImGui::PopID();
 	}
 	
 	ImGui::End();
@@ -528,15 +531,22 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			{
 				Model::MeshPart& mesh_part = *mesh_part_ptr;
 
-				if (debug_drawing.render_model_parts)
+				if (debug_drawing.render_model_parts_aabb)
+				{
 					debug_draw.DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
+				}
+				if (debug_drawing.render_model_parts_sphere)
+				{
+					float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z));
+					debug_draw.DrawSphere(DebugDraw::ColourRGBA(), mesh_part.aabb.Center, radius * 2.0, 8ui64);
+				}
 
 				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 1);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_unique_vertex_indices_view_srv, 2);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_primitive_indices_view_srv, 3);
 				b.set_srv(mesh_part.mesh_shader_data.gpu_culldata_view_srv, 4); 
 
-				model_data.meshlet_count = mesh_part.mesh_shader_data.meshlets.size();
+				model_data.meshlet_count = mesh_part.mesh_shader_data.meshlets.size() * render_percentage;
 				model_data.primitive_count = mesh_part.draw_count / 3;
 				model_data.vertex_count = mesh_part.vertex_count;
 				model_data.meshlet_vb_offset = mesh_part.vb_offset;
@@ -549,7 +559,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				if (amplification_mesh_shader)
 				{
 					static constexpr u32 AMPLIFICATION_GROUP_SIZE = 32; // This must match what is used in shader. Todo: move to shared header
-					dispatch_value = DivRoundUp(mesh_part.mesh_shader_data.meshlets.size(), AMPLIFICATION_GROUP_SIZE);
+					dispatch_value = DivRoundUp(mesh_part.mesh_shader_data.meshlets.size() * render_percentage, AMPLIFICATION_GROUP_SIZE);
 				}
 				else
 				{
@@ -593,8 +603,15 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			{
 				Model::MeshPart& mesh_part = *mesh_part_ptr;
 
-				if (debug_drawing.render_model_parts)
+				if (debug_drawing.render_model_parts_aabb)
+				{
 					debug_draw.DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
+				}
+				if (debug_drawing.render_model_parts_sphere)
+				{
+					float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z));
+					debug_draw.DrawSphere(DebugDraw::ColourRGBA(), mesh_part.aabb.Center, radius * 2.0, 8ui64);
+				}
 
 				model_data.primitive_count = mesh_part.draw_count / 3;
 				model_data.vertex_count = mesh_part.vertex_count;

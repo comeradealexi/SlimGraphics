@@ -96,5 +96,6 @@ private:
 	struct Options
 	{
 		bool enabled = false;
+		bool depth_test = false;
 	}options;
 };

@@ -139,7 +139,8 @@ private:
 
 	struct DebugMeshDrawing
 	{
-		bool render_model_parts = false;
+		bool render_model_parts_aabb = false;
+		bool render_model_parts_sphere = false;
 		bool render_meshlet_parts = false;
 	} debug_drawing;
 	
