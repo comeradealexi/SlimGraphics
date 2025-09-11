@@ -325,6 +325,7 @@ namespace sg
 
                     ImGui::Text("%10s: %llu/%llu (MiB)", MemoryManager::PoolTypeNames[i], stats.AllocationBytes / 1024llu / 1024llu, stats.BlockBytes / 1024llu / 1024llu);
                 }
+                ImGui::Indent();
                 if (ImGui::CollapsingHeader("Detailed Memory Information"))
                 {
                     ImGui::Text("Viewing this information is slow to be calculated!");
@@ -345,6 +346,7 @@ namespace sg
 						ImGui::Text("- UnusedRangeSizeMin (KiB): %llu UnusedRangeSizeMax (KiB): %llu", stats.UnusedRangeSizeMin / 1024llu, stats.UnusedRangeSizeMax / 1024llu);
                     }
                 }
+                ImGui::Unindent();
             }
 
             ImGui::PopID();            
