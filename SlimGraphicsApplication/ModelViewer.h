@@ -151,6 +151,7 @@ private:
 		WaveUsage,
 		HelperLaneViewer,
 		WaveCount,
+		AllWavesSameValue,
 	} wave_intrinsic_render_mode = WaveIntrinsicRenderMode::LaneIndices;
 };
 

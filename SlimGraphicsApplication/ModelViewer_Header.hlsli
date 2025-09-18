@@ -631,6 +631,20 @@ float4 PSMain(PS_INPUT input
         {
             return float4((laneCount / max_lane_size).xxx, 1);
         }
+        else if (model.wave_intrinsics.y == 5)
+        {
+            // Checks to ensure areas around waves such as edge of triangles behave as expected when there are not full waves
+            bool is_left = input.position.x < (camera.screen_dimensions_and_depth_info.x * 0.5);
+            bool all_waves_same = WaveActiveAllEqual(is_left);
+            if (all_waves_same)
+            {
+                return is_left ? float4(0, 0, 1, 1) : float4(0, 1, 0, 1);
+            }
+            else
+            {
+                return float4(1, 0, 0, 1);
+            }
+        }
     }
     
     return float4(input.colour.xyz, 1) * abs(dot(float3(0,0,1), input.normals));

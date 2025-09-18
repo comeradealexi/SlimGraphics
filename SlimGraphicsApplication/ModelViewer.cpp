@@ -392,6 +392,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 				ImGui::RadioButton("Wave Usage Ratio", (int*)&wave_intrinsic_render_mode, 2); 
 				ImGui::RadioButton("Helper Lane", (int*)&wave_intrinsic_render_mode, 3);
 				ImGui::RadioButton("Wave Count", (int*)&wave_intrinsic_render_mode, 4);
+				ImGui::RadioButton("All Waves Same", (int*)&wave_intrinsic_render_mode, 5);
 				ImGui::PopID();
 			}
 			ImGui::PopID();
