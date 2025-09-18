@@ -28,6 +28,7 @@ private:
 	{
 		Model,
 		FullscreenTriangle,
+		MiddleTriangle,
 		FullscreenQuad
 	};
 	RenderGeo render_geo = RenderGeo::Model;
@@ -36,12 +37,14 @@ private:
 	sg::SharedPtr<sg::Pipeline> pipeline;
 	sg::SharedPtr<sg::Pipeline> pipeline_eds;
 	sg::SharedPtr<sg::Pipeline> pipeline_fullscreen_triangle;
+	sg::SharedPtr<sg::Pipeline> pipeline_middle_triangle;
 	sg::SharedPtr<sg::Pipeline> pipeline_fullscreen_quad;
 
 	sg::BindingDesc pipeline_binding_desc;
 	sg::PipelineDesc::Graphics pipeline_desc;
 	sg::SharedPtr<sg::VertexShader> shader_vertex;
 	sg::SharedPtr<sg::VertexShader> shader_vertex_triangle;
+	sg::SharedPtr<sg::VertexShader> shader_vertex_middle_triangle;
 	sg::SharedPtr<sg::VertexShader> shader_vertex_quad;
 	sg::SharedPtr<sg::PixelShader> shader_pixel;
 	sg::SharedPtr<sg::PixelShader> shader_pixel_eds;

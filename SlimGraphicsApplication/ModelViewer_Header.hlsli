@@ -341,7 +341,7 @@ void MSMain(
 
 #endif
 
-#ifdef VERTEX_TRIANGLE
+#if defined(VERTEX_TRIANGLE) || defined(VERTEX_MIDDLE_TRIANGLE)
 PS_INPUT VSMain(uint id : SV_VertexID)
 {
     uint original;
@@ -355,6 +355,25 @@ PS_INPUT VSMain(uint id : SV_VertexID)
     psOut.position = float4(uv * float2(2, -2) + float2(-1, 1), 0, 1);
     psOut.uvs = uv;
     psOut.normals = float3(0, 0, -1);
+    
+    #ifdef VERTEX_MIDDLE_TRIANGLE
+    if (id == 0)
+	{
+        psOut.position.x = 0.0f;
+        psOut.position.y = 0.75f;
+    }
+    else if (id == 1)
+	{
+        psOut.position.x = 0.75f;
+        psOut.position.y = -0.75f;
+    }
+    else if (id == 2)
+	{
+        psOut.position.x = -0.75f;
+        psOut.position.y = -0.75f;
+    }
+    #endif
+    
     return psOut;
 
 }

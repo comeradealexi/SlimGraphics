@@ -36,6 +36,7 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 		shader_pixel = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelShader.PC_DXC");
 		shader_pixel_eds = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelShader_EDS.PC_DXC");
 
+		shader_vertex_middle_triangle = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderMiddleTriangle.PC_DXC");
 		shader_vertex_triangle = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderTriangle.PC_DXC");
 		shader_vertex_quad = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderQuad.PC_DXC");
 	}
@@ -317,6 +318,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::BeginDisabled(render_as_mesh_shader);
 		ImGui::RadioButton("3D Model", (int*)&render_geo, (int)RenderGeo::Model);
 		ImGui::RadioButton("Fullscreen Triangle", (int*)&render_geo, (int)RenderGeo::FullscreenTriangle);
+		ImGui::RadioButton("Middle Triangle", (int*)&render_geo, (int)RenderGeo::MiddleTriangle);
 		ImGui::RadioButton("Fullscreen Quad", (int*)&render_geo, (int)RenderGeo::FullscreenQuad);
 		ImGui::EndDisabled();
 
@@ -620,10 +622,19 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				b.set_cbv(cbv_model, 1);
 				command_list.bind(b, PipelineType::Geometry);
 
-				if (render_geo == RenderGeo::FullscreenTriangle || render_geo == RenderGeo::FullscreenQuad)
+				if (render_geo != RenderGeo::Model)
 				{
-					command_list.set_pipeline((render_geo == RenderGeo::FullscreenTriangle) ? pipeline_fullscreen_triangle.get() : pipeline_fullscreen_quad.get());
-					command_list.draw_instanced((render_geo == RenderGeo::FullscreenTriangle) ? 3 : 6, 1, 0, 0);
+					sg::Pipeline* pipeline = pipeline_fullscreen_triangle.get();
+					if (render_geo == RenderGeo::MiddleTriangle)
+					{
+						pipeline = pipeline_middle_triangle.get();
+					}
+					else if (render_geo == RenderGeo::FullscreenQuad)
+					{
+						pipeline = pipeline_fullscreen_quad.get();
+					}
+					command_list.set_pipeline(pipeline);
+					command_list.draw_instanced((render_geo == RenderGeo::FullscreenQuad) ? 6 : 3, 1, 0, 0);
 					break;
 				}
 
@@ -667,6 +678,10 @@ void ModelViewer::CreatePipeline()
 	pipeline_desc.vertex_shader = shader_vertex_triangle;
 	pipeline_fullscreen_triangle = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
 	seAssert(pipeline_fullscreen_triangle != nullptr, "Failed to create model view pipeline");
+
+	pipeline_desc.vertex_shader = shader_vertex_middle_triangle;
+	pipeline_middle_triangle = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
+	seAssert(pipeline_middle_triangle != nullptr, "Failed to create model view pipeline");
 
 	pipeline_desc.vertex_shader = shader_vertex_quad;
 	pipeline_fullscreen_quad = device->create_pipeline(pipeline_desc, pipeline_binding_desc);

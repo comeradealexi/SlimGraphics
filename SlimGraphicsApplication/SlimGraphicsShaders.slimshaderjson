@@ -68,6 +68,10 @@
         "input_file": "ModelViewer_VertexShaderTriangle.hlsl"
       },
       {
+        "name": "ModelViewer_VertexShaderMiddleTriangle",
+        "input_file": "ModelViewer_VertexShaderMiddleTriangle.hlsl"
+      },
+      {
         "name": "ModelViewer_VertexShaderQuad",
         "input_file": "ModelViewer_VertexShaderQuad.hlsl"
       },
