@@ -19,6 +19,9 @@ public:
 	const DirectX::XMFLOAT3A& GetPosition() const { return position; }
 	const ShaderStructs::CameraData& GetCameraShaderData() const { return shader_data; }
 
+	float GetNearPlane() const { return min_depth_plane; }
+	float GetFarPlane() const { return max_depth_plane; }
+
 	bool IsInFrustum_Accurate(const DirectX::BoundingSphere& sphere) const;
 	bool IsInFrustum_Fast(const DirectX::BoundingSphere& sphere) const;
 
@@ -31,6 +34,9 @@ private:
 
 	ProjectionType projection_type = ProjectionType::Perspective;
 	bool imgui_perspective = true;
+
+	float camera_movement_speed = 1.0f;
+	float camera_rotation_speed = 1.0f;
 
 	float width = 0.0f;
 	float height = 0.0f;

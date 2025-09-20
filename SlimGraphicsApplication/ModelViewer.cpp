@@ -165,11 +165,91 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 }
 
+// https://zeux.io/2023/01/12/approximate-projected-bounds/
+bool projectBox(DirectX::XMFLOAT3 bmin, DirectX::XMFLOAT3 bmax, float znear, DirectX::XMMATRIX viewProjection, DirectX::XMFLOAT4& aabb)
+{
+	using namespace DirectX;
+	XMFLOAT4 P[8];
+
+	XMStoreFloat4( &P[0], XMVector4Transform(XMVectorSet(bmin.x, bmin.y, bmin.z, 1.0), viewProjection));
+	XMStoreFloat4( &P[1], XMVector4Transform(XMVectorSet(bmin.x, bmin.y, bmax.z, 1.0), viewProjection));
+	XMStoreFloat4( &P[2], XMVector4Transform(XMVectorSet(bmin.x, bmax.y, bmin.z, 1.0), viewProjection));
+	XMStoreFloat4( &P[3], XMVector4Transform(XMVectorSet(bmin.x, bmax.y, bmax.z, 1.0), viewProjection));
+	XMStoreFloat4( &P[4], XMVector4Transform(XMVectorSet(bmax.x, bmin.y, bmin.z, 1.0), viewProjection));
+	XMStoreFloat4( &P[5], XMVector4Transform(XMVectorSet(bmax.x, bmin.y, bmax.z, 1.0), viewProjection));
+	XMStoreFloat4( &P[6], XMVector4Transform(XMVectorSet(bmax.x, bmax.y, bmin.z, 1.0), viewProjection));
+	XMStoreFloat4( &P[7], XMVector4Transform(XMVectorSet(bmax.x, bmax.y, bmax.z, 1.0), viewProjection));
+
+	aabb = {};
+
+	float min_w = P[0].w;
+	//if (min(P0.w, P1.w, P2.w, P3.w, P4.w, P5.w, P6.w, P7.w) < znear) return false;
+	for (size_t i = 1; i < 8; i++)
+	{
+		min_w = std::max(min_w, P[i].w);
+	}
+	if (min_w < znear) return false;
+
+	aabb.x = P[0].x / P[0].w;
+	aabb.y = P[0].y / P[0].w;
+	aabb.z = P[0].x / P[0].w;
+	aabb.w = P[0].y / P[0].w;
+
+	for (size_t i = 1; i < 8; i++)
+	{
+		aabb.x = std::min(aabb.x, P[i].x / P[i].w);
+		aabb.y = std::min(aabb.y, P[i].y / P[i].w);
+
+		aabb.z = std::max(aabb.z, P[i].x / P[i].w);
+		aabb.w = std::max(aabb.w, P[i].y / P[i].w);
+	}
+
+	//aabb.xy = min(
+	//	P0.xy / P0.w, P1.xy / P1.w, P2.xy / P2.w, P3.xy / P3.w,
+	//	P4.xy / P4.w, P5.xy / P5.w, P6.xy / P6.w, P7.xy / P7.w);
+	//aabb.zw = max(
+	//	P0.xy / P0.w, P1.xy / P1.w, P2.xy / P2.w, P3.xy / P3.w,
+	//	P4.xy / P4.w, P5.xy / P5.w, P6.xy / P6.w, P7.xy / P7.w);
+
+	// clip space -> uv space
+	//aabb = aabb.xwzy * vec4(0.5f, -0.5f, 0.5f, -0.5f) + vec4(0.5f);
+
+	return true;
+}
+
+
 void ModelViewer::Update(float delta_time, float total_time, const Camera& camera, DebugDraw& debug_draw)
 {
 	bool recreate_pipeline = false;
 
 	ImGui::Begin("Model Viewer", nullptr, 0);
+
+	// Mesh part screen size
+	if (model)
+	{
+		for (Model::MeshPart& mesh_part : model->GetMeshParts())
+		{
+			using namespace DirectX;
+			const float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z));
+			XMVECTOR centre = XMVectorSet(mesh_part.aabb.Center.x, mesh_part.aabb.Center.y, mesh_part.aabb.Center.z, 0.0f);
+			const XMVECTOR screen_space = XMVector3Transform(centre, camera.GetCameraShaderData().view_projection_matrix);
+			ImGui::Text("radius: %0.2f", radius);
+			ImGui::Text("centre: %0.2f %0.2f %0.2f", centre.m128_f32[0], centre.m128_f32[1], centre.m128_f32[2]);
+			ImGui::Text("screen_space: %0.2f %0.2f %0.2f", screen_space.m128_f32[0], screen_space.m128_f32[1], screen_space.m128_f32[2]);
+			ImGui::Text("screen_space / w: %0.2f %0.2f %0.2f", screen_space.m128_f32[0] / screen_space.m128_f32[3], screen_space.m128_f32[1] / screen_space.m128_f32[3], screen_space.m128_f32[2] / screen_space.m128_f32[3]);
+
+			XMFLOAT3 c;
+			XMStoreFloat3(&c, centre);
+			XMFLOAT4 outaabb;
+			bool bMult = projectBox(mesh_part.bounding_box_min, mesh_part.bounding_box_max, camera.GetNearPlane(), camera.GetCameraShaderData().view_projection_matrix, outaabb);
+			ImGui::BeginDisabled();
+			ImGui::Checkbox("projectSphereView returned bool", &bMult);
+			ImGui::EndDisabled();
+			ImGui::Text("aabb: xmin: %0.4f ymin: %0.4f", outaabb.x, outaabb.y);
+			ImGui::Text("aabb: xmax: %0.4f ymax: %0.4f", outaabb.z, outaabb.w);
+			ImGui::Text("Screen Percent X: %0.2f Screen Percent Y: %0.2f", fabsf(std::max(outaabb.x, -1.0f) - std::min(outaabb.z, 1.0f)) * 50.0f, fabsf(std::max(outaabb.y, -1.0f) - std::min(outaabb.w, 1.0f) ) * 50.0f);
+		}
+	}
 
 	struct UAVReadBack
 	{

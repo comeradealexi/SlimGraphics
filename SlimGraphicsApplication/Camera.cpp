@@ -44,58 +44,58 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 		//Process input now.
 		if (input.IsKeyDown(L'W'))
 		{
-			position.x += XMVectorGetX(direction) * fTimeDelta;
-			position.y += XMVectorGetY(direction) * fTimeDelta;
-			position.z += XMVectorGetZ(direction) * fTimeDelta;
+			position.x += XMVectorGetX(direction) * fTimeDelta * camera_movement_speed;
+			position.y += XMVectorGetY(direction) * fTimeDelta * camera_movement_speed;
+			position.z += XMVectorGetZ(direction) * fTimeDelta * camera_movement_speed;
 		}
 		if (input.IsKeyDown(L'S'))
 		{
-			position.x -= XMVectorGetX(direction) * fTimeDelta;
-			position.y -= XMVectorGetY(direction) * fTimeDelta;
-			position.z -= XMVectorGetZ(direction) * fTimeDelta;
+			position.x -= XMVectorGetX(direction) * fTimeDelta * camera_movement_speed;
+			position.y -= XMVectorGetY(direction) * fTimeDelta * camera_movement_speed;
+			position.z -= XMVectorGetZ(direction) * fTimeDelta * camera_movement_speed;
 		}
 		if (input.IsKeyDown(L'A'))
 		{
 			::DirectX::XMVECTOR crossVector = ::DirectX::XMVector3Cross(direction, Up);
 			crossVector = XMVector3Normalize(crossVector);
-			position.x += XMVectorGetX(crossVector) * fTimeDelta;
-			position.y += XMVectorGetY(crossVector) * fTimeDelta;
-			position.z += XMVectorGetZ(crossVector) * fTimeDelta;
+			position.x += XMVectorGetX(crossVector) * fTimeDelta* camera_movement_speed;
+			position.y += XMVectorGetY(crossVector) * fTimeDelta* camera_movement_speed;
+			position.z += XMVectorGetZ(crossVector) * fTimeDelta* camera_movement_speed;
 		}
 		if (input.IsKeyDown(L'D'))
 		{
 			::DirectX::XMVECTOR crossVector = ::DirectX::XMVector3Cross(direction, Up);
 			crossVector = XMVector3Normalize(crossVector);
-			position.x -= XMVectorGetX(crossVector) * fTimeDelta;
-			position.y -= XMVectorGetY(crossVector) * fTimeDelta;
-			position.z -= XMVectorGetZ(crossVector) * fTimeDelta;
+			position.x -= XMVectorGetX(crossVector) * fTimeDelta * camera_movement_speed;
+			position.y -= XMVectorGetY(crossVector) * fTimeDelta * camera_movement_speed;
+			position.z -= XMVectorGetZ(crossVector) * fTimeDelta * camera_movement_speed;
 		}
 
 		if (/*input.IsKeyDown(Input::Keys::NUMPAD_4_LEFT) ||*/ input.IsKeyDown(L'J'))
 		{
-			camera_rot_y -= 1.0f * fTimeDelta;
+			camera_rot_y -= 1.0f * fTimeDelta * camera_rotation_speed;
 		}
 		if (/*input.IsKeyDown(Input::Keys::NUMPAD_6_RIGHT) ||*/ input.IsKeyDown(L'L'))
 		{
-			camera_rot_y += 1.0f * fTimeDelta;
+			camera_rot_y += 1.0f * fTimeDelta * camera_rotation_speed;
 		}
 		if (/*input.IsKeyDown(Input::Keys::NUMPAD_8_UP) ||*/ input.IsKeyDown(L'I'))
 		{
-			camera_rot_x -= 1.0f * fTimeDelta;
+			camera_rot_x -= 1.0f * fTimeDelta * camera_rotation_speed;
 		}
 		if (/*input.IsKeyDown(Input::Keys::NUMPAD_5_MIDDLE) ||*/ input.IsKeyDown(L'K'))
 		{
-			camera_rot_x += 1.0f * fTimeDelta;
+			camera_rot_x += 1.0f * fTimeDelta * camera_rotation_speed;
 		}
 
 		if (input.IsKeyDown(L'Q'))
 		{
-			position.y += 1.0f * fTimeDelta;
+			position.y += 1.0f * fTimeDelta * camera_movement_speed;
 		}
 
 		if (input.IsKeyDown(L'E'))
 		{
-			position.y -= 1.0f * fTimeDelta;
+			position.y -= 1.0f * fTimeDelta * camera_movement_speed;
 		}
 	}
 
@@ -124,6 +124,9 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 	{
 		if (ImGui::CollapsingHeader("Camera"))
 		{
+			ImGui::DragFloat("Movement Speed", &camera_movement_speed, 0.001f, 0.0f,3.0f);
+			ImGui::DragFloat("Rotation Speed", &camera_rotation_speed, 0.001f, 0.0f, 3.0f);
+
 			ImGui::DragFloat3("Position", &position.x, 0.001f);
 			//ImGui::SliderFloat2("Rotation", &m_fCameraRotY, -360.0f, 360.0f);
 			ImGui::DragFloat2("Rotation", &camera_rot_y, 0.001f);
