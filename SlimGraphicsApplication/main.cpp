@@ -479,7 +479,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 			// Magnify
 			{
-				magnifying_glass->Render(*command_buffer, cbv_cam, final_srv, *linear_cb);
+				magnifying_glass->Render(*command_buffer, cbv_cam, copy_to_swap_chain_target_view, *linear_cb);
 			}
 
 			command_buffer->start_geometry_pass(1, &backbuffer_rtvs[current_frame_idx], vp, sc);

@@ -88,6 +88,7 @@ struct MagnifyingGlassData
 struct PostProcessData
 {
 	int4 mode;
+	float4 colour_output_enabled;
 };
 
 #ifdef __cplusplus

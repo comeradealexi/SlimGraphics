@@ -12,6 +12,11 @@ cbuffer ConstantBufferData : register(b0)
     CameraData camera;
 };
 
+cbuffer PostProcessBufferData : register(b1)
+{
+    PostProcessData post_process_data;
+};
+
 // https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/sm5-object-rwtexture2d
 //The runtime enforces certain usage patterns when you create multiple view types to the same resource. 
 // For example, the runtime does not allow you to have both a UAV mapping for a resource and SRV mapping for the same resource active at the same time.
@@ -30,6 +35,9 @@ void main( uint3 dispatch_thread_id : SV_DispatchThreadID )
     if (dispatch_thread_id.x < camera.screen_dimensions_and_depth_info.x
         && dispatch_thread_id.y < camera.screen_dimensions_and_depth_info.y)
     {
-        out_tex[dispatch_thread_id.xy] = in_tex_colour.Load(int3(dispatch_thread_id.xy,0));
+
+        float4 out_colour = in_tex_colour.Load(int3(dispatch_thread_id.xy,0));
+        out_colour *= post_process_data.colour_output_enabled;
+        out_tex[dispatch_thread_id.xy] = out_colour;
     }
 }

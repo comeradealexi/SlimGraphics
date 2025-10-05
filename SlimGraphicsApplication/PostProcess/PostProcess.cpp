@@ -12,6 +12,8 @@ PostProcess::PostProcess(sg::SharedPtr<sg::Device>& _device) : device(_device)
 	pipeline_binding_desc.cbv_binding_count = 2;
 
 	pipeline_desc = {};
+
+	constant_data.colour_output_enabled = DirectX::XMFLOAT4A(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time, float total_time, const Camera& camera, DebugDraw& debug_draw)
@@ -19,7 +21,18 @@ void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time
 	if (ImGui::CollapsingHeader("Post Process"))
 	{
 		ImGui::Checkbox("Enabled", &enabled);
+		ImGui::Text("Colour Channel Output");
+		ImGui::Checkbox("R", &post_process_output[0]);
+		ImGui::SameLine();
+		ImGui::Checkbox("G", &post_process_output[1]);
+		ImGui::SameLine();
+		ImGui::Checkbox("B", &post_process_output[2]);
+		ImGui::SameLine();
+		ImGui::Checkbox("A", &post_process_output[3]);
+
 	}
+
+	constant_data.colour_output_enabled = DirectX::XMFLOAT4A(post_process_output[0] ? 1.0f : 0.0f, post_process_output[1] ? 1.0f : 0.0f, post_process_output[2] ? 1.0f : 0.0f, post_process_output[3] ? 1.0f : 0.0f);
 
 	if (pipeline == nullptr)
 	{
