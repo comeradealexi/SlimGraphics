@@ -85,6 +85,11 @@ struct MagnifyingGlassData
 	float4 scale; // x = scale
 };
 
+struct PostProcessData
+{
+	int4 mode;
+};
+
 #ifdef __cplusplus
 } // namespace ShaderStructs
 #undef row_major

@@ -856,6 +856,23 @@ namespace sg
 			return uav;
 		}
 
+
+		sg::UnorderedAccessView Device::create_unordered_access_view(SharedPtr<Texture> texture)
+		{
+            seAssert(texture->resource_create_desc.dimension == ResourceDimension::Texture2D, "Only supported this path currently");
+			D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
+			{
+				desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+				desc.Format = texture->resource_create_desc.format;
+			}
+
+			UnorderedAccessView uav;
+			uav.desc = desc;
+            uav.desc_uint = {};
+			uav.texture_resource = texture;
+			return uav;
+		}
+
 		VertexBufferView Device::create_vertex_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, u64 stride)
 		{
             VertexBufferView vbv;

@@ -100,6 +100,33 @@
     ]
   },
   {
+    "profile": "cs_6_1",
+    "entrypoint": "main",
+    "input_file": "PostProcessComputeShader.hlsl",
+    "shaders": [
+      {
+        "name": "PostProcessComputeShader_THREAD_COUNT_4_4",
+        "defines": [ "THREAD_COUNT_X=4", "THREAD_COUNT_Y=4" ]
+      },
+      {
+        "name": "PostProcessComputeShader_THREAD_COUNT_8_4",
+        "defines": [ "THREAD_COUNT_X=8", "THREAD_COUNT_Y=4" ]
+      },
+      {
+        "name": "PostProcessComputeShader_THREAD_COUNT_8_8",
+        "defines": [ "THREAD_COUNT_X=8", "THREAD_COUNT_Y=8" ]
+      },
+      {
+        "name": "PostProcessComputeShader_THREAD_COUNT_16_8",
+        "defines": [ "THREAD_COUNT_X=16", "THREAD_COUNT_Y=8" ]
+      },
+      {
+        "name": "PostProcessComputeShader_THREAD_COUNT_16_16",
+        "defines": [ "THREAD_COUNT_X=16", "THREAD_COUNT_Y=16" ]
+      }
+    ]
+  },
+  {
     "profile": "ms_6_5",
     "entrypoint": "MSMain",
     "shaders": [

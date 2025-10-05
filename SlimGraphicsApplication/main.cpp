@@ -20,6 +20,7 @@
 #include "DebugDraw.h"
 #include "Scene/Terrain.h"
 #include "MagnifyingGlass/MagnifyingGlass.h"
+#include "PostProcess/PostProcess.h"
 
 /*
 TODO:
@@ -174,16 +175,21 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	// Depth buffer
 	SharedPtr<DepthStencilView> dsv;
 	SharedPtr<Texture> dsv_tex;
+	ShaderResourceView depth_srv;
 	{
 		ResourceCreateDesc rd(w, h, DXGI_FORMAT_D32_FLOAT, ResourceUsageFlags::DepthStencil);
 		dsv_tex = sg::create_texture(*device, rd);
 		dsv = device->create_depth_stencil_view(dsv_tex);
+		depth_srv = device->create_shader_resource_view(dsv_tex);
 	}
 
 	// Output render target
 	SharedPtr<Texture> final_render_target;
 	SharedPtr<RenderTargetView> final_rtv;
 	ShaderResourceView final_srv;
+
+	SharedPtr<Texture> intermediate_render_target;
+	UnorderedAccessView intermediate_uav;
 	{
 		ResourceCreateDesc rcd = {};
 		rcd.width = w;
@@ -193,6 +199,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		final_render_target = create_texture(*device, rcd);
 		final_rtv = device->create_render_target_view(final_render_target);
 		final_srv = device->create_shader_resource_view(final_render_target);
+
+		intermediate_render_target = create_texture(*device, rcd);
+		intermediate_uav = device->create_unordered_access_view(intermediate_render_target);
 	}
 
 	//Pipeline
@@ -262,6 +271,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	BasicGrid basic_grid(device);
 	Ptr<ModelViewer> model_viewer = Ptr<ModelViewer>(new ModelViewer(device));
 	Ptr<MagnifyingGlass> magnifying_glass(new MagnifyingGlass(device));
+	Ptr< PostProcess> post_process(new PostProcess(device));
 	device->set_imgui_viewer_texture(magnifying_glass->render_texture);
 	Ptr< Terrain> terrain = Ptr<Terrain>(new Terrain(device));
 	volatile bool run = true;
@@ -343,6 +353,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		debug_draw->Update();
 		model_viewer->Update(delta_time, total_time, camera, *debug_draw);
 		magnifying_glass->Update(wnd->g_hWnd, *input, delta_time, total_time, camera, *debug_draw);
+		post_process->Update(wnd->g_hWnd, *input, delta_time, total_time, camera, *debug_draw);
 
 		camera.Update(delta_time, total_time, *input);
 		if (ImGui::CollapsingHeader("Performance"))
@@ -449,7 +460,17 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			}
 			command_buffer->end_geometry_pass();
 
-			command_buffer->copy_texture_to_texture(*(backbuffer_rtvs[current_frame_idx]->texture_resource), *final_render_target);
+			SharedPtr<Texture> copy_to_swap_chain_target = final_render_target;
+			// Post Process
+			{
+			
+				if (post_process->Render(*command_buffer, cbv_cam, intermediate_uav, final_srv, depth_srv, *linear_cb, w, h))
+				{
+					copy_to_swap_chain_target = intermediate_render_target;
+				}
+			}
+
+			command_buffer->copy_texture_to_texture(*(backbuffer_rtvs[current_frame_idx]->texture_resource), *copy_to_swap_chain_target);
 
 			// Magnify
 			{

@@ -63,13 +63,13 @@ namespace sg
 					{
 						if (active_binding.get_uavs(i) != Binding::INVALID_BINDING)
 						{
-							barriers_out[barrier_count_out] = CD3DX12_RESOURCE_BARRIER::Transition(active_binding.d3d12_uavs[i].buffer_resource->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, active_binding.d3d12_uavs[i].buffer_resource->get_read_resource_state());
+							barriers_out[barrier_count_out] = CD3DX12_RESOURCE_BARRIER::Transition(active_binding.d3d12_uavs[i].get_d3d12_resource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, active_binding.d3d12_uavs[i].get_d3d12_read_resource_state());
 							barrier_count_out++;
 						}
 
 						if (bind.get_uavs(i) != Binding::INVALID_BINDING)
 						{
-							barriers_in[barrier_count_in] = CD3DX12_RESOURCE_BARRIER::Transition(bind.d3d12_uavs[i].buffer_resource->get().Get(), bind.d3d12_uavs[i].buffer_resource->get_read_resource_state(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+							barriers_in[barrier_count_in] = CD3DX12_RESOURCE_BARRIER::Transition(bind.d3d12_uavs[i].get_d3d12_resource(), bind.d3d12_uavs[i].get_d3d12_read_resource_state(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 							barrier_count_in++;
 						}
 					}
@@ -150,7 +150,18 @@ namespace sg
 				for (u32 i = 0; i < bind.uav_binding_count; i++)
 				{
 					UnorderedAccessView& uav = bind.d3d12_uavs[i];
-					device->CreateUnorderedAccessView(uav.buffer_resource->get().Get(), nullptr, &uav.desc, dest_cpu);
+					if (uav.buffer_resource)
+					{
+						device->CreateUnorderedAccessView(uav.buffer_resource->get().Get(), nullptr, &uav.desc, dest_cpu);
+					}
+					else if (uav.texture_resource)
+					{
+						device->CreateUnorderedAccessView(uav.texture_resource->get().Get(), nullptr, &uav.desc, dest_cpu);
+					}
+					else
+					{
+						seAssert(false, "Must have a buffer or texture associated with uav!");
+					}
 					dest_cpu.Offset(descriptor_heap_increment);					
 				}
 
@@ -486,7 +497,7 @@ namespace sg
 					barriers[i] = {};
 					barriers[i].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
 					barriers[i].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-					barriers[i].UAV.pResource = active_binding.d3d12_uavs[i].buffer_resource->get().Get();
+					barriers[i].UAV.pResource = active_binding.d3d12_uavs[i].get_d3d12_resource();
 				}
 
 				command_list->ResourceBarrier(active_binding.uav_binding_count, barriers);
