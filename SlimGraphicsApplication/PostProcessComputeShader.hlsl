@@ -37,6 +37,27 @@ void main( uint3 dispatch_thread_id : SV_DispatchThreadID )
     {
 
         float4 out_colour = in_tex_colour.Load(int3(dispatch_thread_id.xy,0));
+        if (post_process_data.mode.x == 1)
+        {
+            out_colour = in_tex_depth.Load(int3(dispatch_thread_id.xy,0)).xxxx;
+        }        
+        
+        out_colour = clamp(out_colour, post_process_data.colour_clamping.x.xxxx, post_process_data.colour_clamping.y.xxxx);
+        if (post_process_data.colour_clamping.z > 0.0f)
+        {
+            float diff = post_process_data.colour_clamping.y - post_process_data.colour_clamping.x;
+            out_colour -= post_process_data.colour_clamping.x.xxxx;
+            out_colour /= diff.xxxx;
+        }
+
+        // Colour Bit Count
+        if (post_process_data.colour_bit_values.x > 0)
+        {
+            int bits = pow(2, post_process_data.colour_bit_values.x) - 1;
+            int4 colour_ints = int4(out_colour * float4(bits.xxxx)); // 0 - 255;
+            out_colour = clamp(float4(colour_ints / float4(bits.xxxx)), 0.0.xxxx, 1.0.xxxx);
+        }
+
         out_colour *= post_process_data.colour_output_enabled;
         out_tex[dispatch_thread_id.xy] = out_colour;
     }

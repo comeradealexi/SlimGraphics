@@ -45,8 +45,9 @@ public:
 	} post_process_technique = PostProcessTechnique::SimplePassthrough;
 
 	bool post_process_output[4] = { true, true, true, true };
-
+	bool colour_clamping_normalize = true;
 	bool enabled = true;
+	bool show_depth_buffer = false;
 	sg::BindingDesc pipeline_binding_desc;
 	sg::PipelineDesc::Compute pipeline_desc;
 	sg::SharedPtr<sg::Device> device;

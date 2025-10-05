@@ -87,8 +87,10 @@ struct MagnifyingGlassData
 
 struct PostProcessData
 {
-	int4 mode;
+	int4 mode; // x (0=col 1 = depth)
 	float4 colour_output_enabled;
+	int4 colour_bit_values; // x = bit_count (1-8)
+	float4 colour_clamping; // x = min, y = max, z = normalize
 };
 
 #ifdef __cplusplus
