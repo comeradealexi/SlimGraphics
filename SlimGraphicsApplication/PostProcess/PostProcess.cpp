@@ -17,6 +17,7 @@ PostProcess::PostProcess(sg::SharedPtr<sg::Device>& _device) : device(_device)
 	constant_data.colour_output_enabled = DirectX::XMFLOAT4A(1.0f, 1.0f, 1.0f, 1.0f);
 	constant_data.colour_clamping.x = 0.0f;
 	constant_data.colour_clamping.y = 1.0f;
+	constant_data.frac_output.y = 1.0f;
 }
 
 void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time, float total_time, const Camera& camera, DebugDraw& debug_draw)
@@ -46,11 +47,15 @@ void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time
 				constant_data.colour_clamping.x = constant_data.colour_clamping.y;
 		}
 		ImGui::Checkbox("Normalize Output", &colour_clamping_normalize);
+		ImGui::Text("Frac Clamping");
+		ImGui::Checkbox("Frac Enabled", &frac_enabled);
+		ImGui::SliderFloat("Frac Multipler", &constant_data.frac_output.y, 1.0f, 40.0f);
 	}
 
 	constant_data.colour_output_enabled = DirectX::XMFLOAT4A(post_process_output[0] ? 1.0f : 0.0f, post_process_output[1] ? 1.0f : 0.0f, post_process_output[2] ? 1.0f : 0.0f, post_process_output[3] ? 1.0f : 0.0f);
 	constant_data.colour_clamping.z = colour_clamping_normalize ? 1.0f : 0.0f;
 	constant_data.mode.x = show_depth_buffer ? 1 : 0;
+	constant_data.frac_output.x = frac_enabled ? 1.0f : 0.0f;
 
 	if (pipeline == nullptr)
 	{

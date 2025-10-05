@@ -48,6 +48,7 @@ public:
 	bool colour_clamping_normalize = true;
 	bool enabled = true;
 	bool show_depth_buffer = false;
+	bool frac_enabled = false;
 	sg::BindingDesc pipeline_binding_desc;
 	sg::PipelineDesc::Compute pipeline_desc;
 	sg::SharedPtr<sg::Device> device;

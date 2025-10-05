@@ -91,6 +91,7 @@ struct PostProcessData
 	float4 colour_output_enabled;
 	int4 colour_bit_values; // x = bit_count (1-8)
 	float4 colour_clamping; // x = min, y = max, z = normalize
+	float4 frac_output; // x = enabled y = frac_multiplier
 };
 
 #ifdef __cplusplus

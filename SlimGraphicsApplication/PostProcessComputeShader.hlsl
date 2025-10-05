@@ -58,6 +58,12 @@ void main( uint3 dispatch_thread_id : SV_DispatchThreadID )
             out_colour = clamp(float4(colour_ints / float4(bits.xxxx)), 0.0.xxxx, 1.0.xxxx);
         }
 
+        if (post_process_data.frac_output.x > 0.0f)
+        {
+            out_colour *= post_process_data.frac_output.y.xxxx;
+            out_colour = frac(out_colour);
+        }
+
         out_colour *= post_process_data.colour_output_enabled;
         out_tex[dispatch_thread_id.xy] = out_colour;
     }
