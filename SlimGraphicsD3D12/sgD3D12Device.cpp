@@ -818,6 +818,10 @@ namespace sg
             srv.texture_resource = texture;
             srv.desc = {};
             srv.desc.Format = texture->resource_create_desc.format;
+            if (srv.desc.Format == DXGI_FORMAT_D32_FLOAT)
+            {
+                srv.desc.Format = DXGI_FORMAT_R32_FLOAT;
+            }
             srv.desc.ViewDimension = translate_srv(texture->resource_create_desc.dimension);
             srv.desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
             srv.desc.Texture2D.MipLevels = texture->resource_create_desc.mip_count;

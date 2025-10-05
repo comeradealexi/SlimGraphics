@@ -189,6 +189,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	ShaderResourceView final_srv;
 
 	SharedPtr<Texture> intermediate_render_target;
+	ShaderResourceView intermediate_srv;
 	UnorderedAccessView intermediate_uav;
 	{
 		ResourceCreateDesc rcd = {};
@@ -202,6 +203,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 		intermediate_render_target = create_texture(*device, rcd);
 		intermediate_uav = device->create_unordered_access_view(intermediate_render_target);
+		intermediate_srv = device->create_shader_resource_view(intermediate_render_target);
+
 	}
 
 	//Pipeline
@@ -461,12 +464,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			command_buffer->end_geometry_pass();
 
 			SharedPtr<Texture> copy_to_swap_chain_target = final_render_target;
+			ShaderResourceView copy_to_swap_chain_target_view = final_srv;
 			// Post Process
 			{
 			
 				if (post_process->Render(*command_buffer, cbv_cam, intermediate_uav, final_srv, depth_srv, *linear_cb, w, h))
 				{
 					copy_to_swap_chain_target = intermediate_render_target;
+					copy_to_swap_chain_target_view = intermediate_srv;
 				}
 			}
 
