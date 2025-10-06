@@ -53,11 +53,11 @@ void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time
 		
 		bool modified = false;
 		ImGui::Text("Dispatch Counts:");
-		modified |= ImGui::RadioButton("4x4", (int*)&dispatch_mode, (int)DispatchMode::DM_4x4);
-		modified |= ImGui::RadioButton("8x4", (int*)&dispatch_mode, (int)DispatchMode::DM_8x4);
-		modified |= ImGui::RadioButton("8x8", (int*)&dispatch_mode, (int)DispatchMode::DM_8x8);
-		modified |= ImGui::RadioButton("16x8", (int*)&dispatch_mode, (int)DispatchMode::DM_16x8);
-		modified |= ImGui::RadioButton("16x16", (int*)&dispatch_mode, (int)DispatchMode::DM_16x16);
+		modified |= ImGui::RadioButton("4x4", (int*)&dispatch_mode, (int)DispatchMode::DM_4x4); ImGui::SameLine();
+		modified |= ImGui::RadioButton("8x4", (int*)&dispatch_mode, (int)DispatchMode::DM_8x4); ImGui::SameLine();
+		modified |= ImGui::RadioButton("8x8", (int*)&dispatch_mode, (int)DispatchMode::DM_8x8); ImGui::SameLine();
+		modified |= ImGui::RadioButton("16x8", (int*)&dispatch_mode, (int)DispatchMode::DM_16x8); ImGui::SameLine();
+		modified |= ImGui::RadioButton("16x16", (int*)&dispatch_mode, (int)DispatchMode::DM_16x16); ImGui::SameLine();
 		
 		if (modified)
 		{
