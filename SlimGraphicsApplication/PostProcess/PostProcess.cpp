@@ -50,6 +50,19 @@ void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time
 		ImGui::Text("Frac Clamping");
 		ImGui::Checkbox("Frac Enabled", &frac_enabled);
 		ImGui::SliderFloat("Frac Multipler", &constant_data.frac_output.y, 1.0f, 40.0f);
+		
+		bool modified = false;
+		ImGui::Text("Dispatch Counts:");
+		modified |= ImGui::RadioButton("4x4", (int*)&dispatch_mode, (int)DispatchMode::DM_4x4);
+		modified |= ImGui::RadioButton("8x4", (int*)&dispatch_mode, (int)DispatchMode::DM_8x4);
+		modified |= ImGui::RadioButton("8x8", (int*)&dispatch_mode, (int)DispatchMode::DM_8x8);
+		modified |= ImGui::RadioButton("16x8", (int*)&dispatch_mode, (int)DispatchMode::DM_16x8);
+		modified |= ImGui::RadioButton("16x16", (int*)&dispatch_mode, (int)DispatchMode::DM_16x16);
+		
+		if (modified)
+		{
+			pipeline = nullptr;
+		}
 	}
 
 	constant_data.colour_output_enabled = DirectX::XMFLOAT4A(post_process_output[0] ? 1.0f : 0.0f, post_process_output[1] ? 1.0f : 0.0f, post_process_output[2] ? 1.0f : 0.0f, post_process_output[3] ? 1.0f : 0.0f);

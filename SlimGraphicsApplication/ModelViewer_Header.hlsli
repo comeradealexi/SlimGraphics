@@ -654,7 +654,7 @@ float4 PSMain(PS_INPUT input
         {
             // Checks to ensure areas around waves such as edge of triangles behave as expected when there are not full waves
             bool is_left = input.position.x < (camera.screen_dimensions_and_depth_info.x * 0.5);
-            bool all_waves_same = WaveActiveAllEqual(is_left);
+            bool all_waves_same = WaveActiveAllTrue(is_left);
             if (all_waves_same)
             {
                 return is_left ? float4(0, 0, 1, 1) : float4(0, 1, 0, 1);
