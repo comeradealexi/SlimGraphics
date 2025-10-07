@@ -87,11 +87,12 @@ struct MagnifyingGlassData
 
 struct PostProcessData
 {
-	int4 mode; // x (0=col 1 = depth)
+	int4 mode; // xyz=dispatch values w=(0=col 1 = depth)
 	float4 colour_output_enabled;
 	int4 colour_bit_values; // x = bit_count (1-8)
 	float4 colour_clamping; // x = min, y = max, z = normalize
 	float4 frac_output; // x = enabled y = frac_multiplier
+	int4 optimisations; // x = enable grid tile optimisation
 };
 
 #ifdef __cplusplus

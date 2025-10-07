@@ -25,7 +25,12 @@ void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time
 	if (ImGui::CollapsingHeader("Post Process"))
 	{
 		ImGui::Checkbox("Enabled", &enabled);
-		ImGui::Checkbox("Show Depth Buffer", &show_depth_buffer);
+		ImGui::RadioButton("Colour Target", (int*)&post_process_technique, (int)PostProcessTechnique::ShowColourTarget);
+		ImGui::RadioButton("Depth Target", (int*)&post_process_technique, (int)PostProcessTechnique::ShowDepthTarget);
+		ImGui::RadioButton("SV_GroupID", (int*)&post_process_technique, (int)PostProcessTechnique::ShowSVGroupID);
+		ImGui::RadioButton("SV_GroupThreadID", (int*)&post_process_technique, (int)PostProcessTechnique::ShowSVGroupThreadID);
+		ImGui::RadioButton("SV_DispatchThreadID", (int*)&post_process_technique, (int)PostProcessTechnique::ShowSVDispatchThreadID);
+
 		ImGui::Text("Colour Channel Output");
 		ImGui::Checkbox("R", &post_process_output[0]);
 		ImGui::SameLine();
@@ -57,8 +62,12 @@ void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time
 		modified |= ImGui::RadioButton("8x4", (int*)&dispatch_mode, (int)DispatchMode::DM_8x4); ImGui::SameLine();
 		modified |= ImGui::RadioButton("8x8", (int*)&dispatch_mode, (int)DispatchMode::DM_8x8); ImGui::SameLine();
 		modified |= ImGui::RadioButton("16x8", (int*)&dispatch_mode, (int)DispatchMode::DM_16x8); ImGui::SameLine();
-		modified |= ImGui::RadioButton("16x16", (int*)&dispatch_mode, (int)DispatchMode::DM_16x16); ImGui::SameLine();
+		modified |= ImGui::RadioButton("16x16", (int*)&dispatch_mode, (int)DispatchMode::DM_16x16);
 		
+		ImGui::Text("Optimisations:");
+		ImGui::Checkbox("Grid Tile Optimisation", &grid_optimisation);
+		ImGui::Checkbox("Write To Original Dispatch Thread ID", &write_to_original_dispatch_thread_id);
+
 		if (modified)
 		{
 			pipeline = nullptr;
@@ -67,12 +76,14 @@ void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time
 
 	constant_data.colour_output_enabled = DirectX::XMFLOAT4A(post_process_output[0] ? 1.0f : 0.0f, post_process_output[1] ? 1.0f : 0.0f, post_process_output[2] ? 1.0f : 0.0f, post_process_output[3] ? 1.0f : 0.0f);
 	constant_data.colour_clamping.z = colour_clamping_normalize ? 1.0f : 0.0f;
-	constant_data.mode.x = show_depth_buffer ? 1 : 0;
+	constant_data.mode.w = (int)post_process_technique;
 	constant_data.frac_output.x = frac_enabled ? 1.0f : 0.0f;
+	constant_data.optimisations.x = grid_optimisation ? 1 : 0;
+	constant_data.optimisations.y = write_to_original_dispatch_thread_id ? 1 : 0;
 
 	if (pipeline == nullptr)
 	{
-		LoadPipeline();
+		LoadPipeline(); 
 	}
 }
 
@@ -80,6 +91,15 @@ bool PostProcess::Render(sg::CommandList& command_list, sg::ConstantBufferView& 
 {
 	if (enabled)
 	{
+		const DispatchModeInfo& mode_info = GetActiveDispatchInfo(dispatch_mode);
+		u32 dispatch_x = (width + mode_info.x - 1) / mode_info.x;	// Round up to nearest thread id
+		u32 dispatch_y = (height + mode_info.y - 1) / mode_info.y;	// Round up to nearest thread id
+		u32 dispatch_z = 1;
+
+		constant_data.mode.x = (int32_t)dispatch_x;
+		constant_data.mode.y = (int32_t)dispatch_y;
+		constant_data.mode.z = (int32_t)dispatch_z;
+
 		sg::ConstantBufferView cbv_data = cbuffer.AllocateAndWrite(constant_data);
 
 		Binding b;
@@ -99,10 +119,8 @@ bool PostProcess::Render(sg::CommandList& command_list, sg::ConstantBufferView& 
 		command_list.set_pipeline(pipeline.get());
 		command_list.bind(b, PipelineType::Compute);
 
-		const DispatchModeInfo& mode_info = GetActiveDispatchInfo(dispatch_mode);
-		u32 dispatch_x = (width + mode_info.x - 1) / mode_info.x;	// Round up to nearest thread id
-		u32 dispatch_y = (height + mode_info.y - 1) / mode_info.y;	// Round up to nearest thread id
-		command_list.dispatch(dispatch_x, dispatch_y);
+
+		command_list.dispatch(dispatch_x, dispatch_y, dispatch_z);
 	}
 
 	return enabled;
