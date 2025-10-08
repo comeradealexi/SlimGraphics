@@ -1,7 +1,29 @@
+/*
+* Copyright (c) 2020-2024, NVIDIA CORPORATION. All rights reserved.
+*
+* Permission is hereby granted, free of charge, to any person obtaining a
+* copy of this software and associated documentation files (the "Software"),
+* to deal in the Software without restriction, including without limitation
+* the rights to use, copy, modify, merge, publish, distribute, sublicense,
+* and/or sell copies of the Software, and to permit persons to whom the
+* Software is furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included in
+* all copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+* THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+* FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+* DEALINGS IN THE SOFTWARE.
+*/
+
 // Normally argument "dipatchGridDim" is parsed through a constant buffer. However, if for some reason it is a
 // static value, some DXC compiler versions will be unable to compile the code.
 // If that's the case for you, flip DXC_STATIC_DISPATCH_GRID_DIM definition from 0 to 1.
-#define DXC_STATIC_DISPATCH_GRID_DIM 1
+#define DXC_STATIC_DISPATCH_GRID_DIM 0
 
 // Divide the 2D-Dispatch_Grid into tiles of dimension [N, DipatchGridDim.y]
 // “CTA” (Cooperative Thread Array) == Thread Group in DirectX terminology
@@ -101,7 +123,7 @@ void main(uint3 group_id : SV_GroupID, uint3 group_thread_id : SV_GroupThreadID,
     
     if (post_process_data.optimisations.x != 0)
     {
-        dispatch_thread_id.xy = ThreadGroupTilingX(uint2(post_process_data.mode.x, post_process_data.mode.y), uint2(THREAD_COUNT_X, THREAD_COUNT_Y), 32, group_thread_id, group_id);
+        dispatch_thread_id.xy = ThreadGroupTilingX(uint2(post_process_data.mode.x, post_process_data.mode.y), uint2(THREAD_COUNT_X, THREAD_COUNT_Y), post_process_data.optimisations.z, group_thread_id, group_id);
         if (post_process_data.optimisations.y == false)
         {
             original_dispatch_thread_id.xy = dispatch_thread_id.xy;

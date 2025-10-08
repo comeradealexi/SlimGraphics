@@ -55,6 +55,8 @@ public:
 
 	bool grid_optimisation = false;
 	bool write_to_original_dispatch_thread_id = false;
+	const int grid_max_tile_widths[3] = { 8,16,32 };
+	int grid_max_tile_width_index = 0;
 
 	sg::BindingDesc pipeline_binding_desc;
 	sg::PipelineDesc::Compute pipeline_desc;

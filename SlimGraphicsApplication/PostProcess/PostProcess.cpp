@@ -67,6 +67,12 @@ void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time
 		ImGui::Text("Optimisations:");
 		ImGui::Checkbox("Grid Tile Optimisation", &grid_optimisation);
 		ImGui::Checkbox("Write To Original Dispatch Thread ID", &write_to_original_dispatch_thread_id);
+		ImGui::Text("Tile Width:");
+		ImGui::Indent();
+			ImGui::RadioButton("8", (int*)&grid_max_tile_width_index, (int)0);
+			ImGui::RadioButton("16", (int*)&grid_max_tile_width_index, (int)1);
+			ImGui::RadioButton("32", (int*)&grid_max_tile_width_index, (int)2);
+		ImGui::Unindent();
 
 		if (modified)
 		{
@@ -80,6 +86,7 @@ void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time
 	constant_data.frac_output.x = frac_enabled ? 1.0f : 0.0f;
 	constant_data.optimisations.x = grid_optimisation ? 1 : 0;
 	constant_data.optimisations.y = write_to_original_dispatch_thread_id ? 1 : 0;
+	constant_data.optimisations.z = grid_max_tile_widths[grid_max_tile_width_index];
 
 	if (pipeline == nullptr)
 	{
