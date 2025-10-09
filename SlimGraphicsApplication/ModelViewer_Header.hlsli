@@ -5,6 +5,7 @@
 #define VERTEX_TRIANGLE
 #define VERTEX_QUAD
 #define MESH_AMP_SHADER
+#define MODEL_VIEWER_SIMPLIFIED
 #endif
 
 cbuffer ConstantBufferData : register(b0)
@@ -26,9 +27,6 @@ cbuffer ModelBufferData : register(b1)
 #define UAV_INDEX_WAVE_INTRINSIC_COUNTER 6
 #define UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS 7
 
-RWStructuredBuffer<uint> uav0 : register(u0);
-
-
 struct VS_INPUT
 {
     float3 position : POSITION;
@@ -48,6 +46,44 @@ struct PS_INPUT
 #endif
 };
 
+#ifdef MODEL_VIEWER_SIMPLIFIED
+PS_INPUT VSMain(VS_INPUT vs_in, uint id : SV_VertexID)
+{
+    PS_INPUT result;
+    
+    result.position = mul(float4(vs_in.position, 1.0f), model.model_matrix);
+    result.position = mul(result.position, camera.view_projection_matrix);
+
+    result.normals = normalize(mul(vs_in.normals, (float3x3) model.model_matrix));
+
+    result.colour = vs_in.colour;
+    result.uvs = vs_in.uvs;
+
+    if (model.shading_mode == SHADING_MODE_VERTEXORDER)
+    {
+        float total_prims = (model.primitive_count * 3) * model.vertex_shading_mod;
+        result.colour = (((float) id) % total_prims) / total_prims;
+    }
+    
+    return result;
+}
+#ifdef FORCE_EARLY_DEPTH_STENCIL
+[earlydepthstencil]
+#endif
+float4 PSMain(PS_INPUT input) : SV_TARGET
+{
+#ifdef MODEL_VIEWER_SIMPLIFIED_PIXEL_SHADER_DISCARD
+    int idx_x = (int)((float)input.position.x) % 16;
+    int idx_y = (int)((float)input.position.y) % 16;
+    if (idx_x < (int)(((float)model.simplified_shading.x) * 16.0)) discard;
+    if (idx_y < (int)(((float)model.simplified_shading.x) * 16.0)) discard;
+#endif
+    
+    return float4(input.colour.xyz, 1) * abs(dot(float3(0, 0, 1), input.normals));
+}
+
+#else
+RWStructuredBuffer<uint> uav0 : register(u0);
 #ifdef MESH_SHADER
 struct Vertex
 {
@@ -65,8 +101,6 @@ struct Meshlet
     uint VertCount;
     uint PrimCount;
 };
-
-
 
 StructuredBuffer<Vertex>    Vertices                    : register(t0);
 StructuredBuffer<Meshlet>   Meshlets                    : register(t1);
@@ -668,3 +702,4 @@ float4 PSMain(PS_INPUT input
     
     return float4(input.colour.xyz, 1) * abs(dot(float3(0,0,1), input.normals));
 }
+#endif

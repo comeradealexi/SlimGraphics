@@ -45,6 +45,8 @@ struct ModelData
 	int4 wave_intrinsics; // x=lanesize, y=mode
 
 	int4 meshlet_culling; // x = cone culling, y = sphere frustum culling
+
+	float4 simplified_shading; // x = discard_dither_amount
 };
 
 struct CameraData

@@ -38,6 +38,26 @@
         "input_file": "ModelViewer_PixelMeshShader.hlsl"
       },
       {
+        "name": "SimplifiedModelViewer_PixelShader",
+        "defines": [ "MODEL_VIEWER_SIMPLIFIED" ],
+        "input_file": "ModelViewer_PixelShader.hlsl"
+      },
+      {
+        "name": "SimplifiedModelViewer_PixelShader_EDS",
+        "defines": [ "MODEL_VIEWER_SIMPLIFIED", "FORCE_EARLY_DEPTH_STENCIL" ],
+        "input_file": "ModelViewer_PixelShader.hlsl"
+      },
+      {
+        "name": "SimplifiedModelViewer_PixelShader_DISCARD",
+        "defines": [ "MODEL_VIEWER_SIMPLIFIED", "MODEL_VIEWER_SIMPLIFIED_PIXEL_SHADER_DISCARD" ],
+        "input_file": "ModelViewer_PixelShader.hlsl"
+      },
+      {
+        "name": "SimplifiedModelViewer_PixelShader_DISCARD_EDS",
+        "defines": [ "MODEL_VIEWER_SIMPLIFIED", "MODEL_VIEWER_SIMPLIFIED_PIXEL_SHADER_DISCARD", "FORCE_EARLY_DEPTH_STENCIL" ],
+        "input_file": "ModelViewer_PixelShader.hlsl"
+      },
+      {
         "name": "DebugWireframeShader_PixelShader",
         "input_file": "DebugWireframeShader.hlsl"
       },
@@ -61,6 +81,11 @@
       },
       {
         "name": "ModelViewer_VertexShader",
+        "input_file": "ModelViewer_VertexShader.hlsl"
+      },
+      {
+        "name": "SimplifiedModelViewer_VertexShader",
+        "defines": [ "MODEL_VIEWER_SIMPLIFIED" ],
         "input_file": "ModelViewer_VertexShader.hlsl"
       },
       {

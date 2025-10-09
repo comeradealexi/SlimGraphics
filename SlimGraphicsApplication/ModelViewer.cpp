@@ -33,8 +33,16 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 	{
 		shader_vertex = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShader.PC_DXC");
-		shader_pixel = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelShader.PC_DXC");
-		shader_pixel_eds = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelShader_EDS.PC_DXC");
+		shader_vertex_simple = create_vertex_shader(*device, "ShaderBin_Debug\\SimplifiedModelViewer_VertexShader.PC_DXC");
+
+		shaders_pixel[(int)StandardPixelPipelineMode::Full] = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelShader.PC_DXC");
+		shaders_pixel_eds[(int)StandardPixelPipelineMode::Full] = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelShader_EDS.PC_DXC");
+
+		shaders_pixel[(int)StandardPixelPipelineMode::Simple] = create_pixel_shader(*device, "ShaderBin_Debug\\SimplifiedModelViewer_PixelShader.PC_DXC");
+		shaders_pixel_eds[(int)StandardPixelPipelineMode::Simple] = create_pixel_shader(*device, "ShaderBin_Debug\\SimplifiedModelViewer_PixelShader_EDS.PC_DXC");
+
+		shaders_pixel[(int)StandardPixelPipelineMode::SimpleAndDiscard] = create_pixel_shader(*device, "ShaderBin_Debug\\SimplifiedModelViewer_PixelShader_DISCARD.PC_DXC");
+		shaders_pixel_eds[(int)StandardPixelPipelineMode::SimpleAndDiscard] = create_pixel_shader(*device, "ShaderBin_Debug\\SimplifiedModelViewer_PixelShader_DISCARD_EDS.PC_DXC");
 
 		shader_vertex_middle_triangle = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderMiddleTriangle.PC_DXC");
 		shader_vertex_triangle = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderTriangle.PC_DXC");
@@ -224,33 +232,6 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 
 	ImGui::Begin("Model Viewer", nullptr, 0);
 
-	// Mesh part screen size
-	if (model)
-	{
-		for (Model::MeshPart& mesh_part : model->GetMeshParts())
-		{
-			using namespace DirectX;
-			const float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z));
-			XMVECTOR centre = XMVectorSet(mesh_part.aabb.Center.x, mesh_part.aabb.Center.y, mesh_part.aabb.Center.z, 0.0f);
-			const XMVECTOR screen_space = XMVector3Transform(centre, camera.GetCameraShaderData().view_projection_matrix);
-			ImGui::Text("radius: %0.2f", radius);
-			ImGui::Text("centre: %0.2f %0.2f %0.2f", centre.m128_f32[0], centre.m128_f32[1], centre.m128_f32[2]);
-			ImGui::Text("screen_space: %0.2f %0.2f %0.2f", screen_space.m128_f32[0], screen_space.m128_f32[1], screen_space.m128_f32[2]);
-			ImGui::Text("screen_space / w: %0.2f %0.2f %0.2f", screen_space.m128_f32[0] / screen_space.m128_f32[3], screen_space.m128_f32[1] / screen_space.m128_f32[3], screen_space.m128_f32[2] / screen_space.m128_f32[3]);
-
-			XMFLOAT3 c;
-			XMStoreFloat3(&c, centre);
-			XMFLOAT4 outaabb;
-			bool bMult = projectBox(mesh_part.bounding_box_min, mesh_part.bounding_box_max, camera.GetNearPlane(), camera.GetCameraShaderData().view_projection_matrix, outaabb);
-			ImGui::BeginDisabled();
-			ImGui::Checkbox("projectSphereView returned bool", &bMult);
-			ImGui::EndDisabled();
-			ImGui::Text("aabb: xmin: %0.4f ymin: %0.4f", outaabb.x, outaabb.y);
-			ImGui::Text("aabb: xmax: %0.4f ymax: %0.4f", outaabb.z, outaabb.w);
-			ImGui::Text("Screen Percent X: %0.2f Screen Percent Y: %0.2f", fabsf(std::max(outaabb.x, -1.0f) - std::min(outaabb.z, 1.0f)) * 50.0f, fabsf(std::max(outaabb.y, -1.0f) - std::min(outaabb.w, 1.0f) ) * 50.0f);
-		}
-	}
-
 	struct UAVReadBack
 	{
 		u32 UAV_INDEX_PIXELS_SHADED;
@@ -267,6 +248,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	// Model scale and shading etc
 	if (ImGui::CollapsingHeader("Model"))
 	{
+		ImGui::Indent();
 		int list_changed = model_file_list_current;
 		if (ImGui::BeginCombo("File", model_file_list[model_file_list_current].c_str()))
 		{
@@ -282,16 +264,11 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			}
 			ImGui::EndCombo();
 		}
-		if (model_file_list_current != list_changed) 
+		if (model_file_list_current != list_changed)
 		{
 			model_init_data.file_path = model_file_list[model_file_list_current];
 			recreate_model = true;
 		}
-		ImGui::SeparatorText("Model Settings");
-		ImGui::BeginDisabled(!device->SupportsMeshShaders());
-		ImGui::Checkbox("Render with Mesh Shader", &render_as_mesh_shader);
-		ImGui::EndDisabled();
-		ImGui::Checkbox("Force Early Depth Stencil", &use_eds);
 		ImGui::BeginDisabled(scale_model_to_1);
 		ImGui::SliderFloat("Render Scale", &model_scale, 0.0f, 20.0f);
 		ImGui::EndDisabled();
@@ -307,7 +284,49 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 				model_scale = scale_mode_to_1_previous;
 			}
 		}
-		ImGui::Checkbox("Rotate Model", &rotate_model);
+		ImGui::Checkbox("Auto Rotate Model", &auto_rotate_model);
+		if (ImGui::Button("0 degrees")) { rotate_value = 0.0f; }
+		ImGui::SameLine();
+		if (ImGui::Button("90 degrees")) { rotate_value = 90.0f; }
+		ImGui::SameLine();
+		if (ImGui::Button("180 degrees")) { rotate_value = 180.0f; }
+		ImGui::SameLine();
+		if (ImGui::Button("270 degrees")) { rotate_value = 270.0f; }
+		ImGui::SliderFloat("Rotation", &rotate_value, 0.0f, 360.0f);
+		// Mesh part screen size
+		if (model)
+		{
+			if (ImGui::CollapsingHeader("Model Size Info"))
+			{
+				ImGui::PushID("ModelInfo");
+				uint32_t model_info_idx = 0;
+				for (Model::MeshPart& mesh_part : model->GetMeshParts())
+				{
+					ImGui::PushID(model_info_idx++);
+					using namespace DirectX;
+					const float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z));
+					XMVECTOR centre = XMVectorSet(mesh_part.aabb.Center.x, mesh_part.aabb.Center.y, mesh_part.aabb.Center.z, 0.0f);
+					const XMVECTOR screen_space = XMVector3Transform(centre, camera.GetCameraShaderData().view_projection_matrix);
+					ImGui::Text("radius: %0.2f", radius);
+					ImGui::Text("centre: %0.2f %0.2f %0.2f", centre.m128_f32[0], centre.m128_f32[1], centre.m128_f32[2]);
+					ImGui::Text("screen_space: %0.2f %0.2f %0.2f", screen_space.m128_f32[0], screen_space.m128_f32[1], screen_space.m128_f32[2]);
+					ImGui::Text("screen_space / w: %0.2f %0.2f %0.2f", screen_space.m128_f32[0] / screen_space.m128_f32[3], screen_space.m128_f32[1] / screen_space.m128_f32[3], screen_space.m128_f32[2] / screen_space.m128_f32[3]);
+
+					XMFLOAT3 c;
+					XMStoreFloat3(&c, centre);
+					XMFLOAT4 outaabb;
+					bool bMult = projectBox(mesh_part.bounding_box_min, mesh_part.bounding_box_max, camera.GetNearPlane(), camera.GetCameraShaderData().view_projection_matrix, outaabb);
+					ImGui::BeginDisabled();
+					ImGui::Checkbox("projectSphereView returned bool", &bMult);
+					ImGui::EndDisabled();
+					ImGui::Text("aabb: xmin: %0.4f ymin: %0.4f", outaabb.x, outaabb.y);
+					ImGui::Text("aabb: xmax: %0.4f ymax: %0.4f", outaabb.z, outaabb.w);
+					ImGui::Text("Screen Percent X: %0.2f Screen Percent Y: %0.2f", fabsf(std::max(outaabb.x, -1.0f) - std::min(outaabb.z, 1.0f)) * 50.0f, fabsf(std::max(outaabb.y, -1.0f) - std::min(outaabb.w, 1.0f)) * 50.0f);
+					ImGui::PopID();
+				}
+				ImGui::PopID();
+			}
+		}
 		ImGui::SeparatorText("Model Info:");
 		{
 			ImGui::Text("Bounds: %3.3f, %3.3f, %3.3f", model->max_extent.x, model->max_extent.y, model->max_extent.z);
@@ -339,8 +358,11 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 				ImGui::Unindent();
 			}
 		}
-		
-		ImGui::SeparatorText("UAV Readback:");
+		ImGui::Unindent();
+	}
+
+	{
+		if (ImGui::CollapsingHeader("UAV Readback"))
 		{
 			ImGui::PushID("UAV ReadbackInfo");
 			ImGui::Text("Pixels Shaded:   %u", uav_readback_values.UAV_INDEX_PIXELS_SHADED);
@@ -354,133 +376,153 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			ImGui::PopID();
 		}
 
-		ImGui::SeparatorText("Mesh Optimizer");
-		ImGui::BeginGroup();
-		recreate_model = ImGui::RadioButton("Default", (int*)&model_init_data.vertex_cache_opt_mode, (int) Model::InitData::VertexCachOptimisation::Default) || recreate_model;
-		recreate_model = ImGui::RadioButton("MeshOpt", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::MeshOpt) || recreate_model;
-		recreate_model = ImGui::RadioButton("DXMesh", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::DXMesh) || recreate_model;
-		recreate_model = ImGui::RadioButton("DXMeshLRU", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::DXMeshLRU) || recreate_model;
-
-		if (model_init_data.vertex_cache_opt_mode == Model::InitData::VertexCachOptimisation::DXMeshLRU)
+		if (ImGui::CollapsingHeader("Mesh Optimizer"))
 		{
-			recreate_model = ImGui::SliderInt("LRU Size", &model_init_data.dxmesh_lru_size, 1, 64) || recreate_model;
-		} 
-		else if (model_init_data.vertex_cache_opt_mode == Model::InitData::VertexCachOptimisation::DXMesh)
-		{
-			recreate_model = ImGui::SliderInt("Vertex Cache Size", &model_init_data.dxmesh_vertex_cache_size, 1, 64) || recreate_model;
-			recreate_model = ImGui::SliderInt("Restart Value", &model_init_data.dxmesh_restart, 1, 64) || recreate_model;
+			ImGui::BeginGroup();
+			recreate_model = ImGui::RadioButton("Default", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::Default) || recreate_model;
+			recreate_model = ImGui::RadioButton("MeshOpt", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::MeshOpt) || recreate_model;
+			recreate_model = ImGui::RadioButton("DXMesh", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::DXMesh) || recreate_model;
+			recreate_model = ImGui::RadioButton("DXMeshLRU", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::DXMeshLRU) || recreate_model;
 
-			if (model_init_data.dxmesh_restart > model_init_data.dxmesh_vertex_cache_size)
+			if (model_init_data.vertex_cache_opt_mode == Model::InitData::VertexCachOptimisation::DXMeshLRU)
 			{
-				model_init_data.dxmesh_restart = model_init_data.dxmesh_vertex_cache_size;
+				recreate_model = ImGui::SliderInt("LRU Size", &model_init_data.dxmesh_lru_size, 1, 64) || recreate_model;
+			}
+			else if (model_init_data.vertex_cache_opt_mode == Model::InitData::VertexCachOptimisation::DXMesh)
+			{
+				recreate_model = ImGui::SliderInt("Vertex Cache Size", &model_init_data.dxmesh_vertex_cache_size, 1, 64) || recreate_model;
+				recreate_model = ImGui::SliderInt("Restart Value", &model_init_data.dxmesh_restart, 1, 64) || recreate_model;
+
+				if (model_init_data.dxmesh_restart > model_init_data.dxmesh_vertex_cache_size)
+				{
+					model_init_data.dxmesh_restart = model_init_data.dxmesh_vertex_cache_size;
+				}
+
 			}
 
+			ImGui::EndGroup();
+			ImGui::Text("Mesh Simplification (LOD)");
+			recreate_model = ImGui::Checkbox("Simplify", &model_init_data.meshopt_simplification) || recreate_model;
+			ImGui::BeginDisabled(!model_init_data.meshopt_simplification);
+			recreate_model = ImGui::SliderFloat("Threshold", &model_init_data.meshopt_simplification_threshold, 0.0f, 1.0f) || recreate_model;
+			recreate_model = ImGui::SliderFloat("Target Error", &model_init_data.meshopt_simplification_target_error, 0.0f, 1.0f) || recreate_model;
+			//ImGui::Text("Reported LOD Error: %f", )
+			ImGui::EndDisabled();
 		}
 
-		ImGui::EndGroup();
-		ImGui::Text("Mesh Simplification (LOD)");
-		recreate_model = ImGui::Checkbox("Simplify", &model_init_data.meshopt_simplification) || recreate_model;
-		ImGui::BeginDisabled(!model_init_data.meshopt_simplification);
-		recreate_model = ImGui::SliderFloat("Threshold", &model_init_data.meshopt_simplification_threshold, 0.0f, 1.0f) || recreate_model;
-		recreate_model = ImGui::SliderFloat("Target Error", &model_init_data.meshopt_simplification_target_error, 0.0f, 1.0f) || recreate_model;
-		//ImGui::Text("Reported LOD Error: %f", )
-		ImGui::EndDisabled();
-
-		ImGui::SeparatorText("Mesh Shader");
-		ImGui::BeginDisabled(!render_as_mesh_shader);
-		ImGui::Checkbox("Amplification Shader Stage", &amplification_mesh_shader);
-		ImGui::Checkbox("Cone Culling", &mesh_shader_cone_culling);
-		ImGui::Checkbox("Sphere Frustum Culling", &mesh_shader_sphere_frustum_culling);
-
-		ImGui::EndDisabled();
-
-		ImGui::SeparatorText("Render Mode");
-		ImGui::BeginDisabled(render_as_mesh_shader);
-		ImGui::RadioButton("3D Model", (int*)&render_geo, (int)RenderGeo::Model);
-		ImGui::RadioButton("Fullscreen Triangle", (int*)&render_geo, (int)RenderGeo::FullscreenTriangle);
-		ImGui::RadioButton("Middle Triangle", (int*)&render_geo, (int)RenderGeo::MiddleTriangle);
-		ImGui::RadioButton("Fullscreen Quad", (int*)&render_geo, (int)RenderGeo::FullscreenQuad);
-		ImGui::EndDisabled();
-
-		ImGui::Text("Render Mode:");
-		ImGui::PushID("Render Mode Radio Buttons");
-		ImGui::RadioButton("Default", (int*)&render_mode, 0);
-		ImGui::RadioButton("Primitive Order", (int*)&render_mode, 1);
-		ImGui::RadioButton("Vertex Order", (int*)&render_mode, 2);
-		ImGui::RadioButton("Pixel Order", (int*)&render_mode, 3);
-		ImGui::RadioButton("Meshlet Order", (int*)&render_mode, 4);
-		ImGui::RadioButton("Meshlet Cull Angle", (int*)&render_mode, 5);
-		ImGui::RadioButton("Wave Intrinsics", (int*)&render_mode, 6);
-		ImGui::RadioButton("Amplification Order", (int*)&render_mode, 7);
-		ImGui::PopID();
-
-		if (render_mode == RenderMode::MeshletOrder || render_mode == RenderMode::MeshletCullAngle)
+		if (ImGui::CollapsingHeader("Render Settings"))
 		{
+			ImGui::SeparatorText("Model Settings");
+			ImGui::BeginDisabled(!device->SupportsMeshShaders());
+			ImGui::Checkbox("Render with Mesh Shader", &render_as_mesh_shader);
+			ImGui::EndDisabled();
+			ImGui::Checkbox("Force Early Depth Stencil", &use_eds);
+			ImGui::SeparatorText("Mesh Shader");
+			ImGui::BeginDisabled(!render_as_mesh_shader);
+			ImGui::Checkbox("Amplification Shader Stage", &amplification_mesh_shader);
+			ImGui::Checkbox("Cone Culling", &mesh_shader_cone_culling);
+			ImGui::Checkbox("Sphere Frustum Culling", &mesh_shader_sphere_frustum_culling);
 
-		}
-		else if (render_mode == RenderMode::VertexOrder || render_mode == RenderMode::PrimitiveOrder)
-		{
-			ImGui::PushID("Vert/Prim Shading ID IMGUI");
-			if (ImGui::CollapsingHeader("Vert/Prim Shading"))
+			ImGui::EndDisabled();
+
+			ImGui::SeparatorText("Render Mode");
+			ImGui::BeginDisabled(render_as_mesh_shader);
+			ImGui::Text("Geometry:");
+			ImGui::RadioButton("3D Model", (int*)&render_geo, (int)RenderGeo::Model);
+			ImGui::RadioButton("Fullscreen Triangle", (int*)&render_geo, (int)RenderGeo::FullscreenTriangle);
+			ImGui::RadioButton("Middle Triangle", (int*)&render_geo, (int)RenderGeo::MiddleTriangle);
+			ImGui::RadioButton("Fullscreen Quad", (int*)&render_geo, (int)RenderGeo::FullscreenQuad);
+			ImGui::Text("Shader:");
 			{
-				ImGui::SliderFloat("Modulus", &model_data.vertex_shading_mod, 0.0f, 1.0f);
+				recreate_pipeline |= ImGui::RadioButton("Full", (int*)&standard_vsps_render_mode, (int)StandardPixelPipelineMode::Full);
+				recreate_pipeline |= ImGui::RadioButton("Simple", (int*)&standard_vsps_render_mode, (int)StandardPixelPipelineMode::Simple);
+				recreate_pipeline |= ImGui::RadioButton("Simple + Discard", (int*)&standard_vsps_render_mode, (int)StandardPixelPipelineMode::SimpleAndDiscard);
 			}
+			ImGui::SliderFloat("Discard Value:", &model_data.simplified_shading.x, 0.0f, 1.0f);
+			ImGui::EndDisabled();
+
+			ImGui::BeginDisabled(standard_vsps_render_mode != StandardPixelPipelineMode::Full);
+			ImGui::Text("Advanced Render Mode:");
+			ImGui::PushID("Render Mode Radio Buttons");
+			ImGui::RadioButton("Default", (int*)&render_mode, 0);
+			ImGui::RadioButton("Primitive Order", (int*)&render_mode, 1);
+			ImGui::RadioButton("Vertex Order", (int*)&render_mode, 2);
+			ImGui::RadioButton("Pixel Order", (int*)&render_mode, 3);
+			ImGui::RadioButton("Meshlet Order", (int*)&render_mode, 4);
+			ImGui::RadioButton("Meshlet Cull Angle", (int*)&render_mode, 5);
+			ImGui::RadioButton("Wave Intrinsics", (int*)&render_mode, 6);
+			ImGui::RadioButton("Amplification Order", (int*)&render_mode, 7);
 			ImGui::PopID();
-		}
-		else if (render_mode == RenderMode::PixelOrder)
-		{
-			const float pixel_to_shade_maximum = camera.GetCameraShaderData().screen_dimensions_and_depth_info.x * camera.GetCameraShaderData().screen_dimensions_and_depth_info.y;
-			ImGui::PushID("Pixel Order ID IMGUI");
-			if (ImGui::CollapsingHeader("Pixel Order"))
-			{
-				ImGui::SliderFloat("Pixel Order Scale", &model_data.pixel_order_data1.x, 0.0f, 4.0f);
-				ImGui::SliderFloat("Modulus", &model_data.pixel_order_data1.y, 0.0f, 1.0f);
-				ImGui::Checkbox("Coloured", &pixel_shade_order_coloured);
+			ImGui::EndDisabled();
 
-				ImGui::Checkbox("Show Range Over Time", &pixel_shade_order_ranged_colour);
-				ImGui::Checkbox("Automated Over Time", &pixel_shade_order_automatic);
-				ImGui::SliderFloat("Pixel To Show", &pixel_shade_order_pixel_to_shade, 0.0f, pixel_to_shade_maximum);
-				ImGui::SliderFloat("Range Around Pixel", &pixel_shade_order_range, 0.0f, pixel_to_shade_maximum);
-				ImGui::SliderFloat("Automated Speed", &pixel_shade_order_automated_speed, 0.0f, pixel_to_shade_maximum);
+			if (render_mode == RenderMode::MeshletOrder || render_mode == RenderMode::MeshletCullAngle)
+			{
+
 			}
-			ImGui::PopID();
-
-			if (pixel_shade_order_automatic)
+			else if (render_mode == RenderMode::VertexOrder || render_mode == RenderMode::PrimitiveOrder)
 			{
-				pixel_shade_order_pixel_to_shade += (delta_time * pixel_shade_order_automated_speed);
-				if (pixel_shade_order_pixel_to_shade > pixel_to_shade_maximum)
-					pixel_shade_order_pixel_to_shade = 0.0f;
-			}
-
-			if (pixel_shade_order_ranged_colour) pixel_shade_order_coloured = false;
-			
-			//cb_data.scale[0] = scale;
-			//cb_data.scale[1] = mod;
-			model_data.pixel_order_data1.z = pixel_shade_order_coloured ? 1.0f : 0.0f;
-			model_data.pixel_order_data1.w = pixel_shade_order_ranged_colour ? 1.0f : 0.0f;
-
-			model_data.pixel_order_data2.x = pixel_shade_order_pixel_to_shade;
-			model_data.pixel_order_data2.y = pixel_shade_order_range;
-		}
-		else if (render_mode == RenderMode::WaveIntrinsics)
-		{
-			ImGui::Indent();
-			ImGui::PushID("Wave Intrinsics ID IMGUI");
-			if (ImGui::CollapsingHeader("Wave Intrinsics Order"))
-			{
-				ImGui::PushID("Wave Intrinsics Mode Radio Buttons");
-				ImGui::RadioButton("Lane Indices", (int*)&wave_intrinsic_render_mode, 0);
-				ImGui::RadioButton("Lane Order", (int*)&wave_intrinsic_render_mode, 1);
-				ImGui::RadioButton("Wave Usage Ratio", (int*)&wave_intrinsic_render_mode, 2); 
-				ImGui::RadioButton("Helper Lane", (int*)&wave_intrinsic_render_mode, 3);
-				ImGui::RadioButton("Wave Count", (int*)&wave_intrinsic_render_mode, 4);
-				ImGui::RadioButton("All Waves Same", (int*)&wave_intrinsic_render_mode, 5);
+				ImGui::PushID("Vert/Prim Shading ID IMGUI");
+				if (ImGui::CollapsingHeader("Vert/Prim Shading"))
+				{
+					ImGui::SliderFloat("Modulus", &model_data.vertex_shading_mod, 0.0f, 1.0f);
+				}
 				ImGui::PopID();
 			}
-			ImGui::PopID();
-			ImGui::Unindent();
-			model_data.wave_intrinsics.x = (int)device->GetWaveLaneCountMax();
-			model_data.wave_intrinsics.y = static_cast<int>(wave_intrinsic_render_mode);
+			else if (render_mode == RenderMode::PixelOrder)
+			{
+				const float pixel_to_shade_maximum = camera.GetCameraShaderData().screen_dimensions_and_depth_info.x * camera.GetCameraShaderData().screen_dimensions_and_depth_info.y;
+				ImGui::PushID("Pixel Order ID IMGUI");
+				if (ImGui::CollapsingHeader("Pixel Order"))
+				{
+					ImGui::SliderFloat("Pixel Order Scale", &model_data.pixel_order_data1.x, 0.0f, 4.0f);
+					ImGui::SliderFloat("Modulus", &model_data.pixel_order_data1.y, 0.0f, 1.0f);
+					ImGui::Checkbox("Coloured", &pixel_shade_order_coloured);
+
+					ImGui::Checkbox("Show Range Over Time", &pixel_shade_order_ranged_colour);
+					ImGui::Checkbox("Automated Over Time", &pixel_shade_order_automatic);
+					ImGui::SliderFloat("Pixel To Show", &pixel_shade_order_pixel_to_shade, 0.0f, pixel_to_shade_maximum);
+					ImGui::SliderFloat("Range Around Pixel", &pixel_shade_order_range, 0.0f, pixel_to_shade_maximum);
+					ImGui::SliderFloat("Automated Speed", &pixel_shade_order_automated_speed, 0.0f, pixel_to_shade_maximum);
+				}
+				ImGui::PopID();
+
+				if (pixel_shade_order_automatic)
+				{
+					pixel_shade_order_pixel_to_shade += (delta_time * pixel_shade_order_automated_speed);
+					if (pixel_shade_order_pixel_to_shade > pixel_to_shade_maximum)
+						pixel_shade_order_pixel_to_shade = 0.0f;
+				}
+
+				if (pixel_shade_order_ranged_colour) pixel_shade_order_coloured = false;
+
+				//cb_data.scale[0] = scale;
+				//cb_data.scale[1] = mod;
+				model_data.pixel_order_data1.z = pixel_shade_order_coloured ? 1.0f : 0.0f;
+				model_data.pixel_order_data1.w = pixel_shade_order_ranged_colour ? 1.0f : 0.0f;
+
+				model_data.pixel_order_data2.x = pixel_shade_order_pixel_to_shade;
+				model_data.pixel_order_data2.y = pixel_shade_order_range;
+			}
+			else if (render_mode == RenderMode::WaveIntrinsics)
+			{
+				ImGui::Indent();
+				ImGui::PushID("Wave Intrinsics ID IMGUI");
+				if (ImGui::CollapsingHeader("Wave Intrinsics Order"))
+				{
+					ImGui::PushID("Wave Intrinsics Mode Radio Buttons");
+					ImGui::RadioButton("Lane Indices", (int*)&wave_intrinsic_render_mode, 0);
+					ImGui::RadioButton("Lane Order", (int*)&wave_intrinsic_render_mode, 1);
+					ImGui::RadioButton("Wave Usage Ratio", (int*)&wave_intrinsic_render_mode, 2);
+					ImGui::RadioButton("Helper Lane", (int*)&wave_intrinsic_render_mode, 3);
+					ImGui::RadioButton("Wave Count", (int*)&wave_intrinsic_render_mode, 4);
+					ImGui::RadioButton("All Waves Same", (int*)&wave_intrinsic_render_mode, 5);
+					ImGui::PopID();
+				}
+				ImGui::PopID();
+				ImGui::Unindent();
+				model_data.wave_intrinsics.x = (int)device->GetWaveLaneCountMax();
+				model_data.wave_intrinsics.y = static_cast<int>(wave_intrinsic_render_mode);
+			}
 		}
 	}
 
@@ -541,10 +583,13 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	model_data.meshlet_culling.z = 0;
 	model_data.meshlet_culling.w = 0;
 
-	if (rotate_model)
+	if (auto_rotate_model || rotate_value > 0.0f)
 	{
-		rotate_value += delta_time * 35.0f;
-		rotate_value = fmodf(rotate_value, 360.0f);
+		if (auto_rotate_model)
+		{
+			rotate_value += delta_time * 35.0f;
+			rotate_value = fmodf(rotate_value, 360.0f);
+		}
 		DirectX::XMMATRIX rotation_matrix = DirectX::XMMatrixRotationRollPitchYaw(0.0f, DirectX::XMConvertToRadians(rotate_value), 0.0f);
 		model_data.model_matrix = DirectX::XMMatrixMultiply(model_data.model_matrix, rotation_matrix);
 	}
@@ -730,8 +775,8 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 void ModelViewer::CreatePipeline()
 {
 	pipeline_desc.input_layout = Model::Vertex::make_input_layout();
-	pipeline_desc.vertex_shader = shader_vertex;
-	pipeline_desc.pixel_shader = shader_pixel;
+	pipeline_desc.vertex_shader = standard_vsps_render_mode == StandardPixelPipelineMode::Full ? shader_vertex : shader_vertex_simple;
+	pipeline_desc.pixel_shader = shaders_pixel[(int)standard_vsps_render_mode];
 	pipeline_desc.render_target_count = 1;
 	pipeline_desc.render_target_format_list[0] = render_target_format;
 	pipeline_desc.depth_stencil_format = depth_stencil_format;
@@ -745,12 +790,12 @@ void ModelViewer::CreatePipeline()
 	
 	// ROV Variant
 	{
-		pipeline_desc.pixel_shader = shader_pixel_eds;
+		pipeline_desc.pixel_shader = shaders_pixel_eds[(int)standard_vsps_render_mode];
 		pipeline_eds = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
 		seAssert(pipeline_eds != nullptr, "Failed to create model view pipeline");
 
 		// Restore original ps
-		pipeline_desc.pixel_shader = shader_pixel;
+		pipeline_desc.pixel_shader = shaders_pixel[(int)standard_vsps_render_mode];
 	}
 
 	pipeline_desc.input_layout = {};

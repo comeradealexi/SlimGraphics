@@ -33,6 +33,14 @@ private:
 	};
 	RenderGeo render_geo = RenderGeo::Model;
 
+	enum class StandardPixelPipelineMode : int
+	{
+		Full,
+		Simple,
+		SimpleAndDiscard,
+		Max
+	} standard_vsps_render_mode = StandardPixelPipelineMode::Full;
+
 	sg::SharedPtr<sg::Device> device;
 	sg::SharedPtr<sg::Pipeline> pipeline;
 	sg::SharedPtr<sg::Pipeline> pipeline_eds;
@@ -42,12 +50,17 @@ private:
 
 	sg::BindingDesc pipeline_binding_desc;
 	sg::PipelineDesc::Graphics pipeline_desc;
+
 	sg::SharedPtr<sg::VertexShader> shader_vertex;
+	sg::SharedPtr<sg::VertexShader> shader_vertex_simple;
+
 	sg::SharedPtr<sg::VertexShader> shader_vertex_triangle;
 	sg::SharedPtr<sg::VertexShader> shader_vertex_middle_triangle;
 	sg::SharedPtr<sg::VertexShader> shader_vertex_quad;
-	sg::SharedPtr<sg::PixelShader> shader_pixel;
-	sg::SharedPtr<sg::PixelShader> shader_pixel_eds;
+
+	sg::SharedPtr<sg::PixelShader> shaders_pixel[(int)StandardPixelPipelineMode::Max];
+	sg::SharedPtr<sg::PixelShader> shaders_pixel_eds[(int)StandardPixelPipelineMode::Max];
+
 	sg::Ptr<Model> model;
 	Model::InitData model_init_data;
 	bool* render_model_bool_array = nullptr;
@@ -108,7 +121,7 @@ private:
 	float pixel_shade_order_range = 0.0f;
 
 	// rotate
-	bool rotate_model = false;
+	bool auto_rotate_model = false;
 	float rotate_value = 0.0f;
 
 	struct MeshShaderRendering
