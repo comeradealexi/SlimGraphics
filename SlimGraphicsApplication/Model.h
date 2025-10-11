@@ -147,7 +147,7 @@ public:
 
 	struct Material
 	{
-
+		std::string material_name;
 	};
 
 	struct DebugModels

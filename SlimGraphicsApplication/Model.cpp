@@ -89,7 +89,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					v.Normal = XMFLOAT3(&aMesh->mNormals[vert_idx].x);
 					v.Tangent = aMesh->mTangents ? XMFLOAT3(&aMesh->mTangents[vert_idx].x) : XMFLOAT3(0, 0, 0);
 					mesh.vertices.push_back(v);
-					//mesh.m_verticesCPU.push_back(v);
+
 					max_extent = SetAbsMax(max_extent, v.Position);
 					mesh.max_extent = SetAbsMax(mesh.max_extent, v.Position);
 
@@ -350,39 +350,19 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 				}
 			}
 
-#if 0 // This is incompatible with mesh modifications during constructions as we need to know total mesh size of all meshes before scaling but we process per mesh
-			if (init_data.scalemodel1to1)
+			// Parse materials
+			if (aScene->mNumMaterials)
 			{
-				float position_multiplier = 1.0f / std::max(std::max(max_extent.x, max_extent.y), max_extent.z);
-				max_extent = {};
-				bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };
-				bounding_box_max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
-
-				for (uint32_t mesh_idx = 0; mesh_idx < mesh_parts.size(); mesh_idx++)
+				materials.resize(aScene->mNumMaterials);
+				for (size_t material_idx = 0; material_idx < aScene->mNumMaterials; material_idx++)
 				{
-					MeshPart& mesh = mesh_parts[mesh_idx];
-					mesh.max_extent = {};
-					mesh.bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };
-					mesh.bounding_box_max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+					aiMaterial* ai_material = aScene->mMaterials[material_idx];
+					seAssert(ai_material, "Expected valid ai_material pointer");
 
-					for (Vertex& v : mesh.vertices)
-					{
-						v.Position.x *= position_multiplier;
-						v.Position.y *= position_multiplier;
-						v.Position.z *= position_multiplier;
-
-						max_extent = SetAbsMax(max_extent, v.Position);
-						mesh.max_extent = SetAbsMax(mesh.max_extent, v.Position);
-
-						bounding_box_max = Max(bounding_box_max, v.Position);
-						mesh.bounding_box_max = Max(mesh.bounding_box_max, v.Position);
-
-						bounding_box_min = Min(bounding_box_min, v.Position);
-						mesh.bounding_box_min = Min(mesh.bounding_box_min, v.Position);
-					}
+					Material& model_material = materials[material_idx];				
+					model_material.material_name = ai_material->GetName().C_Str();
 				}
 			}
-#endif
 
 			std::vector<Vertex> vertices;
 			std::vector<uint32_t> indices;

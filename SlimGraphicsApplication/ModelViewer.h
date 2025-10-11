@@ -85,6 +85,7 @@ private:
 	bool recreate_model = true;
 	bool render_wireframe = false;
 	float render_percentage = 1.0f;
+	int model_render_count = 1;
 	bool render_as_mesh_shader = true;
 	bool depth_enable = true;
 	bool depth_write = true;

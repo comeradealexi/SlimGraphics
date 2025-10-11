@@ -150,10 +150,38 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/erato/erato.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/mori_knob/testObj.obj");	
 	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/Nefertiti.obj");	
-	
+
+	// Speed Tree
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/White Oak/HighPoly/White_Oak.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/European Linden/HighPoly/European_Linden.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Azalea/HighPoly/Azalea.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Hedge/HighPoly/Hedge.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Japanese Maple/HighPoly/Japanese_Maple.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Red Maple Young/HighPoly/Red_Maple_Young.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Azalea/LowPoly/Azalea_LowPoly.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Boston Fern/HighPoly/Boston_Fern.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Hedge/LowPoly/Hedge_LowPoly.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/European Linden/LowPoly/European_Linden_LowPoly.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Japanese Maple/LowPoly/Japanese_Maple_LowPoly.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Red Maple Young/LowPoly/Red_Maple_Young_LowPoly.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/White Oak/LowPoly/White_Oak_LowPoly.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Backyard Grass/HighPoly/Backyard_Grass.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Boston Fern/LowPoly/Boston_Fern_LowPoly.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Backyard Grass/LowPoly/Backyard_Grass_LowPoly.fbx");
+
+	// https://developer.nvidia.com/orca
 
 	model_file_list.push_back("../SlimGraphicsAssets/Bistro_v5_2/BistroInterior.fbx");
 	model_file_list.push_back("../SlimGraphicsAssets/Bistro_v5_2/BistroInterior_Wine.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/Bistro_v5_2/BistroExterior.fbx");
+
+	model_file_list.push_back("../SlimGraphicsAssets/Hermanubis/Hermanubis_High.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/Hermanubis/Hermanubis_low.fbx");
+
+	model_file_list.push_back("../SlimGraphicsAssets/UE4SunTemple_v4/SunTemple/SunTemple.fbx");
+
+	model_file_list.push_back("../SlimGraphicsAssets/EmeraldSquare_v4_1/EmeraldSquare_Day.fbx");
+	model_file_list.push_back("../SlimGraphicsAssets/EmeraldSquare_v4_1/EmeraldSquare_Dusk.fbx");
 
 	model_init_data.file_path = model_file_list[0];
 
@@ -273,6 +301,8 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::SliderFloat("Render Scale", &model_scale, 0.0f, 20.0f);
 		ImGui::EndDisabled();
 		ImGui::SliderFloat("Render Percent", &render_percentage, 0.0f, 1.0f);
+		int max_models = model ? model->GetMeshParts().size() : 0;
+		ImGui::SliderInt("Models To Render", &model_render_count, 0, max_models);
 		if (ImGui::Checkbox("Scale model size -1/+1", &scale_model_to_1))
 		{
 			if (scale_model_to_1)
@@ -641,6 +671,11 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				});
 		}
 
+		if (render_list_ordered.size() != model_render_count)
+		{
+			render_list_ordered.resize(model_render_count);
+		}
+
 		if (render_as_mesh_shader)
 		{
 			MeshShaderRendering& mesh_shader_rendering = amplification_mesh_shader ? amplification_mesh_shading : mesh_shading;
@@ -863,6 +898,7 @@ void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap)
 
 	if (model)
 	{
+		model_render_count = model->GetMeshParts().size();
 		render_model_bool_array = new bool[model->GetMeshParts().size()];
 		for (size_t i = 0; i < model->GetMeshParts().size(); i++)
 		{
