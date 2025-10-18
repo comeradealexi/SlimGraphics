@@ -101,11 +101,11 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 		const ResourceCreateDesc default_tex_desc(1, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
 		default_texture = create_texture(*device, default_tex_desc);
 		default_texture_srv = device->create_shader_resource_view(default_texture);
-		UploadHeap::Offset offset = upload_heap->allocate_upload_memory(256, 256);
-		char fullmem[256];
-		memset(fullmem, 0xff, 256);
-		upload_heap->write_upload_memory(offset, fullmem, 256);
-		upload_heap->upload_to_texture(default_texture.get(), offset, 256);
+		UploadHeap::Offset offset = upload_heap->allocate_upload_memory(D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+		char fullmem[D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT];
+		memset(fullmem, 0xff, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+		upload_heap->write_upload_memory(offset, fullmem, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+		upload_heap->upload_to_texture(default_texture.get(), offset, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
 	}
 
 	Assimp::Importer ai_importer;

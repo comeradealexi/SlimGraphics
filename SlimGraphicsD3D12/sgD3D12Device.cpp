@@ -371,7 +371,7 @@ namespace sg
 							samplers_modified |= ImGui::Combo("AddressU", (int*)&desc.address_u, texture_address, sizeof(texture_address) / sizeof(texture_address[0]));
 							samplers_modified |= ImGui::Combo("AddressV", (int*)&desc.address_v, texture_address, sizeof(texture_address) / sizeof(texture_address[0]));
 							samplers_modified |= ImGui::Combo("AddressW", (int*)&desc.address_w, texture_address, sizeof(texture_address) / sizeof(texture_address[0]));
-							samplers_modified |= ImGui::SliderFloat("Mip Lod Bias", &desc.mip_lod_bias, -16.0f, 16.0f);
+							samplers_modified |= ImGui::SliderFloat("Mip Lod Bias", &desc.mip_lod_bias, -16.0f, 15.990000f);
 							samplers_modified |= ImGui::SliderInt("Max Anisotropy", (int*)&desc.max_anisotropy, 1, 16);
 							//ComparisonFunction comparison_func = ComparisonFunction::LessEqual;
 							//float border_color[4];
@@ -761,6 +761,11 @@ namespace sg
             ResourceCreateDesc resource_create_desc;
             se::g_ddsAllocatorOverrideFunction = [&](const D3D12_RESOURCE_DESC& resource_desc, ID3D12Resource** texture) -> HRESULT
                 {
+                    resource_create_desc.width = resource_desc.Width;
+                    resource_create_desc.height = resource_desc.Height;
+                    resource_create_desc.depth = resource_desc.DepthOrArraySize;
+                    resource_create_desc.mip_count = resource_desc.MipLevels;
+                    resource_create_desc.format = resource_desc.Format;
 					D3D12_RESOURCE_ALLOCATION_INFO alloc_info = device->GetResourceAllocationInfo(0, 1, &resource_desc);
                     mem_size = alloc_info.SizeInBytes;
                     memory = allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, alloc_info.SizeInBytes, alloc_info.Alignment);
@@ -782,7 +787,8 @@ namespace sg
             u32 mip_index = 0;
             for (const D3D12_SUBRESOURCE_DATA& mip : sub_resource_data)
             {
-                UploadHeap::Offset offset = upload_heap.allocate_upload_memory(mip.SlicePitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+                // TODO - handle mips which don't have a row alignment of D3D12_TEXTURE_DATA_PITCH_ALIGNMENT
+                UploadHeap::Offset offset = upload_heap.allocate_upload_memory(mip.SlicePitch, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
                 upload_heap.write_upload_memory(offset, mip.pData, mip.SlicePitch);
                 upload_heap.upload_to_texture(texture.get(), mip_index, offset, mip.SlicePitch);
                 mip_index++;
