@@ -121,7 +121,8 @@ namespace sg
 
 			ComPtr<ID3D12Device> get_device() { return device; }
 
-			void SetSamplers(sg::SamplerDesc* samplers, sg::u32 count);
+			void AddSamplers(const char* sampler_name, const sg::SamplerDesc& sampler_desc);
+			void RecreateSamplers();
 
 		private:
 			ComPtr<ID3D12RootSignature> create_root_signature(const BindingDesc& binding_desc, bool compute);
@@ -152,6 +153,13 @@ namespace sg
 				SharedPtr<Memory> texture_memory;
 				SharedPtr<Texture> texture;
 			} imgui_texture_viewer;
+
+			struct SamplerInfo
+			{
+				std::string name;
+				sg::SamplerDesc sampler_desc;
+			};
+			std::vector<SamplerInfo> samplers;
 		};
 	}
 }

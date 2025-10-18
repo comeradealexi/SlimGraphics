@@ -279,7 +279,7 @@ namespace sg
 
 	struct SamplerDesc
 	{
-		Filter filter;
+		Filter filter = Filter::Anisotropic;
 		TextureAddressMode address_u = TextureAddressMode::Wrap;
 		TextureAddressMode address_v = TextureAddressMode::Wrap;
 		TextureAddressMode address_w = TextureAddressMode::Wrap;

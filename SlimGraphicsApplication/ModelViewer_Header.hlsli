@@ -18,6 +18,14 @@ cbuffer ModelBufferData : register(b1)
     ModelData model;
 };
 
+SamplerState sampler_diffuse : register(s0);
+SamplerState sampler_specular : register(s1);
+SamplerState sampler_normals : register(s2);
+
+Texture2D texture_diffuse : register(t0);
+Texture2D texture_specular : register(t1);
+Texture2D texture_normals : register(t2);
+
 #define UAV_INDEX_PIXELS_SHADED 0
 #define UAV_INDEX_MESH_SHADER_INVOCATIONS 1
 #define UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT 2
@@ -102,11 +110,11 @@ struct Meshlet
     uint PrimCount;
 };
 
-StructuredBuffer<Vertex>    Vertices                    : register(t0);
-StructuredBuffer<Meshlet>   Meshlets                    : register(t1);
-StructuredBuffer<uint>      UniqueVertexIndices         : register(t2);
-StructuredBuffer<uint>      PrimitiveIndices            : register(t3);
-StructuredBuffer<MeshletCullData> MeshletCullingDatas   : register(t4);
+StructuredBuffer<Vertex>    Vertices                    : register(t3);
+StructuredBuffer<Meshlet>   Meshlets                    : register(t4);
+StructuredBuffer<uint>      UniqueVertexIndices         : register(t5);
+StructuredBuffer<uint>      PrimitiveIndices            : register(t6);
+StructuredBuffer<MeshletCullData> MeshletCullingDatas   : register(t7);
 
 // Computes visiblity of an instance
 // Performs a simple world-space bounding sphere vs. frustum plane check.
@@ -700,6 +708,11 @@ float4 PSMain(PS_INPUT input
         }
     }
     
-    return float4(input.colour.xyz, 1) * abs(dot(float3(0,0,1), input.normals));
+    float4 diffuse_col = texture_diffuse.Sample(sampler_diffuse, input.uvs * float2(1, -1));
+    //if (diffuse_col.a < 0.75f) discard;
+    float4 spec_col = texture_specular.Sample(sampler_specular, input.uvs * float2(1, -1)); 
+    float4 normals_col = texture_normals.Sample(sampler_normals, input.uvs * float2(1, -1)); 
+
+    return diffuse_col * float4(input.colour.xyz, 1) * abs(dot(float3(0,0,1), input.normals));
 }
 #endif

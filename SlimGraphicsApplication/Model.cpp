@@ -18,6 +18,7 @@
 #include "ShaderSharedStructures.h"
 #include <lodepng.h>
 #include "stb_image.h"
+#include "sgUtils.h"
 
 using namespace DirectX;
 using namespace sg;
@@ -95,6 +96,18 @@ static DirectX::XMFLOAT3 Min(const DirectX::XMFLOAT3& a, DirectX::XMFLOAT3& b)
 
 Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data) : init_data(_init_data)
 {
+	// Create the default texture
+	{
+		const ResourceCreateDesc default_tex_desc(1, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
+		default_texture = create_texture(*device, default_tex_desc);
+		default_texture_srv = device->create_shader_resource_view(default_texture);
+		UploadHeap::Offset offset = upload_heap->allocate_upload_memory(256, 256);
+		char fullmem[256];
+		memset(fullmem, 0xff, 256);
+		upload_heap->write_upload_memory(offset, fullmem, 256);
+		upload_heap->upload_to_texture(default_texture.get(), offset, 256);
+	}
+
 	Assimp::Importer ai_importer;
 	const int flags = aiProcess_Triangulate
 		| aiProcess_PreTransformVertices
@@ -406,6 +419,10 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					Material& model_material = materials[material_idx];				
 					model_material.material_name = ai_material->GetName().C_Str();
 
+					model_material.tex_diffuse = default_texture;
+					model_material.tex_specular = default_texture;
+					model_material.tex_normal = default_texture;
+
 					std::pair<aiTextureType,sg::SharedPtr<sg::Texture>&> textures_to_load[] = {
 						{aiTextureType_DIFFUSE, model_material.tex_diffuse }, 
 						{aiTextureType_SPECULAR, model_material.tex_specular},
@@ -424,7 +441,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 								{
 									tex.second = device->create_texture_from_dds(texture_data.data(), texture_data.size(), *upload_heap);
 								}
-								else if (StringEndsWith(texture_path, ".jpg") || StringEndsWith(texture_path, ".jpeg") || StringEndsWith(texture_path, ".bmp") || StringEndsWith(texture_path, ".tga"))
+								else if (StringEndsWith(texture_path, ".jpg") || StringEndsWith(texture_path, ".jpeg") || StringEndsWith(texture_path, ".bmp") || StringEndsWith(texture_path, ".tga") || StringEndsWith(texture_path, ".tif"))
 								{
 									int w, h, c;
 									void* raw_data = stbi_load_from_memory(texture_data.data(), texture_data.size(), &w, &h, &c, 4);
@@ -470,6 +487,9 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 							}
 						}
 					}
+					model_material.srv_diffuse = device->create_shader_resource_view(model_material.tex_diffuse);
+					model_material.srv_specular = device->create_shader_resource_view(model_material.tex_specular);
+					model_material.srv_normal = device->create_shader_resource_view(model_material.tex_normal);
 				}
 			}
 

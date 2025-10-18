@@ -415,5 +415,75 @@ namespace sg
 				return D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
 			}
 		}
+
+		static D3D12_FILTER translate(sg::Filter filter)
+		{
+			switch (filter)
+			{
+			case sg::Filter::MinMagMipPoint:
+				return D3D12_FILTER_MIN_MAG_MIP_POINT;
+			case sg::Filter::MinMagPointMipLinear:
+				return D3D12_FILTER_MIN_MAG_POINT_MIP_LINEAR;
+			case sg::Filter::MinPointMagLinearMipPoint:
+				return D3D12_FILTER_MIN_POINT_MAG_LINEAR_MIP_POINT;
+			case sg::Filter::MinPointMagMipLinear:
+				return D3D12_FILTER_MIN_POINT_MAG_MIP_LINEAR;
+			case sg::Filter::MinLinearMagMipPoint:
+				return D3D12_FILTER_MIN_LINEAR_MAG_MIP_POINT;
+			case sg::Filter::MinLinearMagPointMipLinear:
+				return D3D12_FILTER_MIN_LINEAR_MAG_POINT_MIP_LINEAR;
+			case sg::Filter::MinMagLinearMipPoint:
+				return D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;
+			case sg::Filter::MinMagMipLinear:
+				return D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+			case sg::Filter::MinMagAnisotropicMipPoint:
+				return D3D12_FILTER_MIN_MAG_ANISOTROPIC_MIP_POINT;
+			case sg::Filter::Anisotropic:
+				return D3D12_FILTER_ANISOTROPIC;
+			default:
+				seAssert(false, "Missing filter translation");
+				return {};
+			}
+		}
+
+		static D3D12_TEXTURE_ADDRESS_MODE translate(sg::TextureAddressMode texture_address)
+		{
+			switch (texture_address)
+			{
+			case sg::TextureAddressMode::Wrap:
+				return D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+			case sg::TextureAddressMode::Mirror:
+				return D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+			case sg::TextureAddressMode::Clamp:
+				return D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+			case sg::TextureAddressMode::Border:
+				return D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+			case sg::TextureAddressMode::MirrorOnce:
+				return D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE;
+			default:
+				seAssert(false, "Missing filter translation");
+				return {};
+			}
+		}
+
+		static D3D12_SAMPLER_DESC translate(const sg::SamplerDesc& sampler_desc)
+		{
+			D3D12_SAMPLER_DESC sd = {};
+			sd.Filter = translate(sampler_desc.filter);
+			sd.AddressU = translate(sampler_desc.address_u);
+			sd.AddressV = translate(sampler_desc.address_v);
+			sd.AddressW = translate(sampler_desc.address_w);
+			sd.MipLODBias = sampler_desc.mip_lod_bias;
+			sd.MaxAnisotropy = sampler_desc.max_anisotropy;
+			sd.ComparisonFunc = translate(sampler_desc.comparison_func);
+			sd.BorderColor[0] = sampler_desc.border_color[0];
+			sd.BorderColor[1] = sampler_desc.border_color[1];
+			sd.BorderColor[2] = sampler_desc.border_color[2];
+			sd.BorderColor[3] = sampler_desc.border_color[3];
+			sd.MinLOD = sampler_desc.min_lod;
+			sd.MaxLOD = sampler_desc.max_lod;
+
+			return sd;
+		}
 	}
 }

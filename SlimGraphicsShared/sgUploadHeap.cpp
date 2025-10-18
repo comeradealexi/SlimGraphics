@@ -73,7 +73,7 @@ void UploadHeap::upload_to_texture(sg::Texture* dest_texture, Offset upload_heap
 void UploadHeap::upload_to_texture(sg::Texture* dest_texture, sg::u32 texture_mip_index, Offset upload_heap_offset, sg::u32 size)
 {
 	PerFrameData& data = frame_data();
-
+	data.command_list->copy_buffer_to_texture(size, dest_texture, data.buffer.get(), upload_heap_offset, texture_mip_index);
 }
 
 void UploadHeap::end_frame(CommandQueue* queue)

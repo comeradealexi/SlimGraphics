@@ -149,8 +149,11 @@ public:
 	{
 		std::string material_name;
 		sg::SharedPtr<sg::Texture> tex_diffuse;
+		sg::ShaderResourceView srv_diffuse;
 		sg::SharedPtr<sg::Texture> tex_specular;
+		sg::ShaderResourceView srv_specular;
 		sg::SharedPtr<sg::Texture> tex_normal;
+		sg::ShaderResourceView srv_normal;
 	};
 
 	struct DebugModels
@@ -169,6 +172,7 @@ public:
 	sg::ShaderResourceView& GetVertexBufferSRV() { return vb_srv; }
 	sg::IndexBufferView& GetIndexBufferView() { return ibv; }
 	std::vector<MeshPart>& GetMeshParts() { return mesh_parts; }
+	Material& GetMaterial(sg::u32 material_index) { return materials[material_index]; }
 
 private:
 	InitData init_data;
@@ -180,6 +184,9 @@ private:
 	sg::IndexBufferView ibv;
 	std::vector<MeshPart> mesh_parts;
 	std::vector<Material> materials;
+
+	sg::SharedPtr<sg::Texture> default_texture;
+	sg::ShaderResourceView default_texture_srv;
 public:
 	DirectX::XMFLOAT3 max_extent = {};
 	DirectX::XMFLOAT3 bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };

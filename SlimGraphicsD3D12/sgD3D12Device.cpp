@@ -351,6 +351,47 @@ namespace sg
                 ImGui::Unindent();
             }
 
+            if (ImGui::CollapsingHeader("Global Samplers"))
+            {
+				ImGui::Indent();
+				{
+					bool samplers_modified = false;
+					ImGui::PushID("Samplers");
+					for (size_t i = 0; i < samplers.size(); i++)
+					{
+						ImGui::PushID(i);
+						SamplerInfo& sampler_info = samplers[i];
+						SamplerDesc& desc = sampler_info.sampler_desc;
+						if (ImGui::CollapsingHeader(sampler_info.name.c_str()))
+						{
+							static const char* filters[] = { "MinMagMipPoint","MinMagPointMipLinear","MinPointMagLinearMipPoint","MinPointMagMipLinear","MinLinearMagMipPoint","MinLinearMagPointMipLinear","MinMagLinearMipPoint","MinMagMipLinear","MinMagAnisotropicMipPoint","Anisotropic" };
+							static const char* texture_address[] = { "Wrap","Mirror","Clamp","Border","MirrorOnce" };
+
+							samplers_modified |= ImGui::Combo("Filter", (int*)&desc.filter, filters, sizeof(filters) / sizeof(filters[0]));
+							samplers_modified |= ImGui::Combo("AddressU", (int*)&desc.address_u, texture_address, sizeof(texture_address) / sizeof(texture_address[0]));
+							samplers_modified |= ImGui::Combo("AddressV", (int*)&desc.address_v, texture_address, sizeof(texture_address) / sizeof(texture_address[0]));
+							samplers_modified |= ImGui::Combo("AddressW", (int*)&desc.address_w, texture_address, sizeof(texture_address) / sizeof(texture_address[0]));
+							samplers_modified |= ImGui::SliderFloat("Mip Lod Bias", &desc.mip_lod_bias, -16.0f, 16.0f);
+							samplers_modified |= ImGui::SliderInt("Max Anisotropy", (int*)&desc.max_anisotropy, 1, 16);
+							//ComparisonFunction comparison_func = ComparisonFunction::LessEqual;
+							//float border_color[4];
+							samplers_modified |= ImGui::SliderFloat("Min Lod", &desc.min_lod, 0.0f, 32.0f);
+							samplers_modified |= ImGui::SliderFloat("Max Lod", &desc.max_lod, 0.0f, 32.0f);
+
+							if (desc.max_lod < desc.min_lod) desc.min_lod = desc.max_lod;
+						}
+						ImGui::PopID();
+					}
+					if (samplers_modified)
+					{
+						RecreateSamplers();
+					}
+					ImGui::PopID();
+				}
+				ImGui::Unindent();
+            }
+
+
             ImGui::PopID();            
 		}
 
@@ -1047,9 +1088,27 @@ namespace sg
         }
 
 
-		void Device::SetSamplers(sg::SamplerDesc* samplers, sg::u32 count)
+		void Device::AddSamplers(const char* sampler_name, const sg::SamplerDesc& sampler_desc)
 		{
+            SamplerInfo new_sampler;
+            new_sampler.name = sampler_name;
+            new_sampler.sampler_desc = sampler_desc;
+            samplers.push_back(new_sampler);
+            RecreateSamplers();
+		}
 
+
+		void Device::RecreateSamplers()
+		{
+			const u32 increment_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+            
+            for (size_t i = 0; i < samplers.size(); i++)
+            {
+                SamplerInfo& sampler_info = samplers[i];
+				CD3DX12_CPU_DESCRIPTOR_HANDLE dest_cpu(sampler_descriptor_heap->get_cpu_handle_heap_start(), i, increment_size);
+                D3D12_SAMPLER_DESC d3d12_sampler = translate(sampler_info.sampler_desc);
+                device->CreateSampler(&d3d12_sampler, dest_cpu);
+            }
 		}
 
 		ComPtr<ID3D12RootSignature> Device::create_root_signature(const BindingDesc& binding_desc, bool compute)

@@ -135,6 +135,13 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	SharedPtr<CommandList> command_buffer = device->create_command_buffer();
 	auto fence = device->create_queue_fence();
 
+	{
+		sg::SamplerDesc default_sampler;
+		device->AddSamplers("Diffuse", default_sampler);
+		device->AddSamplers("Specular", default_sampler);
+		device->AddSamplers("Normals", default_sampler);
+	}
+
 	SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024);
 	mem = nullptr;
 

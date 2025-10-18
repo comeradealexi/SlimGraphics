@@ -19,17 +19,21 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 	pipeline_binding_desc = {};
 	pipeline_binding_desc.cbv_binding_count = 2;
+	pipeline_binding_desc.srv_binding_count = 3;
 	pipeline_binding_desc.uav_binding_count = 1;
+	pipeline_binding_desc.sampler_binding_count = 3;
 
 	mesh_shading.binding_desc = {};
 	mesh_shading.binding_desc.cbv_binding_count = 2;
-	mesh_shading.binding_desc.srv_binding_count = 5;
+	mesh_shading.binding_desc.srv_binding_count = 8;
 	mesh_shading.binding_desc.uav_binding_count = 1;
+	mesh_shading.binding_desc.sampler_binding_count = 3;
 
 	amplification_mesh_shading.binding_desc = {};
 	amplification_mesh_shading.binding_desc.cbv_binding_count = 2;
-	amplification_mesh_shading.binding_desc.srv_binding_count = 5;
+	amplification_mesh_shading.binding_desc.srv_binding_count = 8;
 	amplification_mesh_shading.binding_desc.uav_binding_count = 1;
+	amplification_mesh_shading.binding_desc.sampler_binding_count = 3;
 
 	{
 		shader_vertex = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShader.PC_DXC");
@@ -671,7 +675,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				});
 		}
 
-		if (render_list_ordered.size() != model_render_count)
+		if (render_list_ordered.size() > model_render_count)
 		{
 			render_list_ordered.resize(model_render_count);
 		}
@@ -686,13 +690,20 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			b.set_cbv(cbv_camera, 0);
 			b.uav_binding_count = 1;
 			b.set_uav(uav, 0);
-			b.srv_binding_count = 5;
-			b.set_srv(model->GetVertexBufferSRV(), 0);
+			b.srv_binding_count = 8;
+			b.sampler_binding_count = 3;
+
+			b.set_srv(model->GetVertexBufferSRV(), 3);
 			command_list.clear_buffer_uint(uav, srv, 0);
 
 			for (Model::MeshPart* mesh_part_ptr : render_list_ordered)
 			{
 				Model::MeshPart& mesh_part = *mesh_part_ptr;
+				Model::Material& mesh_material = model->GetMaterial(mesh_part_ptr->material_index);
+
+				b.set_srv(mesh_material.srv_diffuse, 0);
+				b.set_srv(mesh_material.srv_specular, 1);
+				b.set_srv(mesh_material.srv_normal, 2);
 
 				if (debug_drawing.render_model_parts_aabb)
 				{
@@ -704,10 +715,10 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 					debug_draw.DrawSphere(DebugDraw::ColourRGBA(), mesh_part.aabb.Center, radius * 2.0, 8ui64);
 				}
 
-				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 1);
-				b.set_srv(mesh_part.mesh_shader_data.gpu_unique_vertex_indices_view_srv, 2);
-				b.set_srv(mesh_part.mesh_shader_data.gpu_primitive_indices_view_srv, 3);
-				b.set_srv(mesh_part.mesh_shader_data.gpu_culldata_view_srv, 4); 
+				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 4);
+				b.set_srv(mesh_part.mesh_shader_data.gpu_unique_vertex_indices_view_srv, 5);
+				b.set_srv(mesh_part.mesh_shader_data.gpu_primitive_indices_view_srv, 6);
+				b.set_srv(mesh_part.mesh_shader_data.gpu_culldata_view_srv, 7); 
 
 				model_data.meshlet_count = mesh_part.mesh_shader_data.meshlets.size() * render_percentage;
 				model_data.primitive_count = mesh_part.draw_count / 3;
@@ -755,6 +766,8 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			b.set_cbv(cbv_camera, 0);
 			b.uav_binding_count = 1;
 			b.set_uav(uav, 0);
+			b.srv_binding_count = 3;
+			b.sampler_binding_count = 3;
 
 			command_list.clear_buffer_uint(uav, srv, 0);
 
@@ -765,6 +778,11 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			for (Model::MeshPart* mesh_part_ptr : render_list_ordered)
 			{
 				Model::MeshPart& mesh_part = *mesh_part_ptr;
+				Model::Material& mesh_material = model->GetMaterial(mesh_part_ptr->material_index);
+
+				b.set_srv(mesh_material.srv_diffuse, 0);
+				b.set_srv(mesh_material.srv_specular, 1);
+				b.set_srv(mesh_material.srv_normal, 2);
 
 				if (debug_drawing.render_model_parts_aabb)
 				{
