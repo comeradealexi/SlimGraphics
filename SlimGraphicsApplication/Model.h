@@ -4,7 +4,7 @@
 #include <seEngineBasicFileIO.h>
 #include <DirectXMath.h>
 #include <DirectXCollision.h>
-#include "UploadHeap.h"
+#include "sgUploadHeap.h"
 #include <meshoptimizer.h>
 #include <DirectXMesh.h>
 
@@ -82,7 +82,7 @@ public:
 	};
 
 public:
-	Model(sg::Device* device, UploadHeap* upload_heap, const InitData& _init_data);
+	Model(sg::Device* device, sg::UploadHeap* upload_heap, const InitData& _init_data);
 
 	struct MeshShadingData
 	{
@@ -148,6 +148,9 @@ public:
 	struct Material
 	{
 		std::string material_name;
+		sg::SharedPtr<sg::Texture> tex_diffuse;
+		sg::SharedPtr<sg::Texture> tex_specular;
+		sg::SharedPtr<sg::Texture> tex_normal;
 	};
 
 	struct DebugModels

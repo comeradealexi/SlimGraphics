@@ -11,6 +11,7 @@
 
 namespace sg
 {
+	class UploadHeap;
 	namespace D3D12
 	{
 		struct MemoryManager
@@ -78,6 +79,8 @@ namespace sg
 			SharedPtr<Buffer> create_buffer(SharedPtr<Memory> memory, u32 size, BufferType type, bool uav_access);
 			SharedPtr<Texture> create_texture(SharedPtr<Memory> memory, u32 size, const ResourceCreateDesc& resource_desc);
 
+			SharedPtr<Texture> create_texture_from_dds(const void* dds_memory, u64 dds_size, sg::UploadHeap& upload_heap);
+
 			// DXGI_FORMAT_UNKNOWN means use default target format
 			SharedPtr<RenderTargetView> create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN);
 			void free_render_target_view(RenderTargetView* rtv);
@@ -117,6 +120,8 @@ namespace sg
 			u32 get_rtv_descriptor_heap_increment_size();
 
 			ComPtr<ID3D12Device> get_device() { return device; }
+
+			void SetSamplers(sg::SamplerDesc* samplers, sg::u32 count);
 
 		private:
 			ComPtr<ID3D12RootSignature> create_root_signature(const BindingDesc& binding_desc, bool compute);

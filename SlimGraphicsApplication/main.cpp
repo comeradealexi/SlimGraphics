@@ -13,7 +13,7 @@
 
 //Application headers
 #include "Model.h"
-#include "UploadHeap.h"
+#include "sgUploadHeap.h"
 #include "LinearConstantBuffer.h"
 #include "Camera.h"
 #include "ModelViewer.h"
@@ -262,7 +262,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	UnorderedAccessView uav_uav = device->create_unordered_access_view(bfr_uav, sizeof(float) * 4, 1);
 	ShaderResourceView srv_uav = device->create_shader_resource_view(bfr_uav, sizeof(float) * 4, 1);
 
-	Ptr<UploadHeap> frame_upload_heap(new UploadHeap(device.get(), frame_count, 1024 * 1024 * 128));
+	Ptr<sg::UploadHeap> frame_upload_heap(new sg::UploadHeap(device.get(), frame_count, 1024 * 1024 * 128));
 	Ptr<SimpleLinearConstantBuffer> linear_cb(new SimpleLinearConstantBuffer(device, 1024 * 1024));
 
 	Camera camera;
@@ -270,6 +270,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	camera.SetPosition({ 0.0f, 0.5f, -2.0f });
 
 	sg::Ptr<DebugDraw> debug_draw = sg::Ptr<DebugDraw>(new DebugDraw(*device));
+
+	sg::SharedPtr<sg::Texture> dds_texture;
 
 	BasicGrid basic_grid(device);
 	Ptr<ModelViewer> model_viewer = Ptr<ModelViewer>(new ModelViewer(device));

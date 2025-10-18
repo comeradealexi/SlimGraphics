@@ -1,7 +1,7 @@
 #pragma once
 #include "sgTypes.h"
 #include <sgPlatformInclude.h>
-#include "UploadHeap.h"
+#include "sgUploadHeap.h"
 #include "Model.h"
 #include "ShaderSharedStructures.h"
 #include "LinearConstantBuffer.h"

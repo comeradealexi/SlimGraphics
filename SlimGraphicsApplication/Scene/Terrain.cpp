@@ -26,7 +26,7 @@ void Terrain::Update(float delta_time, float total_time, const Camera& camera, D
 
 }
 
-void Terrain::Render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw)
+void Terrain::Render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw)
 {
 	if (terrain_texture == nullptr)
 	{
@@ -34,7 +34,7 @@ void Terrain::Render(sg::CommandList& command_list, const Camera& camera, sg::Co
 	}
 }
 
-void Terrain::LoadHeightmapTexture(sg::Ptr<UploadHeap>& upload_heap)
+void Terrain::LoadHeightmapTexture(sg::Ptr<sg::UploadHeap>& upload_heap)
 {
 	std::vector<uint8_t> compressed_png_data = se::BasicFileIO::LoadFile(height_textures_list[current_texture_index].c_str());
 	seAssert(compressed_png_data.size(), "Failed to load png data");

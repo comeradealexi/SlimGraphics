@@ -254,6 +254,43 @@ namespace sg
 		None, Never, Less, Equal, LessEqual, Greater, NotEqual, GreaterEqual, Always
 	};
 
+	enum class Filter
+	{
+		MinMagMipPoint,
+		MinMagPointMipLinear,
+		MinPointMagLinearMipPoint,
+		MinPointMagMipLinear,
+		MinLinearMagMipPoint,
+		MinLinearMagPointMipLinear,
+		MinMagLinearMipPoint,
+		MinMagMipLinear,
+		MinMagAnisotropicMipPoint,
+		Anisotropic
+	};
+
+	enum class TextureAddressMode
+	{
+		Wrap,
+		Mirror,
+		Clamp,
+		Border,
+		MirrorOnce
+	};
+
+	struct SamplerDesc
+	{
+		Filter filter;
+		TextureAddressMode address_u = TextureAddressMode::Wrap;
+		TextureAddressMode address_v = TextureAddressMode::Wrap;
+		TextureAddressMode address_w = TextureAddressMode::Wrap;
+		float mip_lod_bias = 0;
+		uint32_t max_anisotropy = 16;
+		ComparisonFunction comparison_func = ComparisonFunction::LessEqual;
+		float border_color[4];
+		float min_lod = 0.0f;
+		float max_lod = 3.402823466e+38f;
+	};
+
 	namespace DepthStencil
 	{
 		enum class StencilOperation

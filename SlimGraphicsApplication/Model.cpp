@@ -16,9 +16,53 @@
 #include <GeometricPrimitive.h>
 #include <DirectXMesh.h>
 #include "ShaderSharedStructures.h"
+#include <lodepng.h>
+#include "stb_image.h"
 
 using namespace DirectX;
 using namespace sg;
+
+static std::string GetTexturePath(const std::string& model_path, const char* texture_string)
+{
+	size_t path_offset;
+	const size_t path_offset_backslash = model_path.find_last_of('\\');
+	const size_t path_offset_forwardslash = model_path.find_last_of('/');
+
+	if (path_offset_backslash == std::string::npos && path_offset_forwardslash == std::string::npos)
+	{
+		return texture_string;
+	}
+	if (path_offset_backslash == std::string::npos)
+	{
+		path_offset = path_offset_forwardslash;
+	}
+	else if (path_offset_forwardslash == std::string::npos)
+	{
+		path_offset = path_offset_backslash;
+	}
+	else
+	{
+		path_offset = std::max(path_offset_backslash, path_offset_forwardslash);
+	}
+
+	std::string return_string = model_path.substr(0, path_offset + 1);
+	return_string += texture_string;
+	return return_string;
+}
+
+static bool StringEndsWith(std::string input, std::string extension)
+{
+	std::transform(input.begin(), input.end(), input.begin(),[](unsigned char c) { return std::tolower(c); });
+	std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return std::tolower(c); });
+
+	// https://stackoverflow.com/questions/874134/find-out-if-string-ends-with-another-string-in-c
+	if (input.length() >= extension.length()) {
+		return (0 == input.compare(input.length() - extension.length(), extension.length(), extension));
+	}
+	else {
+		return false;
+	}
+}
 
 static DirectX::XMFLOAT3 SetAbsMax(const DirectX::XMFLOAT3& a, DirectX::XMFLOAT3& b)
 {
@@ -361,6 +405,71 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 
 					Material& model_material = materials[material_idx];				
 					model_material.material_name = ai_material->GetName().C_Str();
+
+					std::pair<aiTextureType,sg::SharedPtr<sg::Texture>&> textures_to_load[] = {
+						{aiTextureType_DIFFUSE, model_material.tex_diffuse }, 
+						{aiTextureType_SPECULAR, model_material.tex_specular},
+						{aiTextureType_NORMALS, model_material.tex_normal} };
+					for (auto& tex : textures_to_load)
+					{
+						aiString tex_path;
+						if (ai_material->GetTexture(tex.first, 0, &tex_path) == aiReturn_SUCCESS)
+						{
+							std::string texture_path = GetTexturePath(_init_data.file_path, tex_path.C_Str());
+							std::vector<uint8_t> texture_data = se::BasicFileIO::LoadFile(texture_path.c_str());
+							if (texture_data.size())
+							{
+								seWriteLine("Loading Texture: %s", texture_path.c_str());
+								if (StringEndsWith(texture_path, ".dds"))
+								{
+									tex.second = device->create_texture_from_dds(texture_data.data(), texture_data.size(), *upload_heap);
+								}
+								else if (StringEndsWith(texture_path, ".jpg") || StringEndsWith(texture_path, ".jpeg") || StringEndsWith(texture_path, ".bmp") || StringEndsWith(texture_path, ".tga"))
+								{
+									int w, h, c;
+									void* raw_data = stbi_load_from_memory(texture_data.data(), texture_data.size(), &w, &h, &c, 4);
+									if (raw_data)
+									{
+										int data_size = w * h * 4;
+										sg::ResourceCreateDesc rcd;
+										rcd.width = w;
+										rcd.height = h;
+										rcd.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+										sg::SizeAndAlignment size_align = device->calculate_resource_size_alignment(rcd);
+										const sg::u64 res_size = device->CalculateResourceSize(w, h, 1, 0, rcd.format);
+										seAssert(res_size == data_size, "expecting sizes to match");
+										SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, size_align.size, size_align.alignment);
+										tex.second = device->create_texture(mem, size_align.size, rcd);
+										UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(size_align.size, size_align.alignment);
+										upload_heap->write_upload_memory(upload_offset, raw_data, data_size);
+										upload_heap->upload_to_texture(tex.second.get(), upload_offset, data_size);
+										stbi_image_free(raw_data);
+									}
+								}
+								else if (StringEndsWith(texture_path, ".png"))
+								{
+									unsigned int w, h;
+									lodepng::State state;
+									std::vector<uint8_t> bitmap_data;
+									if (lodepng::decode(bitmap_data, w, h, texture_data) == 0)
+									{
+										sg::ResourceCreateDesc rcd;
+										rcd.width = w;
+										rcd.height = h;
+										rcd.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+										sg::SizeAndAlignment size_align = device->calculate_resource_size_alignment(rcd);
+										const sg::u64 res_size = device->CalculateResourceSize(w, h, 1, 0, rcd.format);
+										seAssert(res_size == bitmap_data.size(), "expecting sizes to match");
+										SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, size_align.size, size_align.alignment);
+										tex.second = device->create_texture(mem, size_align.size, rcd);
+										UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(size_align.size, size_align.alignment);
+										upload_heap->write_upload_memory(upload_offset, bitmap_data.data(), bitmap_data.size());
+										upload_heap->upload_to_texture(tex.second.get(), upload_offset, bitmap_data.size());
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 

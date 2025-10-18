@@ -29,6 +29,7 @@ namespace SlimEngine
             conf.AddPrivateDependency<SlimEngineProject>(target);
             conf.AddPrivateDependency<ImGuiProject>(target);
             conf.AddPrivateDependency<D3D12Headers>(target);
+            conf.AddPrivateDependency<DirectXToolkitProject>(target);
         }
     }
 

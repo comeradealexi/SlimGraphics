@@ -39,7 +39,7 @@ void BasicGrid::Update(float delta_time, float total_time, const Camera& camera)
 
 }
 
-void BasicGrid::Render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer)
+void BasicGrid::Render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer)
 {
 	command_list.set_pipeline(pipeline.get());
 

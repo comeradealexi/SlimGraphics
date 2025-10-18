@@ -35,6 +35,8 @@ namespace SlimEngine
             conf.ProjectPath = @"[project.SharpmakeCsPath]\projects";
             conf.Output = Configuration.OutputType.Lib;
 
+            conf.Defines.Add("SE_SLIM_ENGINE");
+
             switch (target.Optimization)
             {
                 case Optimization.Debug:

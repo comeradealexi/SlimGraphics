@@ -43,3 +43,9 @@
 [submodule "SubModules/SimpleInc"]
 	path = SubModules/SimpleInc
 	url = https://github.com/comeradealexi/SimpleInc
+[submodule "SubModules/SlimGraphics_DirectXTK12"]
+	path = SubModules/SlimGraphics_DirectXTK12
+	url = https://github.com/comeradealexi/SlimGraphics_DirectXTK12
+[submodule "SubModules/stb"]
+	path = SubModules/stb
+	url = https://github.com/nothings/stb

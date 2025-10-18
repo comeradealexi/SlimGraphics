@@ -12,6 +12,8 @@
 #include "sgD3D12GPUStatisticPool.h"
 #include <imgui_impl_dx12.h>
 #include "sgUtils.h"
+#include <DDSTextureLoader.h>
+#include "sgUploadHeap.h"
 
 namespace sg
 {
@@ -709,7 +711,46 @@ namespace sg
 		}
 
 
-        SharedPtr<RenderTargetView> Device::create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format /*= DXGI_FORMAT_UNKNOWN*/)
+		sg::SharedPtr<sg::Texture> Device::create_texture_from_dds(const void* dds_memory, u64 dds_size, sg::UploadHeap& upload_heap)
+		{
+            size_t mem_size = 0;
+            SharedPtr<Memory> memory;
+			ComPtr<ID3D12Resource> d3d12_texture;
+
+            ResourceCreateDesc resource_create_desc;
+            se::g_ddsAllocatorOverrideFunction = [&](const D3D12_RESOURCE_DESC& resource_desc, ID3D12Resource** texture) -> HRESULT
+                {
+					D3D12_RESOURCE_ALLOCATION_INFO alloc_info = device->GetResourceAllocationInfo(0, 1, &resource_desc);
+                    mem_size = alloc_info.SizeInBytes;
+                    memory = allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, alloc_info.SizeInBytes, alloc_info.Alignment);
+                    seAssert(memory, "Failed to allocate dds texture memory");
+					D3D12MA::Allocation* d3d12_alloc = memory->alloc;
+					const D3D12_RESOURCE_STATES resource_state = get_d3d12_resource_read_state(BufferType::Texture);
+                    CHECKHR(device6->CreatePlacedResource(d3d12_alloc->GetHeap(), d3d12_alloc->GetOffset(), &resource_desc, resource_state, nullptr, IID_PPV_ARGS(texture)));
+                    return S_OK;
+                };
+            std::vector<D3D12_SUBRESOURCE_DATA> sub_resource_data;
+            CHECKHR(DirectX::LoadDDSTextureFromMemory(device.Get(), (const std::byte*) dds_memory, dds_size, d3d12_texture.GetAddressOf(), sub_resource_data));
+            se::g_ddsAllocatorOverrideFunction = nullptr;
+
+			SharedPtr<Texture> texture(new Texture(mem_size, false, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback, resource_create_desc));
+            texture->memory = memory;
+            texture->resource = d3d12_texture;
+
+            // Upload to GPU
+            u32 mip_index = 0;
+            for (const D3D12_SUBRESOURCE_DATA& mip : sub_resource_data)
+            {
+                UploadHeap::Offset offset = upload_heap.allocate_upload_memory(mip.SlicePitch, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+                upload_heap.write_upload_memory(offset, mip.pData, mip.SlicePitch);
+                upload_heap.upload_to_texture(texture.get(), mip_index, offset, mip.SlicePitch);
+                mip_index++;
+            }
+
+			return texture;
+		}
+
+		SharedPtr<RenderTargetView> Device::create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format /*= DXGI_FORMAT_UNKNOWN*/)
 		{
             seAssert(texture.get(), "Invalid texture pointer");
 
@@ -1005,6 +1046,11 @@ namespace sg
             return rtv_descriptor_heap->get_increment_size();
         }
 
+
+		void Device::SetSamplers(sg::SamplerDesc* samplers, sg::u32 count)
+		{
+
+		}
 
 		ComPtr<ID3D12RootSignature> Device::create_root_signature(const BindingDesc& binding_desc, bool compute)
 		{

@@ -21,6 +21,7 @@ namespace SlimEngine
 
             conf.IncludePaths.Add(SourceRootPath);
             conf.IncludePaths.Add(Path.Join(Globals.ExternalsPath, @"assimp-5.3.1\include"));
+            conf.IncludePaths.Add(Path.Join(Globals.SubmodulesPath, @"stb"));
 
             conf.AddPrivateDependency<SlimEngineProject>(target);
             conf.AddPrivateDependency<SlimGraphicsD3D12>(target);

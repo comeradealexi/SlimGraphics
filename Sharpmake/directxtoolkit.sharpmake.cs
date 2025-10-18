@@ -7,9 +7,9 @@ namespace SlimEngine
     [Sharpmake.Generate]
     public class DirectXToolkitProject : SlimEngineBaseProject
     {
-        public DirectXToolkitProject() : base("DirectXToolkit")
+        public DirectXToolkitProject() : base("DirectXTK12")
         {
-            SourceRootPath = Path.Join(Globals.SubmodulesPath, @"DirectXTK12\Src");
+            SourceRootPath = Path.Join(Globals.SubmodulesPath, @"SlimGraphics_DirectXTK12\Src");
             SourceFiles.Add(Globals.GetThisFilePath());
         }
 
@@ -19,7 +19,7 @@ namespace SlimEngine
             conf.SolutionFolder = "SubModules";
             conf.IncludePaths.Add(Path.Join(SourceRootPath, @"..\Inc"));
             conf.IncludePaths.Add(Path.Join(SourceRootPath, @"..\Src"));
-            conf.SourceFilesBuildExcludeRegex.Add(@"^(?!.*Geometry)");
+            conf.SourceFilesBuildExcludeRegex.Add(@"^(?!.*(Geometry|/DDSTextureLoader))");
         }
     }
 }

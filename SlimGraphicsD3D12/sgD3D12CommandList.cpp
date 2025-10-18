@@ -422,7 +422,7 @@ namespace sg
 			command_list->ResourceBarrier(2, barriers);
 		}
 
-		void CommandList::copy_buffer_to_texture(u32 size, Texture* dest, Buffer* source, u32 source_offset)
+		void CommandList::copy_buffer_to_texture(u32 size, Texture* dest, Buffer* source, u32 source_offset, u32 texture_mip_index)
 		{
 			seAssert((dest->get_size_bytes()) >= size, "Dest buffer not big enough\n");
 			seAssert((source->get_size_bytes() - source_offset) >= size, "Source buffer not big enough\n");
@@ -436,15 +436,20 @@ namespace sg
 				command_list->ResourceBarrier(1, &barrier);
 			}
 
-			const CD3DX12_TEXTURE_COPY_LOCATION tcl_dest(dest->get().Get(), 0);
+			const CD3DX12_TEXTURE_COPY_LOCATION tcl_dest(dest->get().Get(), texture_mip_index);
+
+			D3D12_PLACED_SUBRESOURCE_FOOTPRINT d3d12_subresource_footprint;
+			UINT64 row_size_bytes, total_bytes;
+			D3D12_RESOURCE_DESC dest_desc = dest->get()->GetDesc();
+			device->GetCopyableFootprints(&dest_desc, texture_mip_index, 1, 0, &d3d12_subresource_footprint, nullptr, &row_size_bytes, &total_bytes);
 
 			D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint_src = {};
 			footprint_src.Offset = source_offset;
-			footprint_src.Footprint.Width = dest->resource_create_desc.width;
-			footprint_src.Footprint.Height = dest->resource_create_desc.height;
-			footprint_src.Footprint.Depth = dest->resource_create_desc.depth;
-			footprint_src.Footprint.Format = dest->resource_create_desc.format;
-			footprint_src.Footprint.RowPitch = (dest->resource_create_desc.width * sg_device->GetFormatBitsPerUnit(dest->resource_create_desc.format)) / 8;
+			footprint_src.Footprint.Width = d3d12_subresource_footprint.Footprint.Width;
+			footprint_src.Footprint.Height = d3d12_subresource_footprint.Footprint.Height;
+			footprint_src.Footprint.Depth = d3d12_subresource_footprint.Footprint.Depth;
+			footprint_src.Footprint.Format = d3d12_subresource_footprint.Footprint.Format;
+			footprint_src.Footprint.RowPitch = (footprint_src.Footprint.Width * sg_device->GetFormatBitsPerUnit(dest->resource_create_desc.format)) / 8;
 			seAssert(footprint_src.Footprint.RowPitch % D3D12_TEXTURE_DATA_PITCH_ALIGNMENT == 0, "Row pitch must align to D3D12_TEXTURE_DATA_PITCH_ALIGNMENT");
 
 			const CD3DX12_TEXTURE_COPY_LOCATION tcl_src(source->get().Get(), footprint_src);
