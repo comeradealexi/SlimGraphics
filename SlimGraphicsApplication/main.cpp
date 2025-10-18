@@ -269,7 +269,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	UnorderedAccessView uav_uav = device->create_unordered_access_view(bfr_uav, sizeof(float) * 4, 1);
 	ShaderResourceView srv_uav = device->create_shader_resource_view(bfr_uav, sizeof(float) * 4, 1);
 
-	Ptr<sg::UploadHeap> frame_upload_heap(new sg::UploadHeap(device.get(), frame_count, 1024 * 1024 * 128));
+	Ptr<sg::UploadHeap> frame_upload_heap(new sg::UploadHeap(device.get(), frame_count, 1024 * 1024 * 256));
 	Ptr<SimpleLinearConstantBuffer> linear_cb(new SimpleLinearConstantBuffer(device, 1024 * 1024));
 
 	Camera camera;

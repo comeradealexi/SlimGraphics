@@ -426,7 +426,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					std::pair<aiTextureType,sg::SharedPtr<sg::Texture>&> textures_to_load[] = {
 						{aiTextureType_DIFFUSE, model_material.tex_diffuse }, 
 						{aiTextureType_SPECULAR, model_material.tex_specular},
-						{aiTextureType_NORMALS, model_material.tex_normal} };
+						{aiTextureType_NORMALS, model_material.tex_normal},
+						{aiTextureType_OPACITY, model_material.tex_opacity} };
 					for (auto& tex : textures_to_load)
 					{
 						aiString tex_path;
@@ -485,11 +486,16 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 									}
 								}
 							}
+							else
+							{
+								seWriteLine("Texture not found: %s", texture_path.c_str());
+							}
 						}
 					}
 					model_material.srv_diffuse = device->create_shader_resource_view(model_material.tex_diffuse);
 					model_material.srv_specular = device->create_shader_resource_view(model_material.tex_specular);
 					model_material.srv_normal = device->create_shader_resource_view(model_material.tex_normal);
+					model_material.srv_opacity = device->create_shader_resource_view(model_material.tex_opacity);
 				}
 			}
 

@@ -154,6 +154,8 @@ public:
 		sg::ShaderResourceView srv_specular;
 		sg::SharedPtr<sg::Texture> tex_normal;
 		sg::ShaderResourceView srv_normal;
+		sg::SharedPtr<sg::Texture> tex_opacity;
+		sg::ShaderResourceView srv_opacity;
 	};
 
 	struct DebugModels

@@ -103,6 +103,10 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere64x64.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere128x128.obj");
 
+	model_file_list.push_back("../SlimGraphicsAssets/SponzaDae/sponza.dae");
+	model_file_list.push_back("../SlimGraphicsAssets/SponzaGL/sponza.obj");
+
+
 	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/grass.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/palm_tree.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/sponza.obj");
@@ -140,6 +144,7 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	model_file_list.push_back("../SlimGraphicsAssets/GL/three_objects.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/GL/venusm.obj");
 
+	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CGTree/cgaxis_models_115_37_obj.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/buddha/buddha.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Mirror.obj");
 	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Original.obj");

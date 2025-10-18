@@ -457,9 +457,8 @@ namespace sg
 			footprint_src.Footprint.Height = d3d12_subresource_footprint.Footprint.Height;
 			footprint_src.Footprint.Depth = d3d12_subresource_footprint.Footprint.Depth;
 			footprint_src.Footprint.Format = d3d12_subresource_footprint.Footprint.Format;
-			footprint_src.Footprint.RowPitch = d3d12_subresource_footprint.Footprint.RowPitch;// (footprint_src.Footprint.Width * sg_device->GetFormatBitsPerUnit(dest->resource_create_desc.format)) / 8; //// 
-			//footprint_src.Footprint.RowPitch = sg::AlignUp((UINT)footprint_src.Footprint.RowPitch, (UINT)D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
-			seAssert(footprint_src.Footprint.RowPitch % D3D12_TEXTURE_DATA_PITCH_ALIGNMENT == 0, "Row pitch must align to D3D12_TEXTURE_DATA_PITCH_ALIGNMENT");
+			footprint_src.Footprint.RowPitch = sg::AlignUp((UINT)d3d12_subresource_footprint.Footprint.RowPitch, (UINT)D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);// (footprint_src.Footprint.Width * sg_device->GetFormatBitsPerUnit(dest->resource_create_desc.format)) / 8; //// 
+			//seAssert(footprint_src.Footprint.RowPitch * footprint_src.Footprint.Height <= size, "Aligned up size too small.");
 
 			const CD3DX12_TEXTURE_COPY_LOCATION tcl_src(source->get().Get(), footprint_src);
 

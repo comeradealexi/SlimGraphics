@@ -786,11 +786,36 @@ namespace sg
             // Upload to GPU
             u32 mip_index = 0;
             for (const D3D12_SUBRESOURCE_DATA& mip : sub_resource_data)
-            {
-                // TODO - handle mips which don't have a row alignment of D3D12_TEXTURE_DATA_PITCH_ALIGNMENT
-                UploadHeap::Offset offset = upload_heap.allocate_upload_memory(mip.SlicePitch, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
-                upload_heap.write_upload_memory(offset, mip.pData, mip.SlicePitch);
-                upload_heap.upload_to_texture(texture.get(), mip_index, offset, mip.SlicePitch);
+            {           
+                const void* mip_data = mip.pData;
+                u64 mip_size = mip.SlicePitch;
+                if ((mip.RowPitch % D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT) != 0)
+                {
+                    // Row pitch must be D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, if not we must modify the data
+                    const u64 height = mip.SlicePitch / mip.RowPitch;
+                    u64 new_pitch = sg::AlignUp((u64)mip.RowPitch, (u64)D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+                    u64 new_size = height * new_pitch;
+                    char* new_data = (char*)malloc(new_size);
+                    char* new_data_iter = new_data;
+                    const char* mip_data_iter = (const char*)mip.pData;
+                    for (size_t y = 0; y < height; y++)
+                    {
+                        memcpy(new_data_iter, mip_data_iter, mip.RowPitch);
+                        new_data_iter += new_pitch;
+                        mip_data_iter += mip.RowPitch;
+                    }
+                    mip_data = new_data;
+                    mip_size = new_size;
+                }
+                UploadHeap::Offset offset = upload_heap.allocate_upload_memory(mip_size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+                upload_heap.write_upload_memory(offset, mip_data, mip_size);
+                upload_heap.upload_to_texture(texture.get(), mip_index, offset, mip_size);
+
+                if (mip_data != mip.pData)
+                {
+                    free((void*)mip_data);
+                }
+
                 mip_index++;
             }
 
