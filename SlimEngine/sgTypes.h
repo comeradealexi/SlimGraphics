@@ -288,7 +288,7 @@ namespace sg
 		ComparisonFunction comparison_func = ComparisonFunction::None;
 		float border_color[4];
 		float min_lod = 0.0f;
-		float max_lod = 128.0f;
+		float max_lod = 16.0f;
 	};
 
 	namespace DepthStencil

@@ -96,7 +96,7 @@ private:
 	// Without EDS, the UAV we write to per-pixel causes every single rasterised pixel to invoke the pixel shader
 	// so rendering front to back has zero impact on the number of pixel shaders invoked
 	// by forcing EDS we make it invoke the pixel shader so it is more like traditional rendering.
-	bool use_eds = true; 
+	bool use_eds = false;
 	
 	bool mesh_shader_cone_culling = true;
 	bool mesh_shader_sphere_frustum_culling = true;

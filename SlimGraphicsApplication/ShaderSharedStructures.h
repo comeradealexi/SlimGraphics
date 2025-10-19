@@ -47,6 +47,10 @@ struct ModelData
 	int4 meshlet_culling; // x = cone culling, y = sphere frustum culling
 
 	float4 simplified_shading; // x = discard_dither_amount
+
+	int4 textures_enabled; // x = diffuse, y = specular, z = normals, w = opacity
+
+	float4 texture_options; // x = discard diffuse alpha threshold
 };
 
 struct CameraData

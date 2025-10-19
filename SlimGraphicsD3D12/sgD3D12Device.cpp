@@ -375,8 +375,8 @@ namespace sg
 							samplers_modified |= ImGui::SliderInt("Max Anisotropy", (int*)&desc.max_anisotropy, 1, 16);
 							//ComparisonFunction comparison_func = ComparisonFunction::LessEqual;
 							//float border_color[4];
-							samplers_modified |= ImGui::SliderFloat("Min Lod", &desc.min_lod, 0.0f, 128.0f);
-							samplers_modified |= ImGui::SliderFloat("Max Lod", &desc.max_lod, 0.0f, 128.0f);
+							samplers_modified |= ImGui::SliderFloat("Min Lod", &desc.min_lod, 0.0f, 16.0f);
+							samplers_modified |= ImGui::SliderFloat("Max Lod", &desc.max_lod, 0.0f, 16.0f);
 
 							if (desc.max_lod < desc.min_lod) desc.min_lod = desc.max_lod;
 						}

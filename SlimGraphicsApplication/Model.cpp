@@ -422,6 +422,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					model_material.tex_diffuse = default_texture;
 					model_material.tex_specular = default_texture;
 					model_material.tex_normal = default_texture;
+					model_material.tex_opacity = default_texture;
 
 					std::pair<aiTextureType,sg::SharedPtr<sg::Texture>&> textures_to_load[] = {
 						{aiTextureType_DIFFUSE, model_material.tex_diffuse }, 

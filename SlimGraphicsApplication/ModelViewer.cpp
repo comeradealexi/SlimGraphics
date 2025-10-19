@@ -10,6 +10,15 @@ using namespace sg;
 
 inline uint32_t DivRoundUp(uint32_t num, uint32_t den) { return (num + den - 1) / den; }
 
+inline const char* StringPathToFilename(std::string& str)
+{
+	size_t slashpos = str.find_first_of('/');
+	slashpos = str.find_first_of('/', slashpos + 1);
+	if (slashpos == std::string::npos) slashpos = 0;
+	else slashpos++;
+	return str.c_str() + slashpos;
+}
+
 ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI_FORMAT_R8G8B8A8_UNORM), depth_stencil_format(DXGI_FORMAT_D32_FLOAT), device(_device)
 {
 	if (!device->SupportsMeshShaders())
@@ -19,19 +28,19 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 	pipeline_binding_desc = {};
 	pipeline_binding_desc.cbv_binding_count = 2;
-	pipeline_binding_desc.srv_binding_count = 3;
+	pipeline_binding_desc.srv_binding_count = 4;
 	pipeline_binding_desc.uav_binding_count = 1;
 	pipeline_binding_desc.sampler_binding_count = 3;
 
 	mesh_shading.binding_desc = {};
 	mesh_shading.binding_desc.cbv_binding_count = 2;
-	mesh_shading.binding_desc.srv_binding_count = 8;
+	mesh_shading.binding_desc.srv_binding_count = 9;
 	mesh_shading.binding_desc.uav_binding_count = 1;
 	mesh_shading.binding_desc.sampler_binding_count = 3;
 
 	amplification_mesh_shading.binding_desc = {};
 	amplification_mesh_shading.binding_desc.cbv_binding_count = 2;
-	amplification_mesh_shading.binding_desc.srv_binding_count = 8;
+	amplification_mesh_shading.binding_desc.srv_binding_count = 9;
 	amplification_mesh_shading.binding_desc.uav_binding_count = 1;
 	amplification_mesh_shading.binding_desc.sampler_binding_count = 3;
 
@@ -208,6 +217,12 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	model_data.pixel_order_data1.x = 1.0f;
 	model_data.pixel_order_data1.y = 1.0f/3.0f;
 
+	model_data.textures_enabled.x = 1;
+	model_data.textures_enabled.y = 1;
+	model_data.textures_enabled.z = 1;
+	model_data.textures_enabled.w = 1;
+
+	model_data.texture_options.x = 0.9f; //Discard threshold
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds/
@@ -287,12 +302,12 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	{
 		ImGui::Indent();
 		int list_changed = model_file_list_current;
-		if (ImGui::BeginCombo("File", model_file_list[model_file_list_current].c_str()))
+		if (ImGui::BeginCombo("File", StringPathToFilename(model_file_list[model_file_list_current])))
 		{
 			for (int n = 0; n < model_file_list.size(); n++)
 			{
 				const bool is_selected = (model_file_list_current == n);
-				if (ImGui::Selectable(model_file_list[n].c_str(), is_selected))
+				if (ImGui::Selectable(StringPathToFilename(model_file_list[n]), is_selected))
 					model_file_list_current = n;
 
 				// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
@@ -382,6 +397,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 					ImGui::PushID(model_info_idx);
 					ImGui::SeparatorText("Mesh Part:"); ImGui::SameLine(); ImGui::Text("%i", model_info_idx + 1);
 					ImGui::Checkbox("Render", render_model_bool_array + model_info_idx);
+					ImGui::Text("Material: %s", model->GetMaterial(mesh_part.material_index).material_name.c_str());
 					ImGui::Text("Triangles: %u", mesh_part.draw_count / 3);
 					ImGui::Text("Vertex Count: %u", mesh_part.vertex_count);
 					ImGui::Text("Vertex Cache Miss (ACMR): %0.2f", mesh_part.vertex_cache_miss_acmr);
@@ -465,6 +481,12 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			ImGui::EndDisabled();
 
 			ImGui::SeparatorText("Render Mode");
+			ImGui::Text("Texturing:");
+			ImGui::Checkbox("Diffuse Texture", (bool*)&model_data.textures_enabled.x);
+			ImGui::Checkbox("Specular Texture", (bool*)&model_data.textures_enabled.y);
+			ImGui::Checkbox("Normals Texture", (bool*)&model_data.textures_enabled.z);
+			ImGui::Checkbox("Opacity Texture", (bool*)&model_data.textures_enabled.z);
+			ImGui::SliderFloat("Alpha Discard Threshold", &model_data.texture_options.x, 0.0f, 1.0f);
 			ImGui::BeginDisabled(render_as_mesh_shader);
 			ImGui::Text("Geometry:");
 			ImGui::RadioButton("3D Model", (int*)&render_geo, (int)RenderGeo::Model);
@@ -695,10 +717,10 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			b.set_cbv(cbv_camera, 0);
 			b.uav_binding_count = 1;
 			b.set_uav(uav, 0);
-			b.srv_binding_count = 8;
+			b.srv_binding_count = 9;
 			b.sampler_binding_count = 3;
 
-			b.set_srv(model->GetVertexBufferSRV(), 3);
+			b.set_srv(model->GetVertexBufferSRV(), 4);
 			command_list.clear_buffer_uint(uav, srv, 0);
 
 			for (Model::MeshPart* mesh_part_ptr : render_list_ordered)
@@ -709,6 +731,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				b.set_srv(mesh_material.srv_diffuse, 0);
 				b.set_srv(mesh_material.srv_specular, 1);
 				b.set_srv(mesh_material.srv_normal, 2);
+				b.set_srv(mesh_material.srv_opacity, 3);
 
 				if (debug_drawing.render_model_parts_aabb)
 				{
@@ -720,10 +743,10 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 					debug_draw.DrawSphere(DebugDraw::ColourRGBA(), mesh_part.aabb.Center, radius * 2.0, 8ui64);
 				}
 
-				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 4);
-				b.set_srv(mesh_part.mesh_shader_data.gpu_unique_vertex_indices_view_srv, 5);
-				b.set_srv(mesh_part.mesh_shader_data.gpu_primitive_indices_view_srv, 6);
-				b.set_srv(mesh_part.mesh_shader_data.gpu_culldata_view_srv, 7); 
+				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 5);
+				b.set_srv(mesh_part.mesh_shader_data.gpu_unique_vertex_indices_view_srv, 6);
+				b.set_srv(mesh_part.mesh_shader_data.gpu_primitive_indices_view_srv, 7);
+				b.set_srv(mesh_part.mesh_shader_data.gpu_culldata_view_srv, 8); 
 
 				model_data.meshlet_count = mesh_part.mesh_shader_data.meshlets.size() * render_percentage;
 				model_data.primitive_count = mesh_part.draw_count / 3;
@@ -771,7 +794,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			b.set_cbv(cbv_camera, 0);
 			b.uav_binding_count = 1;
 			b.set_uav(uav, 0);
-			b.srv_binding_count = 3;
+			b.srv_binding_count = 4;
 			b.sampler_binding_count = 3;
 
 			command_list.clear_buffer_uint(uav, srv, 0);
@@ -788,6 +811,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 				b.set_srv(mesh_material.srv_diffuse, 0);
 				b.set_srv(mesh_material.srv_specular, 1);
 				b.set_srv(mesh_material.srv_normal, 2);
+				b.set_srv(mesh_material.srv_opacity, 3);
 
 				if (debug_drawing.render_model_parts_aabb)
 				{
