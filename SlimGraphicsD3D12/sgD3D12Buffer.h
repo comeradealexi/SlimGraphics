@@ -16,6 +16,9 @@ namespace sg
 			virtual D3D12_RESOURCE_STATES get_read_resource_state() const;
 			size_t get_size_bytes() const { return size_bytes;  }
 
+			void* map_memory();
+			void unmap_memory();
+
 			void write_memory(u32 offset, const void* memory_src, u64 size);
 			void read_memory(u32 offset, void* memory_dest, u64 size);
 

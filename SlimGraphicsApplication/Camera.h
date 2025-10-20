@@ -42,8 +42,8 @@ private:
 	float height = 0.0f;
 	DirectX::XMFLOAT3A position = {};
 	DirectX::XMVECTOR direction = {};
-	float camera_rot_y = -1.5708f;
-	float camera_rot_x = 1.5708f;
+	float camera_rot_y = ::DirectX::XM_PIDIV2;
+	float camera_rot_x = ::DirectX::XM_PIDIV2;
 	float min_depth_plane = 0.1f;
 	float max_depth_plane = 100.0f;
 	float field_of_view = ::DirectX::XM_PIDIV4;

@@ -114,7 +114,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 		| aiProcess_CalcTangentSpace
 		| aiProcess_GenSmoothNormals
 		| aiProcess_JoinIdenticalVertices
-		| aiProcess_SplitLargeMeshes;
+		| aiProcess_SplitLargeMeshes
+		| aiProcess_ConvertToLeftHanded;
 
 	const aiScene* aScene = ai_importer.ReadFile(init_data.file_path.data(), flags); //By passing file path, allows assimp to auto load material files.
 	seAssert(aScene != nullptr, "Failed To Load Assimp Scene %s\n", init_data.file_path.c_str());
@@ -428,7 +429,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 						{aiTextureType_DIFFUSE, model_material.tex_diffuse }, 
 						{aiTextureType_SPECULAR, model_material.tex_specular},
 						{aiTextureType_NORMALS, model_material.tex_normal},
-						{aiTextureType_OPACITY, model_material.tex_opacity} };
+						{aiTextureType_OPACITY, model_material.tex_opacity} 
+					};
 					for (auto& tex : textures_to_load)
 					{
 						aiString tex_path;

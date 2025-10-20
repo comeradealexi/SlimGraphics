@@ -274,7 +274,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	Camera camera;
 	camera.SetWidthHeight((float)w, (float)h);
-	camera.SetPosition({ 0.0f, 0.25f, 2.0f });
+	camera.SetPosition({ 0.0f, 0.25f, -2.0f });
 
 	sg::Ptr<DebugDraw> debug_draw = sg::Ptr<DebugDraw>(new DebugDraw(*device));
 
@@ -313,7 +313,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		delta_time = std::chrono::duration<float>(cpu_start_time - last_frame_start).count();
 		last_frame_start = cpu_start_time;
 
-		frame_upload_heap->begin_frame(queue.get());
+		frame_upload_heap->begin_frame(queue);
 		linear_cb->BeginFrame(frame_upload_heap.get());
 		
 		input->Update();
@@ -506,7 +506,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		command_buffer->end_recording();
 
 		linear_cb->EndFrame();
-		frame_upload_heap->end_frame(queue.get());
+		frame_upload_heap->end_frame();
 		
 		queue->submit_command_list(command_buffer.get());
 		current_frame_idx = device->present_swap_chain(queue.get());

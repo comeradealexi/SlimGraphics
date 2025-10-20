@@ -14,6 +14,7 @@
 #include "sgUtils.h"
 #include <DDSTextureLoader.h>
 #include "sgUploadHeap.h"
+#include <unordered_set>
 
 namespace sg
 {
@@ -85,13 +86,25 @@ namespace sg
         
         void d3d12_message_callback(D3D12_MESSAGE_CATEGORY Category, D3D12_MESSAGE_SEVERITY Severity, D3D12_MESSAGE_ID ID, LPCSTR pDescription, void* pContext)
         {
-            __debugbreak();
+            static std::unordered_set<D3D12_MESSAGE_ID> observed_messages;
+            if (Severity == D3D12_MESSAGE_SEVERITY_WARNING)
+            {
+                if (observed_messages.find(ID) == observed_messages.end())
+                {
+
+                    observed_messages.insert(ID);
+                }
+            }
+            else
+            {
+				__debugbreak();
+            }
         }
 
         void setup_debug_filters(ID3D12Device* device)
         {
-#if false//_DEBUG
-            ID3D12InfoQueue* pInfoQueue = nullptr;
+#if 0//_DEBUG
+            ID3D12InfoQueue1* pInfoQueue = nullptr;
             if (SUCCEEDED(device->QueryInterface(IID_PPV_ARGS(&pInfoQueue))))
             {
                 D3D12_INFO_QUEUE_FILTER NewFilter = {};
@@ -105,13 +118,12 @@ namespace sg
                     //D3D12_MESSAGE_SEVERITY_MESSAGE,
                 };
                 NewFilter.AllowList.NumSeverities = _countof(Severities);
-                NewFilter.AllowList.pSeverityList = Severities;
-
+                NewFilter.AllowList.pSeverityList = Severities;                
                 pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
                 pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
-                pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, true);
+                pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, false);
                 pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_INFO, false);
-                //CHECKHR(pInfoQueue->RegisterMessageCallback(d3d12_message_callback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, nullptr));
+                CHECKHR(pInfoQueue->RegisterMessageCallback(d3d12_message_callback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, (DWORD*)d3d12_message_callback));
                 pInfoQueue->PushStorageFilter(&NewFilter);
                 pInfoQueue->Release();
             }

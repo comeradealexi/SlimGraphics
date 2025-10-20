@@ -714,13 +714,14 @@ float4 PSMain(PS_INPUT input
     float4 normals_col = float4(1,1,1,1);
     float4 opacity_col = float4(1,1,1,1); // Some models have a greyscale texture for opacity when not part of the diffuse alpha
 
-    if (model.textures_enabled.x != 0) diffuse_col = texture_diffuse.Sample(sampler_diffuse, input.uvs * float2(1, -1));
-    if (model.textures_enabled.y != 0) spec_col = texture_specular.Sample(sampler_specular, input.uvs * float2(1, -1));
-    if (model.textures_enabled.z != 0) normals_col = texture_normals.Sample(sampler_normals, input.uvs * float2(1, -1));
-    if (model.textures_enabled.w != 0) opacity_col = texture_opacity.Sample(sampler_diffuse, input.uvs * float2(1, -1));
+    if (model.textures_enabled.x != 0) diffuse_col = texture_diffuse.Sample(sampler_diffuse, input.uvs * float2(1, 1));
+    if (model.textures_enabled.y != 0) spec_col = texture_specular.Sample(sampler_specular, input.uvs * float2(1, 1));
+    if (model.textures_enabled.z != 0) normals_col = texture_normals.Sample(sampler_normals, input.uvs * float2(1, 1));
+    if (model.textures_enabled.w != 0) opacity_col = texture_opacity.Sample(sampler_diffuse, input.uvs * float2(1, 1));
 
     if (diffuse_col.a < model.texture_options.x || opacity_col.r < model.texture_options.x) discard;
 
-    return diffuse_col * float4(input.colour.xyz, 1) * abs(dot(float3(0,0,1), input.normals));
+    float normals_mult = abs(dot(float3(0,0,1), input.normals));
+    return diffuse_col * float4(input.colour.xyz, 1) * max(normals_mult,0.0f);
 }
 #endif
