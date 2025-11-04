@@ -219,5 +219,19 @@
         "name": "MagnifyingGlass_PS"
       }
     ]
+  },
+  {
+    "input_file": "BitonicSort.hlsl",
+    "profile": "cs_6_5",
+    "shaders": [
+      {
+        "entrypoint": "LocalTileSortCS",
+        "name": "BitonicSort_LocalTileSort"
+      },
+      {
+        "entrypoint": "GlobalMergeCS",
+        "name": "BitonicSort_Merge"
+      }
+    ]
   }
 ]
