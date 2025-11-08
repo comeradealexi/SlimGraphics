@@ -116,18 +116,21 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
 #if 1
 [numthreads(TILE_SIZE, 1, 1)]
 void GlobalMergeCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID /* 0-31 */, uint3 GId : SV_GroupID /* 0 - (DISPATCH_X - 1) */)
-{       
-    bool ascending = (GId.x % 2) == 0;
-    uint primary_offset = GId.x * TILE_SIZE * 2;
-    uint local_index = (uint) GTid.x % (uint) g_j; // 0 - (g_j - 1)
-    uint i = (uint)GTid.x / (uint)g_j; // 0 - ((TILE_SIZE / g_j) - 1)  
+{         
+    uint outer_index = DTid.x / (g_k / 2);
+    uint outer_offset = outer_index * (g_k);
+    bool ascending = (outer_index % 2) == 0; // ascending then descending
+    uint inner_dispatch_id = DTid.x % (g_k / 2); // 0 to g_k - 1
+
+    uint local_index = (uint)inner_dispatch_id % (uint) g_j; // 0 - (g_j - 1)
+    uint inner_offset = (inner_dispatch_id / g_j) * g_j * 2;
+
     {
-        uint local_offset = primary_offset + (i * g_j * 2);
         uint index_a = local_index;
         uint index_b = index_a ^ g_j;
         
-        index_a += local_offset;
-        index_b += local_offset;
+        index_a += inner_offset + outer_offset;
+        index_b += inner_offset + outer_offset;
         
         KeyValue A = g_Output[index_a];
         KeyValue B = g_Output[index_b];
