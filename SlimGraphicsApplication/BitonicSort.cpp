@@ -151,7 +151,7 @@ void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input
 					//goto labelalex;
 
 				}
-				goto labelalex;
+				//goto labelalex;
 			}
 		}
 	}
