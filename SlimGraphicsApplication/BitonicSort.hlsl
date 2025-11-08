@@ -5,7 +5,7 @@
 // Data type: KeyValue (uint key + uint value). Modify comparator for float keys.
 
 #ifndef TILE_SIZE
-#define TILE_SIZE 1024         // compile-time: 512 or 1024 recommended
+#define TILE_SIZE 32         // compile-time: 512 or 1024 recommended
 #endif
 
 #ifndef THREADS_PER_GROUP
@@ -66,6 +66,8 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
     uint groupIdx = GId.x;
     uint baseIdx  = groupIdx * g_TileSize;
     uint idx      = baseIdx + localIdx;
+    
+    bool ascending = (GId.x % 2) == 0;
 
     // Load into shared memory (guard out-of-range)
     KeyValue myKV;
@@ -91,7 +93,7 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
                 KeyValue A = s_data[localIdx];
                 KeyValue B = s_data[ixj];
 
-                bool subseqAscending = ((localIdx & k) == 0u) ? (g_Ascending != 0u) : (g_Ascending == 0u);
+                bool subseqAscending = ((localIdx & k) == 0u) ? (ascending != 0u) : (ascending == 0u);
                 bool shouldSwap = (KeyGreaterKV(A, B) == subseqAscending);
 
                 if (shouldSwap)
@@ -111,6 +113,96 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
     }
 }
 
+#if 1
+[numthreads(TILE_SIZE, 1, 1)]
+void GlobalMergeCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID /* 0-31 */, uint3 GId : SV_GroupID /* 0 - (DISPATCH_X - 1) */)
+{       
+    bool ascending = (GId.x % 2) == 0;
+    uint primary_offset = GId.x * TILE_SIZE * 2;
+    uint local_index = (uint) GTid.x % (uint) g_j; // 0 - (g_j - 1)
+    uint i = (uint)GTid.x / (uint)g_j; // 0 - ((TILE_SIZE / g_j) - 1)  
+    {
+        uint local_offset = primary_offset + (i * g_j * 2);
+        uint index_a = local_index;
+        uint index_b = index_a ^ g_j;
+        
+        index_a += local_offset;
+        index_b += local_offset;
+        
+        KeyValue A = g_Output[index_a];
+        KeyValue B = g_Output[index_b];
+        
+        if (A.key > B.key == ascending)
+        {
+            g_Output[index_a] = B;
+            g_Output[index_b] = A;
+        }
+    }
+    
+    #if 0 // WOrking for when tile_Size is less than or equal to j
+        bool ascending = (GId.x % 2) == 0;
+    uint primary_offset = GId.x * TILE_SIZE * 2;
+    uint local_index = (uint) GTid.x % (uint) g_j; // 0 - (g_j - 1)
+    uint i = (uint)GTid.x / (uint)g_j; // 0 - ((TILE_SIZE / g_j) - 1)
+    
+    //[loop]
+    //for (uint i = 0; i < cycles; i++)
+    {
+        uint local_offset = primary_offset + (i * g_j * 2);
+        uint index_a = local_index;
+        uint index_b = index_a ^ g_j;
+        
+        index_a += local_offset;
+        index_b += local_offset;
+        
+        KeyValue A = g_Output[index_a];
+        KeyValue B = g_Output[index_b];
+        
+        if (A.key > B.key == ascending)
+        {
+            g_Output[index_a] = B;
+            g_Output[index_b] = A;
+        }
+    }
+    #endif
+    
+    
+    //uint index_a = GId.x * TILE_SIZE * 2;
+    
+    
+    //uint ixj = i ^ g_j;
+
+    // If partner index is out-of-range then just copy (only possible with non-power-of-two/padding).
+    // For power-of-two sizes and correct padding, ixj < g_NumElements always holds.
+    //if (ixj >= g_NumElements)
+    //{
+    //    g_Output[i] = g_Input[i];
+    //    return;
+    //}
+
+    // Only the thread with the smaller index in the pair performs the compare-and-write.
+    // This avoids write races — a single-writer-per-pair model.
+    //if (ixj > i)
+    {
+
+        
+       //A.value = i;
+       //B.value = ixj;
+
+        //bool ascending = ((i & g_k) == 0u);
+        //bool doSwap = ;
+
+        // write both elements to the output buffer
+
+        //else
+        //{
+        //    g_Output[i] = A;
+        //    g_Output[ixj] = B;
+        //}        
+    }
+    // DO NOT write anything here if ixj < i — partner wrote the pair.
+}
+#else
 // ---------- Global merge pass: handles only j >= TILE_SIZE ----------
 [numthreads(1024, 1, 1)] // you can change to an appropriate group size (e.g., 256, 512)
 void GlobalMergeCS(uint3 DTid : SV_DispatchThreadID)
@@ -132,7 +224,7 @@ void GlobalMergeCS(uint3 DTid : SV_DispatchThreadID)
             g_Output[ixj] = A;
         }
         else
-        {
+        {            
             g_Output[i] = A;
             g_Output[ixj] = B;
         }
@@ -143,3 +235,4 @@ void GlobalMergeCS(uint3 DTid : SV_DispatchThreadID)
         g_Output[i] = g_Input[i];
     }
 }
+#endif

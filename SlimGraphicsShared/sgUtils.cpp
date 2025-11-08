@@ -53,8 +53,23 @@ namespace sg
 
 	SharedPtr<Buffer> create_buffer(Device& device, u32 size, BufferType type /*= BufferType::GeneralDataBuffer*/, bool uav_access /*= true*/)
 	{
-		SharedPtr<Memory> mem = device.allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, size);
+		MemoryType memory_type = MemoryType::GPUOptimal;
+		if (type == BufferType::Upload) 
+		{
+			seAssert(uav_access == false, "Should not set upload heap memory as uav");
+			uav_access = false;
+			memory_type = MemoryType::Upload;
+		}
+
+		SharedPtr<Memory> mem = device.allocate_memory(memory_type, MemorySubType::Buffer, size);
 		SharedPtr<Buffer> buffer = device.create_buffer(mem, size, type, uav_access);
+		return buffer;
+	}
+
+	sg::SharedPtr<sg::Buffer> create_readback_buffer(Device& device, u32 size)
+	{
+		SharedPtr<Memory> mem = device.allocate_memory(MemoryType::Readback, MemorySubType::Buffer, size);
+		SharedPtr<Buffer> buffer = device.create_buffer(mem, size, BufferType::GeneralDataBuffer, false);
 		return buffer;
 	}
 

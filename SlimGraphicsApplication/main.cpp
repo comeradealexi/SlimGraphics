@@ -21,6 +21,7 @@
 #include "Scene/Terrain.h"
 #include "MagnifyingGlass/MagnifyingGlass.h"
 #include "PostProcess/PostProcess.h"
+#include "BitonicSort.h"
 
 /*
 TODO:
@@ -286,6 +287,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	Ptr< PostProcess> post_process(new PostProcess(device));
 	device->set_imgui_viewer_texture(magnifying_glass->render_texture);
 	Ptr< Terrain> terrain = Ptr<Terrain>(new Terrain(device));
+	Ptr< BitonicSort> bitonic_sort = Ptr< BitonicSort>(new BitonicSort(device));
 	volatile bool run = true;
 
 	u32 total_frame_idx = 0;
@@ -425,6 +427,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				command_buffer->set_pipeline(pipeline_compute.get());
 				command_buffer->bind(b, PipelineType::Compute);
 				command_buffer->dispatch();
+			}
+
+			{
+				bitonic_sort->sort(*command_buffer, *linear_cb);
 			}
 
 			command_buffer->start_geometry_pass(1, &final_rtv, vp, sc);
