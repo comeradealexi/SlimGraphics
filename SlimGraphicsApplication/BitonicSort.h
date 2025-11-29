@@ -32,4 +32,8 @@ private:
 	sg::SharedPtr<sg::Buffer> buffer_output;
 	sg::SharedPtr<sg::Buffer> buffer_readback;
 
+	struct Stats
+	{
+		sg::u32 dispatch_count = 0;
+	} stats;
 };

@@ -4,6 +4,10 @@
 #include <imgui.h>
 using namespace sg;
 
+
+// README: This file serves as a proof of concept that it is functional.
+// Needs updating if planned to be used properly.
+
 BitonicSort::BitonicSort(sg::SharedPtr<sg::Device>& _device) : device(_device)
 {
 	BindingDesc pipeline_binding_desc = {};
@@ -27,16 +31,17 @@ BitonicSort::BitonicSort(sg::SharedPtr<sg::Device>& _device) : device(_device)
 
 void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input, sg::Buffer* buffer_output, sg::u32 array_size, */SimpleLinearConstantBuffer& cbuffer)
 {
+
 	if (run_once == false)
 	{
 		if (readback_once)
 		{
-			sorted_list.resize(128);
+			sorted_list.resize(8192);
 			void* m = buffer_readback->map_memory();
-			memcpy(sorted_list.data(), m, sizeof(KeyValue) * 128);
+			memcpy(sorted_list.data(), m, sizeof(KeyValue) * 8192);
 			buffer_readback->unmap_memory();
 
-			for (size_t i = 1; i < 128; i++)
+			for (size_t i = 1; i < 8192; i++)
 			{
 				seAssert(sorted_list[i].key >= sorted_list[i - 1].key, "Not Sorted!");
 			}
@@ -47,6 +52,7 @@ void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input
 	}
 	run_once = false;
 
+	stats = {};
 
 
 	struct SortParams
@@ -66,7 +72,7 @@ void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input
 	} global_merge_params = {};
 
 	const uint32_t TILE_SIZE = 32;
-	const uint32_t sort_count = 128;
+	const uint32_t sort_count = 8192;
 	KeyValue* mapped_memory = (KeyValue*)buffer_upload->map_memory();
 	srand(32);
 	for (uint32_t i = 0; i < sort_count; i++)
@@ -144,6 +150,7 @@ void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input
 					// Dispatch one thread per element
 					uint32_t groups = (sort_count + TILE_SIZE - 1u) / TILE_SIZE;
 					command_list.dispatch(groups / 2, 1, 1);
+					stats.dispatch_count++;
 
 					// Insert UAV barrier / memory barrier here (DX12: UAVBarrier; DX11: Dispatch then UnorderedAccessView barrier / Flush)
 					//buffer_ping_pong = !buffer_ping_pong;
