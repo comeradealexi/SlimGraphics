@@ -3,7 +3,7 @@ A lightweight graphics engine to serve as a playground for different graphical t
 
 The focus of this project isn't to try and make the most perfect and optimal rendering abstraction, it's designed to try and make it easy to add new features easily without having to get bogged down in DirectX 12 API specifics. For example, most of the pain surrounding barriers has been kept simple by returning resources to a generic read state most of the time.
 
-# Features
+## Features
 
 * 3D Model loading via Assimp
 * Mesh shader support
@@ -14,7 +14,7 @@ The focus of this project isn't to try and make the most perfect and optimal ren
 * Built-in magnification tool
 * JSON driven shader compiling via C# tool
 
-# Sub Modules
+## Sub Modules
 * Sharpmake
 * meshoptimizer
 * D3D12MA
@@ -24,7 +24,7 @@ The focus of this project isn't to try and make the most perfect and optimal ren
 * DirectXMaths
 * stb
 
-# Building & Running
+## Building & Running
 * Run `generate_project_files.bat` in root.
 * Open `slimgraphics_vs2022.sln`
 * Ensure configuration is set to `x64`
