@@ -1,7 +1,7 @@
 # Slim Graphics
 A lightweight graphics engine to serve as a playground for different graphical techniques and features.
 
-The focus of this project isn't to try and make the most perfect and optimal rendering abstraction, it's designed to try and make it easy to add new features easily without having to get bogged down in DirectX 12 API specifics. For example, most of the pain surrounding barriers has been kept simple by returning resources to a generic read state most of the time.
+The focus of this project is NOT to try and make the most perfect and optimal rendering abstraction, it's designed for myself to try and make it easy to add new features easily without having to get bogged down in DirectX 12 API specifics. For example, most of the pain surrounding barriers has been kept simple by returning resources to a generic read state most of the time.
 
 ## Features
 
