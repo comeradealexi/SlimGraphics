@@ -199,6 +199,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	SharedPtr<Texture> intermediate_render_target;
 	ShaderResourceView intermediate_srv;
 	UnorderedAccessView intermediate_uav;
+	SharedPtr<RenderTargetView> intermediate_rtv;
 	{
 		ResourceCreateDesc rcd = {};
 		rcd.width = w;
@@ -212,6 +213,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		intermediate_render_target = create_texture(*device, rcd);
 		intermediate_uav = device->create_unordered_access_view(intermediate_render_target);
 		intermediate_srv = device->create_shader_resource_view(intermediate_render_target);
+		intermediate_rtv = device->create_render_target_view(intermediate_render_target);
 
 	}
 
@@ -367,6 +369,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		debug_draw->Update();
 		model_viewer->Update(delta_time, total_time, camera, *debug_draw);
 		magnifying_glass->Update(wnd->g_hWnd, *input, delta_time, total_time, camera, *debug_draw);
+		basic_grid.Update(delta_time, total_time, camera);
 		post_process->Update(wnd->g_hWnd, *input, delta_time, total_time, camera, *debug_draw);
 
 		camera.Update(delta_time, total_time, *input);
@@ -433,6 +436,13 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			{
 				//bitonic_sort->sort(*command_buffer, *linear_cb);
 			}
+
+			command_buffer->start_geometry_pass(1, &intermediate_rtv, vp, sc);
+			{
+				float4 colour = { 0.0f,1.0f,0.0f,1.0f };
+				command_buffer->clear_render_target_view(intermediate_rtv, colour);
+			}
+			command_buffer->end_geometry_pass();
 
 			command_buffer->start_geometry_pass(1, &final_rtv, vp, sc);
 			{

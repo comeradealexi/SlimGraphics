@@ -97,13 +97,14 @@ namespace sg
             }
             else
             {
+
 				__debugbreak();
             }
         }
 
         void setup_debug_filters(ID3D12Device* device)
         {
-#if 0//_DEBUG
+#if _DEBUG
             ID3D12InfoQueue1* pInfoQueue = nullptr;
             if (SUCCEEDED(device->QueryInterface(IID_PPV_ARGS(&pInfoQueue))))
             {
@@ -123,7 +124,8 @@ namespace sg
                 pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
                 pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, false);
                 pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_INFO, false);
-                CHECKHR(pInfoQueue->RegisterMessageCallback(d3d12_message_callback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, (DWORD*)d3d12_message_callback));
+                DWORD dword = 0;
+                CHECKHR(pInfoQueue->RegisterMessageCallback(d3d12_message_callback, D3D12_MESSAGE_CALLBACK_FLAG_NONE, nullptr, &dword));
                 pInfoQueue->PushStorageFilter(&NewFilter);
                 pInfoQueue->Release();
             }
@@ -149,7 +151,7 @@ namespace sg
                         // Enable additional debug layers.
                         dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
 
-                        #if false
+                        #if 0//true
 						    ComPtr<ID3D12Debug1> debugController1;
 						    if (SUCCEEDED(debugController->QueryInterface(IID_PPV_ARGS(&debugController1))))
 						    {
@@ -209,24 +211,29 @@ namespace sg
                 memory_manager.desc.pAdapter = hardware_adapter.Get();
                 CHECKHR(D3D12MA::CreateAllocator(&memory_manager.desc, &memory_manager.allocator));
 
+                // Intel Lenovo laptop is unhappy with not zeroed flag if you don't init the resource
+                // D3D12 ERROR: ID3D12CommandQueue1::ExecuteCommandLists: Placed resources, reserved resources, or committed resources with D3D12_HEAP_FLAG_CREATE_NOT_ZEROED flag with either render target or depth stencil flags must be initialized with a Discard/Clear/Copy operations before other operations are supported. Resource (0x000001F3D71BD4E0:'Unnamed ID3D12Resource Object'), Subresource (0) is not initialized but is used in Function (ID3D12CommandList::CopyResource) on Command List 
+                // (0x000001F3D4F3E280:'Unnamed ID3D12GraphicsCommandList Object'). [ EXECUTION ERROR #1422: RENDER_TARGET_OR_DEPTH_STENCIL_RESOUCE_NOT_INITIALIZED]
+                const D3D12_HEAP_FLAGS flag_not_zeroed = D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+
                 D3D12MA::POOL_DESC pool_desc = {};
                 pool_desc.HeapProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
-				pool_desc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+				pool_desc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES | flag_not_zeroed;
              
                 CHECKHR(memory_manager.allocator->CreatePool(&pool_desc, &memory_manager.pools[(u32)MemoryManager::PoolTypes::Textures]));
 
-				pool_desc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+				pool_desc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES | flag_not_zeroed;
 				CHECKHR(memory_manager.allocator->CreatePool(&pool_desc, &memory_manager.pools[(u32)MemoryManager::PoolTypes::Targets]));
 
-				pool_desc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+				pool_desc.HeapFlags = D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS | flag_not_zeroed;
 				CHECKHR(memory_manager.allocator->CreatePool(&pool_desc, &memory_manager.pools[(u32)MemoryManager::PoolTypes::Buffers]));
 
 				pool_desc.HeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
-				pool_desc.HeapFlags = D3D12_HEAP_FLAG_NONE | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+				pool_desc.HeapFlags = D3D12_HEAP_FLAG_NONE | flag_not_zeroed;
 				CHECKHR(memory_manager.allocator->CreatePool(&pool_desc, &memory_manager.pools[(u32)MemoryManager::PoolTypes::Upload]));
 
                 pool_desc.HeapProperties.Type = D3D12_HEAP_TYPE_READBACK;
-				pool_desc.HeapFlags = D3D12_HEAP_FLAG_NONE | D3D12_HEAP_FLAG_CREATE_NOT_ZEROED;
+				pool_desc.HeapFlags = D3D12_HEAP_FLAG_NONE | flag_not_zeroed;
 				CHECKHR(memory_manager.allocator->CreatePool(&pool_desc, &memory_manager.pools[(u32)MemoryManager::PoolTypes::Readback]));
             }
             {

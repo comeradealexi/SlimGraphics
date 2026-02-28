@@ -70,6 +70,8 @@ void MagnifyingGlass::Render(sg::CommandList& command_list, sg::ConstantBufferVi
 		b.set_srv(read_texture, 0);
 		command_list.start_geometry_pass(1, &render_target_view, vp, sc);
 		{
+			float4 colour = { 0.0f,0.0f,0.0f,0.0f };
+			command_list.clear_render_target_view(render_target_view, colour);
 			command_list.set_pipeline(pipeline.get());
 			command_list.bind(b, PipelineType::Geometry);
 			command_list.draw_instanced(3, 1, 0, 0);

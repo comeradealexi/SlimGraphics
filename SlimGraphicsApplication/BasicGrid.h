@@ -15,4 +15,5 @@ public:
 
 private:
 	sg::SharedPtr<sg::Pipeline> pipeline;
+	bool active = true;
 };

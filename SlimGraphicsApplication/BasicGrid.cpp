@@ -36,16 +36,23 @@ BasicGrid::BasicGrid(sg::SharedPtr<sg::Device>& _device)
 
 void BasicGrid::Update(float delta_time, float total_time, const Camera& camera)
 {
-
+	bool show = ImGui::CollapsingHeader("Grid");
+	if (show)
+	{
+		ImGui::Checkbox("Enabled", &active);
+	}
 }
 
 void BasicGrid::Render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer)
 {
-	command_list.set_pipeline(pipeline.get());
+	if (active)
+	{
+		command_list.set_pipeline(pipeline.get());
 
-	Binding b;
-	b.cbv_binding_count = 1;
-	b.set_cbv(cbv_camera, 0);
-	command_list.bind(b, PipelineType::Geometry);
-	command_list.draw_instanced(6, 1, 0, 0);
+		Binding b;
+		b.cbv_binding_count = 1;
+		b.set_cbv(cbv_camera, 0);
+		command_list.bind(b, PipelineType::Geometry);
+		command_list.draw_instanced(6, 1, 0, 0);
+	}
 }
