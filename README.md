@@ -5,7 +5,7 @@ The focus of this project is NOT to try and make the most perfect and optimal re
 
 ## Features
 
-* 3D Model loading via Assimp
+* 3D Model amd texture loading via Assimp
 * Mesh shader support
   * Amplification shader support
   * GPU meshlet culling (cone and frustum)
@@ -13,13 +13,20 @@ The focus of this project is NOT to try and make the most perfect and optimal re
 * Basic post-processing and visualisations
 * Built-in magnification tool
 * JSON driven shader compiling via C# tool
-* Model visualisations including: vertex order, wave intrinsics, pixel order, meshlet & amplification
+* Model visualisations
+ * vertex & prim order
+ * wave intrinsics
+ * pixel order
+ * meshlet & amplification
+* Model cache optimisation (meshoptimizer and DirectXMesh)
+* Model simplification (via meshoptimizer)
+* Pipeline feedback (Via API and UAV Readback)
 
 ## Sub Modules
 * Sharpmake
 * meshoptimizer
 * D3D12MA
-* IMGUI * IMPLOT
+* IMGUI & IMPLOT
 * DirectXTK
 * LodePNG
 * DirectXMaths
