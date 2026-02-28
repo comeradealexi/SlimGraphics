@@ -13,6 +13,7 @@ The focus of this project is NOT to try and make the most perfect and optimal re
 * Basic post-processing and visualisations
 * Built-in magnification tool
 * JSON driven shader compiling via C# tool
+* Model visualisations including: vertex order, wave intrinsics, pixel order, meshlet & amplification
 
 ## Sub Modules
 * Sharpmake
