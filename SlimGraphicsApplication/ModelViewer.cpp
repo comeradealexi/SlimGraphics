@@ -339,6 +339,8 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			}
 		}
 		ImGui::Checkbox("Auto Rotate Model", &auto_rotate_model);
+		ImGui::SameLine();
+		ImGui::Checkbox("Auto Percent", &auto_render_percent);
 		if (ImGui::Button("0 degrees")) { rotate_value = 0.0f; }
 		ImGui::SameLine();
 		if (ImGui::Button("90 degrees")) { rotate_value = 90.0f; }
@@ -655,6 +657,29 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		model_data.model_matrix = DirectX::XMMatrixMultiply(model_data.model_matrix, rotation_matrix);
 	}
 
+	if (auto_render_percent)
+	{
+		const float render_percent_change = delta_time * 0.25f;
+		if (auto_render_percent_decrementing)
+		{
+			render_percentage -= render_percent_change;
+			if (render_percentage < 0.0f)
+			{
+				render_percentage = 0.0f;
+				auto_render_percent_decrementing = false;
+			}
+		}
+		else
+		{
+			render_percentage += render_percent_change;
+			if (render_percentage > 1.0f)
+			{
+				render_percentage = 1.0f;
+				auto_render_percent_decrementing = true;
+			}
+		}
+	}
+
 	model_data.model_matrix_inverse = DirectX::XMMatrixInverse(nullptr, model_data.model_matrix);
 
 	if (recreate_pipeline)
@@ -682,7 +707,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			if (!render_model_bool_array[i])
 				continue;
 
-			if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), model->GetMeshParts().at(i)))
+			if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), model->GetMeshParts().at(i), model_scale))
 				continue;
 
 			render_list_ordered.push_back(&(model->GetMeshParts().at(i)));
@@ -954,9 +979,9 @@ void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap)
 	}
 }
 
-bool ModelViewer::MeshPartVisible(const Camera& camera, DirectX::XMFLOAT3 position, Model::MeshPart& mesh_part)
+bool ModelViewer::MeshPartVisible(const Camera& camera, DirectX::XMFLOAT3 position, Model::MeshPart& mesh_part, float scale)
 {
-	float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z));
+	float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z)) * scale;
 	DirectX::BoundingSphere bs(position, radius);
 	bool visible = false;
 

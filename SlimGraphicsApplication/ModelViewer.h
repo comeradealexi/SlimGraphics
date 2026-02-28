@@ -16,7 +16,7 @@ public:
 	void Render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw);
 	void CreatePipeline();
 	void CreateModel(sg::Ptr<sg::UploadHeap>& upload_heap);
-	bool MeshPartVisible(const Camera& camera, DirectX::XMFLOAT3 position, Model::MeshPart& mesh_part);
+	bool MeshPartVisible(const Camera& camera, DirectX::XMFLOAT3 position, Model::MeshPart& mesh_part, float scale);
 
 private:
 	const DXGI_FORMAT render_target_format;
@@ -85,6 +85,8 @@ private:
 	bool recreate_model = true;
 	bool render_wireframe = false;
 	float render_percentage = 1.0f;
+	bool auto_render_percent = false;
+	bool auto_render_percent_decrementing = true;
 	int model_render_count = 1;
 	bool render_as_mesh_shader = true;
 	bool depth_enable = true;

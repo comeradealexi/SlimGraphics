@@ -292,7 +292,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	//Ptr< BitonicSort> bitonic_sort = Ptr< BitonicSort>(new BitonicSort(device));
 	volatile bool run = true;
 
-	u32 total_frame_idx = 0;
+	// I start this at value of 1 because the D3D12 fence doesn't like waiting on a value of 0...
+	u32 total_frame_idx = 1;
 
 	Viewport vp;
 	vp.width = (u32)w;
@@ -413,7 +414,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			}
 		}
 		ImGui::End();
-
+	
 		command_buffer->start_recording();
 		timestamp_pool->begin_frame();
 		stats_pool->begin_frame();
