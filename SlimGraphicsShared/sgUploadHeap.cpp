@@ -99,6 +99,7 @@ void UploadHeap::end_frame()
 	data.command_list->end_recording();
 	data.queue_ref->submit_command_list(data.command_list.get());
 	data.queue_ref->fence_signal(data.fence.Get(), counter);
+	data.fence_wait_value = counter;
 	data.fence_signalled = true;
 	data.queue_ref = nullptr;
 

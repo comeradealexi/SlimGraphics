@@ -962,7 +962,7 @@ void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap)
 {
 	if (render_model_bool_array)
 	{
-		delete render_model_bool_array;
+		delete[] render_model_bool_array;
 		render_model_bool_array = nullptr;
 	}
 

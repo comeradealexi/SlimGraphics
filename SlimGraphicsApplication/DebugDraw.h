@@ -20,7 +20,7 @@ public:
 			a = alpha;
 		}
 
-		union
+		struct
 		{
 			sg::u8 r;
 			sg::u8 g;
