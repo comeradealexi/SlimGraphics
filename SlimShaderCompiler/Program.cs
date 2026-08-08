@@ -1,20 +1,25 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Text.Json;
 using System.Reflection;
-using System.Collections;
-using System.Diagnostics;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
 using System.Web.UI;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.IO;
 
 namespace SlimShaderCompiler
 {
     public class Attribute_DoNotCopy : Attribute { public string DefaultValue { get; set; } }
     public class Attribute_Append : Attribute { public string DefaultValue { get; set; } }
 
+    [Serializable]
     public struct VariantDefine
     {
         // define to expose
@@ -30,7 +35,8 @@ namespace SlimShaderCompiler
         public string ids;
     };
 
-    public class ShaderJSON : ICloneable
+    [Serializable]
+    public class ShaderJSON
     {
         public string name { get; set; }
         
@@ -114,9 +120,18 @@ namespace SlimShaderCompiler
             }
         }
 
-        public object Clone()
+        public ShaderJSON Clone()
         {
-            return this.MemberwiseClone();
+            // Ewww! This feels so bad to just clone a class
+            // https://stackoverflow.com/questions/129389/how-do-you-do-a-deep-copy-of-an-object-in-net
+            using (var ms = new MemoryStream())
+            {
+                var formatter = new BinaryFormatter();
+                formatter.Serialize(ms, this);
+                ms.Position = 0;
+
+                return (ShaderJSON)formatter.Deserialize(ms);
+            }
         }
     }
     public enum Platform
@@ -248,17 +263,25 @@ namespace SlimShaderCompiler
             // We're a root level shader, add this shader to be compiled.
             if (shader.shaders == null || shader.shaders.Length == 0)
             {
-                int count = 1 << shader.variant_defines.Count;
-                for (int i = 0; i < count; i++)
+                // Compile variants (includes version with no variants)
+                if (shader.variant_defines != null && shader.variant_defines.Count > 0)
                 {
-                    VariationCombinations combined_defines = GatherVariants(shader.variant_defines, i);
-                    ShaderJSON shader_tmp = shader.Clone() as ShaderJSON;
-                    if (combined_defines.defines.Count != 0)
+                    int count = 1 << shader.variant_defines.Count;
+                    for (int i = 0; i < count; i++)
                     {
-                        shader_tmp.defines.InsertRange(0, combined_defines.defines);
-                        shader_tmp.name = string.Format("{0}{1}", shader_tmp.name, combined_defines.ids);
+                        VariationCombinations combined_defines = GatherVariants(shader.variant_defines, i);
+                        ShaderJSON shader_tmp = shader.Clone();
+                        if (combined_defines.defines.Count != 0)
+                        {
+                            shader_tmp.defines.InsertRange(0, combined_defines.defines);
+                            shader_tmp.name = string.Format("{0}{1}", shader_tmp.name, combined_defines.ids);
+                        }
+                        shader_compile_list.Add(shader_tmp);
                     }
-                    shader_compile_list.Add(shader_tmp);
+                }
+                else
+                {
+                    shader_compile_list.Add(shader);
                 }
             }
             else

@@ -5,15 +5,15 @@
     "variant_defines": [
       {
         "defines": [
-          "GEOMETRY_SHADER"
-        ],
-        "id": "GS"
-      },
-      {
-        "defines": [
           "FORCE_EARLY_DEPTH_STENCIL"
         ],
         "id": "EDS"
+      },
+      {
+        "defines": [
+          "GEOMETRY_SHADER"
+        ],
+        "id": "GS"
       }
     ],
     "shaders": [

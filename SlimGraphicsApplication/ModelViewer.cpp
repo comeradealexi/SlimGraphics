@@ -50,15 +50,6 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 		shader_vertex_simple = create_vertex_shader(*device, "ShaderBin_Debug\\SimplifiedModelViewer_VertexShader.PC_DXC");
 
-		shaders_pixel[(int)StandardPixelPipelineMode::Full] = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelShader.PC_DXC");
-		shaders_pixel_eds[(int)StandardPixelPipelineMode::Full] = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelShader_EDS.PC_DXC");
-
-		shaders_pixel[(int)StandardPixelPipelineMode::Simple] = create_pixel_shader(*device, "ShaderBin_Debug\\SimplifiedModelViewer_PixelShader.PC_DXC");
-		shaders_pixel_eds[(int)StandardPixelPipelineMode::Simple] = create_pixel_shader(*device, "ShaderBin_Debug\\SimplifiedModelViewer_PixelShader_EDS.PC_DXC");
-
-		shaders_pixel[(int)StandardPixelPipelineMode::SimpleAndDiscard] = create_pixel_shader(*device, "ShaderBin_Debug\\SimplifiedModelViewer_PixelShader_DISCARD.PC_DXC");
-		shaders_pixel_eds[(int)StandardPixelPipelineMode::SimpleAndDiscard] = create_pixel_shader(*device, "ShaderBin_Debug\\SimplifiedModelViewer_PixelShader_DISCARD_EDS.PC_DXC");
-
 		shader_vertex_middle_triangle = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderMiddleTriangle.PC_DXC");
 		shader_vertex_triangle = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderTriangle.PC_DXC");
 		shader_vertex_quad = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderQuad.PC_DXC");
@@ -365,10 +356,13 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			ImGui::SeparatorText("Model Settings");
 			ImGui::BeginDisabled(!device->SupportsMeshShaders());
 			{
-				ImGui::Checkbox("Render with Mesh Shader", &render_as_mesh_shader);
+				recreate_pipeline |= ImGui::Checkbox("Render with Mesh Shader", &render_as_mesh_shader);
 			}
 			ImGui::EndDisabled();
-			ImGui::Checkbox("Force Early Depth Stencil", &use_eds);
+
+			recreate_pipeline |= ImGui::Checkbox("Force Early Depth Stencil", &pixel_shader_variations[PixelShaderVariations::EarlyDepthStencil]);
+			recreate_pipeline |= ImGui::Checkbox("Use Geometry Shader", &pixel_shader_variations[PixelShaderVariations::GeometryShader]);
+
 			ImGui::SeparatorText("Mesh Shader");
 			ImGui::BeginDisabled(!render_as_mesh_shader);
 			{
@@ -382,7 +376,6 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			if (ImGui::CollapsingHeader("Geometry Shader"))
 			{
 				ImGui::PushID("GeometryShaderInfo");
-				recreate_pipeline |= ImGui::Checkbox("Use Geometry Shader", &geometry_shader_data.enabled);
 
 				ImGui::SliderFloat("Scale", &geometry_shader_data.shader_options.x, 0.0f, 10.0f);
 				ImGui::SliderFloat("Explode", &geometry_shader_data.shader_options.y, -1.0f, 1.0f);
@@ -398,7 +391,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			ImGui::Checkbox("Diffuse Texture", (bool*)&model_data.textures_enabled.x);
 			ImGui::Checkbox("Specular Texture", (bool*)&model_data.textures_enabled.y);
 			ImGui::Checkbox("Normals Texture", (bool*)&model_data.textures_enabled.z);
-			ImGui::Checkbox("Opacity Texture", (bool*)&model_data.textures_enabled.z);
+			ImGui::Checkbox("Opacity Texture", (bool*)&model_data.textures_enabled.w);
 			ImGui::SliderFloat("Alpha Discard Threshold", &model_data.texture_options.x, 0.0f, 1.0f);
 			ImGui::BeginDisabled(render_as_mesh_shader);
 			ImGui::Text("Geometry:");
@@ -663,7 +656,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 		if (render_as_mesh_shader)
 		{
 			MeshShaderRendering& mesh_shader_rendering = amplification_mesh_shader ? amplification_mesh_shading : mesh_shading;
-			command_list.set_pipeline(use_eds ? mesh_shader_rendering.pipeline_eds.get() : mesh_shader_rendering.pipeline.get());
+			command_list.set_pipeline(pixel_shader_variations[PixelShaderVariations::EarlyDepthStencil] ? mesh_shader_rendering.pipeline_eds.get() : mesh_shader_rendering.pipeline.get());
 
 			Binding b;
 			b.cbv_binding_count = 2;
@@ -740,7 +733,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 		}
 		else
 		{
-			command_list.set_pipeline(use_eds ? pipeline_eds.get() : pipeline.get());
+			command_list.set_pipeline(pipeline.get());
 
 			Binding b;
 			b.cbv_binding_count = 2;
@@ -809,10 +802,25 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 
 void ModelViewer::CreatePipeline()
 {
+	std::string pixel_shader_file = "ShaderBin_Debug\\";
+	switch (standard_vsps_render_mode)
+	{
+		case StandardPixelPipelineMode::Full: pixel_shader_file += "ModelViewer_PixelShader"; break;
+		case StandardPixelPipelineMode::Simple: pixel_shader_file += "SimplifiedModelViewer_PixelShader"; break;
+		case StandardPixelPipelineMode::SimpleAndDiscard: pixel_shader_file += "SimplifiedModelViewer_PixelShader_DISCARD"; break;
+	}
+	
+	if (pixel_shader_variations[PixelShaderVariations::EarlyDepthStencil]) pixel_shader_file += "_EDS";
+	if (pixel_shader_variations[PixelShaderVariations::GeometryShader]) pixel_shader_file += "_GS";
+
+	pixel_shader_file += ".PC_DXC";
+
+	shader_pixel = create_pixel_shader(*device, pixel_shader_file.c_str());
+
 	pipeline_desc.input_layout = Model::Vertex::make_input_layout();
 	pipeline_desc.vertex_shader = standard_vsps_render_mode == StandardPixelPipelineMode::Full ? shader_vertex : shader_vertex_simple;
-	pipeline_desc.geometry_shader = geometry_shader_data.enabled ? shader_geometry : nullptr; 
-	pipeline_desc.pixel_shader = shaders_pixel[(int)standard_vsps_render_mode];
+	pipeline_desc.geometry_shader = pixel_shader_variations[PixelShaderVariations::GeometryShader] ? shader_geometry : nullptr;
+	pipeline_desc.pixel_shader = shader_pixel;
 	pipeline_desc.render_target_count = 1;
 	pipeline_desc.render_target_format_list[0] = render_target_format;
 	pipeline_desc.depth_stencil_format = depth_stencil_format;
@@ -823,16 +831,6 @@ void ModelViewer::CreatePipeline()
 	pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
 	pipeline = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
 	seAssert(pipeline != nullptr, "Failed to create model view pipeline");
-	
-	// ROV Variant
-	{
-		pipeline_desc.pixel_shader = shaders_pixel_eds[(int)standard_vsps_render_mode];
-		pipeline_eds = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
-		seAssert(pipeline_eds != nullptr, "Failed to create model view pipeline");
-
-		// Restore original ps
-		pipeline_desc.pixel_shader = shaders_pixel[(int)standard_vsps_render_mode];
-	}
 
 	pipeline_desc.input_layout = {};
 

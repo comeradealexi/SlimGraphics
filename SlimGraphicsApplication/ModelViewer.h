@@ -41,9 +41,20 @@ private:
 		Max
 	} standard_vsps_render_mode = StandardPixelPipelineMode::Full;
 
+	enum PixelShaderVariations : int
+	{
+		// Early Depth Stencil https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/sm5-attributes-earlydepthstencil
+		// Without EDS, the UAV we write to per-pixel causes every single rasterised pixel to invoke the pixel shader
+		// so rendering front to back has zero impact on the number of pixel shaders invoked
+		// by forcing EDS we make it invoke the pixel shader so it is more like traditional rendering.
+		EarlyDepthStencil,
+		GeometryShader,
+		Max,
+	};
+	bool pixel_shader_variations[PixelShaderVariations::Max] = {};
+
 	sg::SharedPtr<sg::Device> device;
 	sg::SharedPtr<sg::Pipeline> pipeline;
-	sg::SharedPtr<sg::Pipeline> pipeline_eds;
 	sg::SharedPtr<sg::Pipeline> pipeline_fullscreen_triangle;
 	sg::SharedPtr<sg::Pipeline> pipeline_middle_triangle;
 	sg::SharedPtr<sg::Pipeline> pipeline_fullscreen_quad;
@@ -60,8 +71,7 @@ private:
 	sg::SharedPtr<sg::VertexShader> shader_vertex_middle_triangle;
 	sg::SharedPtr<sg::VertexShader> shader_vertex_quad;
 
-	sg::SharedPtr<sg::PixelShader> shaders_pixel[(int)StandardPixelPipelineMode::Max];
-	sg::SharedPtr<sg::PixelShader> shaders_pixel_eds[(int)StandardPixelPipelineMode::Max];
+	sg::SharedPtr<sg::PixelShader> shader_pixel;
 
 	sg::Ptr<Model> model;
 	Model::InitData model_init_data;
@@ -96,12 +106,7 @@ private:
 	bool depth_write = true;
 	bool scale_model_to_1 = false;
 	float scale_mode_to_1_previous = model_scale;
-	
-	// Early Depth Stencil https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/sm5-attributes-earlydepthstencil
-	// Without EDS, the UAV we write to per-pixel causes every single rasterised pixel to invoke the pixel shader
-	// so rendering front to back has zero impact on the number of pixel shaders invoked
-	// by forcing EDS we make it invoke the pixel shader so it is more like traditional rendering.
-	bool use_eds = false;
+
 	
 	bool mesh_shader_cone_culling = true;
 	bool mesh_shader_sphere_frustum_culling = true;
@@ -110,7 +115,6 @@ private:
 	// Geometry Shader
 	struct GeometryShaderSetup
 	{
-		bool enabled = false;
 		ShaderStructs::float4 shader_options = { 1.0f, 0.0f, 0.0f, 0.0f }; // x = scale
 
 	} geometry_shader_data;
