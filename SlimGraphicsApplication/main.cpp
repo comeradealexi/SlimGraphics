@@ -23,15 +23,6 @@
 #include "PostProcess/PostProcess.h"
 #include "BitonicSort.h"
 
-/*
-TODO:
-Compute
-Vertex Buffers
-Index Buffers
-Texture Bindings
-UAV
-*/
-
 void OverrideImguiStyle()
 {
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -397,17 +388,27 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		if (ImGui::CollapsingHeader("GPU Pipeline Stats"))
 		{
 			{ // Query Stats
-				ImGui::Text("IAVertices:    %llu", query_data.IAVertices);
-				ImGui::Text("IAPrimitives:  %llu", query_data.IAPrimitives);
-				ImGui::Text("VSInvocations: %llu", query_data.VSInvocations);
-				ImGui::Text("GSInvocations: %llu", query_data.GSInvocations);
-				ImGui::Text("GSPrimitives:  %llu", query_data.GSPrimitives);
-				ImGui::Text("CInvocations:  %llu", query_data.CInvocations);
-				ImGui::Text("CPrimitives:   %llu", query_data.CPrimitives);
-				ImGui::Text("PSInvocations: %llu", query_data.PSInvocations);
-				ImGui::Text("HSInvocations: %llu", query_data.HSInvocations);
-				ImGui::Text("DSInvocations: %llu", query_data.DSInvocations);
-				ImGui::Text("CSInvocations: %llu", query_data.CSInvocations);
+
+				char cbfr[25]; // Add commas to numbers - Couldn't find any good way in std lib to do this!
+				auto prettify_num = [&cbfr](uint64_t v) {
+						char d[20], *p = cbfr;
+						int n = 0;
+						do { d[n++] = '0' + v % 10; } while (v /= 10);
+						while (n--) { *p++ = d[n]; if (n && n % 3 == 0) *p++ = ','; }
+						*p = '\0';
+						return cbfr; };
+
+				ImGui::Text("IAVertices:    %s", prettify_num(query_data.IAVertices));
+				ImGui::Text("IAPrimitives:  %s", prettify_num(query_data.IAPrimitives));
+				ImGui::Text("VSInvocations: %s", prettify_num(query_data.VSInvocations));
+				ImGui::Text("GSInvocations: %s", prettify_num(query_data.GSInvocations));
+				ImGui::Text("GSPrimitives:  %s", prettify_num(query_data.GSPrimitives));
+				ImGui::Text("CInvocations:  %s", prettify_num(query_data.CInvocations));
+				ImGui::Text("CPrimitives:   %s", prettify_num(query_data.CPrimitives));
+				ImGui::Text("PSInvocations: %s", prettify_num(query_data.PSInvocations));
+				ImGui::Text("HSInvocations: %s", prettify_num(query_data.HSInvocations));
+				ImGui::Text("DSInvocations: %s", prettify_num(query_data.DSInvocations));
+				ImGui::Text("CSInvocations: %s", prettify_num(query_data.CSInvocations));
 				//ImGui::Text("ASInvocations: %ull", query_data.ASInvocations);
 				//ImGui::Text("MSInvocations: %ull", query_data.MSInvocations);
 				//ImGui::Text("MSPrimitives:  %ull", query_data.MSPrimitives);

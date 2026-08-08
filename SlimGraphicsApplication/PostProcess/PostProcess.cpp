@@ -24,6 +24,7 @@ void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time
 {
 	if (ImGui::CollapsingHeader("Post Process"))
 	{
+		ImGui::PushID("PostProcessImgui");
 		ImGui::Checkbox("Enabled", &enabled);
 		ImGui::RadioButton("Colour Target", (int*)&post_process_technique, (int)PostProcessTechnique::ShowColourTarget);
 		ImGui::RadioButton("Depth Target", (int*)&post_process_technique, (int)PostProcessTechnique::ShowDepthTarget);
@@ -78,6 +79,7 @@ void PostProcess::Update(HWND hwnd, const se::GameInput& input, float delta_time
 		{
 			pipeline = nullptr;
 		}
+		ImGui::PopID();
 	}
 
 	constant_data.colour_output_enabled = DirectX::XMFLOAT4A(post_process_output[0] ? 1.0f : 0.0f, post_process_output[1] ? 1.0f : 0.0f, post_process_output[2] ? 1.0f : 0.0f, post_process_output[3] ? 1.0f : 0.0f);
