@@ -320,19 +320,21 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		if (ImGui::CollapsingHeader("Mesh Optimizer"))
 		{
 			ImGui::BeginGroup();
-			recreate_model = ImGui::RadioButton("Default", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::Default) || recreate_model;
-			recreate_model = ImGui::RadioButton("MeshOpt", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::MeshOpt) || recreate_model;
-			recreate_model = ImGui::RadioButton("DXMesh", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::DXMesh) || recreate_model;
-			recreate_model = ImGui::RadioButton("DXMeshLRU", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::DXMeshLRU) || recreate_model;
+			recreate_model |= ImGui::RadioButton("Default", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::Default);
+			recreate_model |= ImGui::RadioButton("MeshOpt", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::MeshOpt);
+			recreate_model |= ImGui::RadioButton("DXMesh", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::DXMesh);
+			recreate_model |= ImGui::RadioButton("DXMeshLRU", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::DXMeshLRU);
+			recreate_model |= ImGui::RadioButton("CameraFrontToBack", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::CameraFrontToBack);
+			recreate_model |= ImGui::RadioButton("CameraBackToFront", (int*)&model_init_data.vertex_cache_opt_mode, (int)Model::InitData::VertexCachOptimisation::CameraBackToFront);
 
 			if (model_init_data.vertex_cache_opt_mode == Model::InitData::VertexCachOptimisation::DXMeshLRU)
 			{
-				recreate_model = ImGui::SliderInt("LRU Size", &model_init_data.dxmesh_lru_size, 1, 64) || recreate_model;
+				recreate_model |= ImGui::SliderInt("LRU Size", &model_init_data.dxmesh_lru_size, 1, 64);
 			}
 			else if (model_init_data.vertex_cache_opt_mode == Model::InitData::VertexCachOptimisation::DXMesh)
 			{
-				recreate_model = ImGui::SliderInt("Vertex Cache Size", &model_init_data.dxmesh_vertex_cache_size, 1, 64) || recreate_model;
-				recreate_model = ImGui::SliderInt("Restart Value", &model_init_data.dxmesh_restart, 1, 64) || recreate_model;
+				recreate_model |= ImGui::SliderInt("Vertex Cache Size", &model_init_data.dxmesh_vertex_cache_size, 1, 64);
+				recreate_model |= ImGui::SliderInt("Restart Value", &model_init_data.dxmesh_restart, 1, 64);
 
 				if (model_init_data.dxmesh_restart > model_init_data.dxmesh_vertex_cache_size)
 				{
@@ -340,13 +342,20 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 				}
 
 			}
+			else if (model_init_data.vertex_cache_opt_mode == Model::InitData::VertexCachOptimisation::CameraBackToFront
+				|| model_init_data.vertex_cache_opt_mode == Model::InitData::VertexCachOptimisation::CameraFrontToBack)
+			{
+				ImGui::Text("Camera position not updated every frame. Recreate model to update camera position.");
+				ImGui::Text("No model scaling or rotation matrix is applied either!");
+				if (ImGui::Button("Recreate Model")) { recreate_model = true; }
+			}
 
 			ImGui::EndGroup();
 			ImGui::Text("Mesh Simplification (LOD)");
-			recreate_model = ImGui::Checkbox("Simplify", &model_init_data.meshopt_simplification) || recreate_model;
+			recreate_model |= ImGui::Checkbox("Simplify", &model_init_data.meshopt_simplification);
 			ImGui::BeginDisabled(!model_init_data.meshopt_simplification);
-			recreate_model = ImGui::SliderFloat("Threshold", &model_init_data.meshopt_simplification_threshold, 0.0f, 1.0f) || recreate_model;
-			recreate_model = ImGui::SliderFloat("Target Error", &model_init_data.meshopt_simplification_target_error, 0.0f, 1.0f) || recreate_model;
+			recreate_model |= ImGui::SliderFloat("Threshold", &model_init_data.meshopt_simplification_threshold, 0.0f, 1.0f);
+			recreate_model |= ImGui::SliderFloat("Target Error", &model_init_data.meshopt_simplification_target_error, 0.0f, 1.0f);
 			//ImGui::Text("Reported LOD Error: %f", )
 			ImGui::EndDisabled();
 		}
@@ -412,9 +421,10 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			ImGui::Text("Advanced Render Mode:");
 			ImGui::PushID("Render Mode Radio Buttons");
 			ImGui::RadioButton("Default", (int*)&render_mode, 0);
+			ImGui::RadioButton("Primitive Order", (int*)&render_mode, 1);
+
 			ImGui::BeginDisabled(render_as_mesh_shader);
 			{
-				ImGui::RadioButton("Primitive Order", (int*)&render_mode, 1);
 				ImGui::RadioButton("Vertex Order", (int*)&render_mode, 2);
 			}
 			ImGui::EndDisabled();
@@ -434,7 +444,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			else if (render_mode == RenderMode::VertexOrder || render_mode == RenderMode::PrimitiveOrder)
 			{
 				ImGui::PushID("Vert/Prim Shading ID IMGUI");
-				if (ImGui::CollapsingHeader("Vert/Prim Shading"))
+				if (ImGui::CollapsingHeader("Vert/Prim Shading", ImGuiTreeNodeFlags_DefaultOpen))
 				{
 					ImGui::SliderFloat("Modulus", &model_data.vertex_shading_mod, 0.0f, 1.0f);
 				}
@@ -444,7 +454,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			{
 				const float pixel_to_shade_maximum = camera.GetCameraShaderData().screen_dimensions_and_depth_info.x * camera.GetCameraShaderData().screen_dimensions_and_depth_info.y;
 				ImGui::PushID("Pixel Order ID IMGUI");
-				if (ImGui::CollapsingHeader("Pixel Order"))
+				if (ImGui::CollapsingHeader("Pixel Order", ImGuiTreeNodeFlags_DefaultOpen))
 				{
 					ImGui::SliderFloat("Pixel Order Scale", &model_data.pixel_order_data1.x, 0.0f, 4.0f);
 					ImGui::SliderFloat("Modulus", &model_data.pixel_order_data1.y, 0.0f, 1.0f);
@@ -479,7 +489,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			{
 				ImGui::Indent();
 				ImGui::PushID("Wave Intrinsics ID IMGUI");
-				if (ImGui::CollapsingHeader("Wave Intrinsics Order"))
+				if (ImGui::CollapsingHeader("Wave Intrinsics Order", ImGuiTreeNodeFlags_DefaultOpen))
 				{
 					ImGui::PushID("Wave Intrinsics Mode Radio Buttons");
 					ImGui::RadioButton("Lane Indices", (int*)&wave_intrinsic_render_mode, 0);
@@ -499,7 +509,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			{
 				ImGui::Indent();
 				ImGui::PushID("Triangle Size ID IMGUI");
-				if (ImGui::CollapsingHeader("Triangle Size Options"))
+				if (ImGui::CollapsingHeader("Triangle Size Options", ImGuiTreeNodeFlags_DefaultOpen))
 				{
 					ImGui::SliderFloat("Triangle Size Colour Scale", &triangle_size_scale, 0.0f, 20.0f);
 				}
@@ -614,7 +624,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 {
 	if (recreate_model)
 	{
-		CreateModel(upload_heap);
+		CreateModel(upload_heap, camera);
 		recreate_model = false;
 	}
 
@@ -812,7 +822,7 @@ void ModelViewer::CreatePipeline()
 	
 	if (pixel_shader_variations[PixelShaderVariations::EarlyDepthStencil]) pixel_shader_file += "_EDS";
 	if (pixel_shader_variations[PixelShaderVariations::GeometryShader]) pixel_shader_file += "_GS";
-
+	
 	pixel_shader_file += ".PC_DXC";
 
 	shader_pixel = create_pixel_shader(*device, pixel_shader_file.c_str());
@@ -884,7 +894,7 @@ void ModelViewer::CreatePipeline()
 	}
 }
 
-void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap)
+void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap, const Camera& camera)
 {
 	if (render_model_bool_array)
 	{
@@ -892,7 +902,7 @@ void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap)
 		render_model_bool_array = nullptr;
 	}
 
-	model = Ptr<Model>(new Model(device.get(), upload_heap.get(), model_init_data));
+	model = Ptr<Model>(new Model(device.get(), upload_heap.get(), model_init_data, camera));
 
 	if (model)
 	{

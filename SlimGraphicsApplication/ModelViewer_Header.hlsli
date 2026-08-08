@@ -8,8 +8,6 @@
 #define MODEL_VIEWER_SIMPLIFIED
 #endif
 
-//#define PRIMITIVE_ID_SUPPORT
-
 cbuffer ConstantBufferData : register(b0)
 {
     CameraData camera;
@@ -48,11 +46,6 @@ struct VS_INPUT
 
 struct VS_OUTPUT
 {
-    
-};
-
-struct PS_INPUT
-{
     float4 position : SV_POSITION;
     float3 colour : COLOR0;
     float2 uvs : TEXCOORD0;
@@ -63,12 +56,13 @@ struct PS_INPUT
 #endif
     
     noperspective float3 world_position : COLOR2;
-   
-#ifdef PRIMITIVE_ID_SUPPORT
-#ifdef GEOMETRY_SHADER
+};
+
+struct PS_INPUT : VS_OUTPUT
+{
+#if defined(GEOMETRY_SHADER) || defined(MESH_SHADER)
     uint prim_id : nointerpolate;
 #endif
-#endif  
 };
 
 #ifdef MODEL_VIEWER_SIMPLIFIED
@@ -320,7 +314,9 @@ void MSMain(
                 else
                 {
                     verts[gtid].MeshletIndex = gid;
-                }              
+                }
+
+                verts[gtid].prim_id = m.PrimOffset + gtid;
             }
         }
     }
@@ -386,6 +382,7 @@ void MSMain(
                     verts[gtid].normals = outnormals;
                     verts[gtid].MeshletIndex = gid;
 
+                    verts[gtid].prim_id = m.PrimOffset + gtid;
                 }
             }
         }
@@ -517,10 +514,7 @@ PS_INPUT VSMain(VS_INPUT vs_in, uint id : SV_VertexID)
 
 #ifdef GEOMETRY_SHADER
 [maxvertexcount(3)]
-void GSMain(triangle PS_INPUT input[3], inout TriangleStream<PS_INPUT> output
-#ifdef PRIMITIVE_ID_SUPPORT
-, uint primitive_id : SV_PrimitiveID
-#endif
+void GSMain(triangle VS_OUTPUT input[3], inout TriangleStream<PS_INPUT> output, uint primitive_id : SV_PrimitiveID
 )
 {
     PS_INPUT gs_output;
@@ -545,14 +539,17 @@ void GSMain(triangle PS_INPUT input[3], inout TriangleStream<PS_INPUT> output
     [unroll]
     for (int i = 0; i < 3; i++)
     {
-        gs_output = input[i];
+        gs_output.position = input[i].position;
+        gs_output.colour = input[i].colour;
+        gs_output.uvs = input[i].uvs;
+        gs_output.normals = input[i].normals;
+
         float4 scaledPos = float4(float3(explodedTriCenter + ( (input[i].world_position.xyz + offset) - explodedTriCenter) * model.geometry_shader_options.x), 1.0f);
         gs_output.position = mul(scaledPos, camera.view_projection_matrix);
         gs_output.world_position = float4((float)(i == 0), (float)(i == 1), (float)(i == 2), 1);
 
-#ifdef PRIMITIVE_ID_SUPPORT
         gs_output.prim_id = primitive_id;
-#endif
+
         output.Append(gs_output);
     }
 }
@@ -614,13 +611,13 @@ float4 ShadePixelOrder() : SV_TARGET0
 [earlydepthstencil]
 #endif
 float4 PSMain(PS_INPUT input 
-#if !defined(MESH_SHADER) && defined(PRIMITIVE_ID_SUPPORT)
+#if !defined(MESH_SHADER) && !defined(GEOMETRY_SHADER)
 , uint vid : SV_PrimitiveID
 #endif
 ) : SV_TARGET
 {
-#if defined(MESH_SHADER) || !defined(PRIMITIVE_ID_SUPPORT)
-    uint vid = 0; // Not supported for mesh pipelines
+#if defined(MESH_SHADER) || defined(GEOMETRY_SHADER)
+    uint vid = input.prim_id;
 #endif
     
     if (model.shading_mode != SHADING_MODE_PIXELORDER)

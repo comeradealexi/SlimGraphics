@@ -7,6 +7,7 @@
 #include "sgUploadHeap.h"
 #include <meshoptimizer.h>
 #include <DirectXMesh.h>
+#include "Camera.h"
 
 class Model
 {
@@ -72,7 +73,9 @@ public:
 			Default,
 			MeshOpt,
 			DXMesh,
-			DXMeshLRU
+			DXMeshLRU,
+			CameraFrontToBack,
+			CameraBackToFront,
 		};
 		VertexCachOptimisation vertex_cache_opt_mode = VertexCachOptimisation::Default;
 		int dxmesh_vertex_cache_size = DirectX::OPTFACES::OPTFACES_V_DEFAULT;
@@ -82,7 +85,7 @@ public:
 	};
 
 public:
-	Model(sg::Device* device, sg::UploadHeap* upload_heap, const InitData& _init_data);
+	Model(sg::Device* device, sg::UploadHeap* upload_heap, const InitData& _init_data, const Camera& camera);
 
 	struct MeshShadingData
 	{

@@ -94,7 +94,7 @@ static DirectX::XMFLOAT3 Min(const DirectX::XMFLOAT3& a, DirectX::XMFLOAT3& b)
 	return o;
 }
 
-Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data) : init_data(_init_data)
+Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data, const Camera& camera) : init_data(_init_data)
 {
 	// Create the default texture
 	{
@@ -245,6 +245,44 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					new_indices.resize(mesh.indices.size());
 					hr = DirectX::ReorderIB(mesh.indices.data(), mesh.indices.size() / 3, face_remap.data(), new_indices.data());
 					seAssert(hr == S_OK, "ReorderIB failed");
+					mesh.indices = new_indices;
+					break;
+				}
+				case InitData::VertexCachOptimisation::CameraBackToFront:
+				case InitData::VertexCachOptimisation::CameraFrontToBack:
+				{
+					std::vector<uint32_t> face_remap;
+					face_remap.resize(mesh.indices.size() / 3);
+					for (size_t i = 0; i < face_remap.size(); i++)
+					{
+						face_remap[i] = i;
+					}
+					const DirectX::XMVECTOR camera_position = DirectX::XMLoadFloat3(&camera.GetPosition());
+					const bool front_to_back = init_data.vertex_cache_opt_mode == InitData::VertexCachOptimisation::CameraFrontToBack;
+					std::sort(face_remap.begin(), face_remap.end(), [camera_position, front_to_back, &mesh](uint32_t a, uint32_t b)
+						{
+							float a_1 = DirectX::XMVectorGetX(DirectX::XMVector3Length(DirectX::XMVectorSubtract(DirectX::XMLoadFloat3(&mesh.vertices[mesh.indices[(a * 3) + 0]].Position), camera_position)));
+							float a_2 = DirectX::XMVectorGetX(DirectX::XMVector3Length(DirectX::XMVectorSubtract(DirectX::XMLoadFloat3(&mesh.vertices[mesh.indices[(a * 3) + 1]].Position), camera_position)));
+							float a_3 = DirectX::XMVectorGetX(DirectX::XMVector3Length(DirectX::XMVectorSubtract(DirectX::XMLoadFloat3(&mesh.vertices[mesh.indices[(a * 3) + 2]].Position), camera_position)));
+							float a_max = std::max(a_1, std::max(a_2, a_3));
+
+							float b_1 = DirectX::XMVectorGetX(DirectX::XMVector3Length(DirectX::XMVectorSubtract(DirectX::XMLoadFloat3(&mesh.vertices[mesh.indices[(b * 3) + 0]].Position), camera_position)));
+							float b_2 = DirectX::XMVectorGetX(DirectX::XMVector3Length(DirectX::XMVectorSubtract(DirectX::XMLoadFloat3(&mesh.vertices[mesh.indices[(b * 3) + 1]].Position), camera_position)));
+							float b_3 = DirectX::XMVectorGetX(DirectX::XMVector3Length(DirectX::XMVectorSubtract(DirectX::XMLoadFloat3(&mesh.vertices[mesh.indices[(b * 3) + 2]].Position), camera_position)));
+							float b_max = std::max(b_1, std::max(b_2, b_3));
+
+							return front_to_back ? a_max < b_max : b_max < a_max;
+						});
+
+					std::vector<uint32_t> new_indices;
+					new_indices.reserve(mesh.indices.size());
+					for (size_t i = 0; i < face_remap.size(); i++)
+					{
+						new_indices.push_back(mesh.indices[(face_remap[i] * 3) + 0]);
+						new_indices.push_back(mesh.indices[(face_remap[i] * 3) + 1]);
+						new_indices.push_back(mesh.indices[(face_remap[i] * 3) + 2]);
+					}
+
 					mesh.indices = new_indices;
 				}
 					break;
