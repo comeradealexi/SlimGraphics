@@ -13,8 +13,8 @@ Terrain::Terrain(SharedPtr<Device>& _device) : device(_device)
 	height_textures_list.push_back("..\\SlimGraphicsAssets\\Textures\\snowdon.png");
 	height_textures_list.push_back("..\\SlimGraphicsAssets\\Textures\\louisd.png");
 
-	std::vector<uint8_t> vertex_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\Terrain_VertexShader.PC_DXC");
-	std::vector<uint8_t> pixel_data = se::BasicFileIO::LoadFile("ShaderBin_Debug\\Terrain_PixelShader.PC_DXC");
+	std::vector<uint8_t> vertex_data = se::BasicFileIO::load_file("ShaderBin_Debug\\Terrain_VertexShader.PC_DXC");
+	std::vector<uint8_t> pixel_data = se::BasicFileIO::load_file("ShaderBin_Debug\\Terrain_PixelShader.PC_DXC");
 }
 
 void Terrain::Update(float delta_time, float total_time, const Camera& camera, DebugDraw& debug_draw)
@@ -36,7 +36,7 @@ void Terrain::Render(sg::CommandList& command_list, const Camera& camera, sg::Co
 
 void Terrain::LoadHeightmapTexture(sg::Ptr<sg::UploadHeap>& upload_heap)
 {
-	std::vector<uint8_t> compressed_png_data = se::BasicFileIO::LoadFile(height_textures_list[current_texture_index].c_str());
+	std::vector<uint8_t> compressed_png_data = se::BasicFileIO::load_file(height_textures_list[current_texture_index].c_str());
 	seAssert(compressed_png_data.size(), "Failed to load png data");
 	std::vector<uint8_t> bitmap_data;
 	unsigned int w, h;

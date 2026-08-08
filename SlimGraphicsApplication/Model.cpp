@@ -437,7 +437,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 						if (ai_material->GetTexture(tex.first, 0, &tex_path) == aiReturn_SUCCESS)
 						{
 							std::string texture_path = GetTexturePath(_init_data.file_path, tex_path.C_Str());
-							std::vector<uint8_t> texture_data = se::BasicFileIO::LoadFile(texture_path.c_str());
+							std::vector<uint8_t> texture_data = se::BasicFileIO::load_file(texture_path.c_str());
 							if (texture_data.size())
 							{
 								seWriteLine("Loading Texture: %s", texture_path.c_str());

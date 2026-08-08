@@ -612,7 +612,13 @@ namespace sg
 			return SharedPtr<AmplificationShader>(new AmplificationShader(shader));
 		}
 
-        SharedPtr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
+
+		sg::SharedPtr<sg::GeometryShader> Device::create_geometry_shader(const std::vector<uint8_t>& shader)
+		{
+			return SharedPtr<GeometryShader>(new GeometryShader(shader));
+		}
+
+		SharedPtr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
         {
             SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc));
 
@@ -621,6 +627,7 @@ namespace sg
             D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
             {
                 psoDesc.VS = pipeline_desc.vertex_shader ? pipeline_desc.vertex_shader->shader_code : CD3DX12_SHADER_BYTECODE();
+				psoDesc.GS = pipeline_desc.geometry_shader ? pipeline_desc.geometry_shader->shader_code : CD3DX12_SHADER_BYTECODE();
                 psoDesc.PS = pipeline_desc.pixel_shader ? pipeline_desc.pixel_shader->shader_code : CD3DX12_SHADER_BYTECODE();
                 psoDesc.pRootSignature = nullptr;
                 psoDesc.PrimitiveTopologyType = translate(pipeline_desc.topology);

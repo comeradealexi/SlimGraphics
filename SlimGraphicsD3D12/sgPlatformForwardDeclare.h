@@ -23,6 +23,7 @@ namespace sg
 		class ConstantBufferView;
 		class DepthStencilView;
 		class Device;
+		class GeometryShader;
 		class GPUTimestampPool;
 		class GPUStatisticPool;
 		class IndexBufferView;
@@ -53,6 +54,7 @@ namespace sg
 	using ConstantBufferView = D3D12::ConstantBufferView;
 	using DepthStencilView = D3D12::DepthStencilView;
 	using Device = D3D12::Device;
+	using GeometryShader = D3D12::GeometryShader;
 	using GPUTimestampPool = D3D12::GPUTimestampPool;
 	using GPUStatisticPool = D3D12::GPUStatisticPool;
 	using IndexBufferView = D3D12::IndexBufferView;

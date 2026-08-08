@@ -28,6 +28,7 @@ struct ModelData
 	#define SHADING_MODE_MESHLET_CULL_ANGLE  5
 	#define SHADING_MODE_WAVE_INTRINSICS  6
 	#define SHADING_MODE_AMPLIFICATION_ORDER  7
+	#define SHADING_MODE_TRIANGLE_SIZE  8
 
 	int shading_mode;
 	int meshlet_count;
@@ -51,6 +52,10 @@ struct ModelData
 	int4 textures_enabled; // x = diffuse, y = specular, z = normals, w = opacity
 
 	float4 texture_options; // x = discard diffuse alpha threshold
+
+	float4 triangle_size_options; // x = scale
+
+	float4 geometry_shader_options; // x = triangle scale
 };
 
 struct CameraData

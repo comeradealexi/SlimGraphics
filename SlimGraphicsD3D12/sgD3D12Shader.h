@@ -47,5 +47,11 @@ namespace sg
 		public:
 			AmplificationShader(const std::vector<uint8_t>& shader) : Shader(shader) { }
 		};
+
+		class GeometryShader : public Shader
+		{
+		public:
+			GeometryShader(const std::vector<uint8_t>& shader) : Shader(shader) {}
+		};
 	}
 }

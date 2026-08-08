@@ -2,6 +2,20 @@
   {
     "profile": "ps_6_5",
     "entrypoint": "PSMain",
+    "variant_defines": [
+      {
+        "defines": [
+          "GEOMETRY_SHADER"
+        ],
+        "id": "GS"
+      },
+      {
+        "defines": [
+          "FORCE_EARLY_DEPTH_STENCIL"
+        ],
+        "id": "EDS"
+      }
+    ],
     "shaders": [
       {
         "name": "Basic_Buffer_PixelShader",
@@ -24,17 +38,7 @@
         "input_file": "ModelViewer_PixelShader.hlsl"
       },
       {
-        "name": "ModelViewer_PixelShader_EDS",
-        "defines": [ "FORCE_EARLY_DEPTH_STENCIL" ],
-        "input_file": "ModelViewer_PixelShader.hlsl"
-      },
-      {
         "name": "ModelViewer_PixelMeshShader",
-        "input_file": "ModelViewer_PixelMeshShader.hlsl"
-      },
-      {
-        "name": "ModelViewer_PixelMeshShader_EDS",
-        "defines": [ "FORCE_EARLY_DEPTH_STENCIL" ],
         "input_file": "ModelViewer_PixelMeshShader.hlsl"
       },
       {
@@ -43,18 +47,8 @@
         "input_file": "ModelViewer_PixelShader.hlsl"
       },
       {
-        "name": "SimplifiedModelViewer_PixelShader_EDS",
-        "defines": [ "MODEL_VIEWER_SIMPLIFIED", "FORCE_EARLY_DEPTH_STENCIL" ],
-        "input_file": "ModelViewer_PixelShader.hlsl"
-      },
-      {
         "name": "SimplifiedModelViewer_PixelShader_DISCARD",
         "defines": [ "MODEL_VIEWER_SIMPLIFIED", "MODEL_VIEWER_SIMPLIFIED_PIXEL_SHADER_DISCARD" ],
-        "input_file": "ModelViewer_PixelShader.hlsl"
-      },
-      {
-        "name": "SimplifiedModelViewer_PixelShader_DISCARD_EDS",
-        "defines": [ "MODEL_VIEWER_SIMPLIFIED", "MODEL_VIEWER_SIMPLIFIED_PIXEL_SHADER_DISCARD", "FORCE_EARLY_DEPTH_STENCIL" ],
         "input_file": "ModelViewer_PixelShader.hlsl"
       },
       {
@@ -107,6 +101,17 @@
       {
         "name": "BasicGrid_VertexShader",
         "input_file": "BasicGrid.hlsl"
+      }
+    ]
+  },
+  {
+    "profile": "gs_6_1",
+    "entrypoint": "GSMain",
+    "defines": [ "GEOMETRY_SHADER" ],
+    "shaders": [
+      {
+        "name": "ModelViewer_GeometryShader",
+        "input_file": "ModelViewer_VertexShader.hlsl"
       }
     ]
   },
@@ -181,14 +186,15 @@
       {
         "profile": "ps_6_5",
         "entrypoint": "PSMain",
+        "variant_defines": [
+          {
+            "defines": [
+              "FORCE_EARLY_DEPTH_STENCIL"
+            ],
+            "id": "EDS"
+          }
+        ],
         "name": "ModelViewer_MeshletAmplificationPS",
-        "input_file": "ModelViewer_MeshShader.hlsl"
-      },
-      {
-        "profile": "ps_6_5",
-        "entrypoint": "PSMain",
-        "defines": [ "FORCE_EARLY_DEPTH_STENCIL" ],
-        "name": "ModelViewer_MeshletAmplificationPS_EDS",
         "input_file": "ModelViewer_MeshShader.hlsl"
       },
       {

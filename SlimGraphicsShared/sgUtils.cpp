@@ -5,35 +5,42 @@ namespace sg
 {
 	SharedPtr<VertexShader> create_vertex_shader(Device& device, const char* file_path)
     {
-        std::vector<uint8_t> shader_data = se::BasicFileIO::LoadFile(file_path);
+        std::vector<uint8_t> shader_data = se::BasicFileIO::load_file(file_path);
 		seAssert(shader_data.size(), "Failed To Load Shader");
         return device.create_vertex_shader(shader_data);
     }
 
+	sg::SharedPtr<sg::GeometryShader> create_geometry_shader(Device& device, const char* file_path)
+	{
+		std::vector<uint8_t> shader_data = se::BasicFileIO::load_file(file_path);
+		seAssert(shader_data.size(), "Failed To Load Shader");
+		return device.create_geometry_shader(shader_data);
+	}
+
 	SharedPtr<PixelShader> create_pixel_shader(Device& device, const char* file_path)
     {
-		std::vector<uint8_t> shader_data = se::BasicFileIO::LoadFile(file_path);
+		std::vector<uint8_t> shader_data = se::BasicFileIO::load_file(file_path);
 		seAssert(shader_data.size(), "Failed To Load Shader");
 		return device.create_pixel_shader(shader_data);
     }
 
 	SharedPtr<ComputeShader> create_compute_shader(Device& device, const char* file_path)
     {
-		std::vector<uint8_t> shader_data = se::BasicFileIO::LoadFile(file_path);
+		std::vector<uint8_t> shader_data = se::BasicFileIO::load_file(file_path);
 		seAssert(shader_data.size(), "Failed To Load Shader");
 		return device.create_compute_shader(shader_data);
     }
 
 	SharedPtr<MeshShader> create_mesh_shader(Device& device, const char* file_path)
     {
-		std::vector<uint8_t> shader_data = se::BasicFileIO::LoadFile(file_path);
+		std::vector<uint8_t> shader_data = se::BasicFileIO::load_file(file_path);
 		seAssert(shader_data.size(), "Failed To Load Shader");
 		return device.create_mesh_shader(shader_data);
     }
 
 	SharedPtr<AmplificationShader> create_amplification_shader(Device& device, const char* file_path)
     {
-		std::vector<uint8_t> shader_data = se::BasicFileIO::LoadFile(file_path);
+		std::vector<uint8_t> shader_data = se::BasicFileIO::load_file(file_path);
         seAssert(shader_data.size(), "Failed To Load Shader");
 		return device.create_amplification_shader(shader_data);
     }

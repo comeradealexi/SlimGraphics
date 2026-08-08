@@ -8,6 +8,8 @@
 #define MODEL_VIEWER_SIMPLIFIED
 #endif
 
+//#define PRIMITIVE_ID_SUPPORT
+
 cbuffer ConstantBufferData : register(b0)
 {
     CameraData camera;
@@ -43,6 +45,12 @@ struct VS_INPUT
     float2 uvs : TEXCOORD0;
     float3 normals : NORMAL;
 };
+
+struct VS_OUTPUT
+{
+    
+};
+
 struct PS_INPUT
 {
     float4 position : SV_POSITION;
@@ -53,6 +61,14 @@ struct PS_INPUT
 #ifdef MESH_SHADER
     uint MeshletIndex : COLOR1;
 #endif
+    
+    noperspective float3 world_position : COLOR2;
+   
+#ifdef PRIMITIVE_ID_SUPPORT
+#ifdef GEOMETRY_SHADER
+    uint prim_id : nointerpolate;
+#endif
+#endif  
 };
 
 #ifdef MODEL_VIEWER_SIMPLIFIED
@@ -60,7 +76,7 @@ PS_INPUT VSMain(VS_INPUT vs_in, uint id : SV_VertexID)
 {
     PS_INPUT result;
     
-    result.position = mul(float4(vs_in.position, 1.0f), model.model_matrix);
+    result.world_position = result.position = mul(float4(vs_in.position, 1.0f), model.model_matrix);
     result.position = mul(result.position, camera.view_projection_matrix);
 
     result.normals = normalize(mul(vs_in.normals, (float3x3) model.model_matrix));
@@ -284,13 +300,15 @@ void MSMain(
             {
                 Vertex v = Vertices[vertexIndex];
                 float4 outpos;
-                outpos = mul(float4(v.position, 1.0f), model.model_matrix);
+                float3 world_outpos;
+                world_outpos = outpos = mul(float4(v.position, 1.0f), model.model_matrix);
                 outpos = mul(outpos, camera.view_projection_matrix);
                 
                 float3 outnormals;
                 outnormals = normalize(mul(v.normals, (float3x3) model.model_matrix));
         
                 verts[gtid].position = outpos;
+                verts[gtid].world_position = world_outpos;
                 verts[gtid].colour = v.colour;
                 verts[gtid].uvs = v.uvs;
                 verts[gtid].normals = outnormals;
@@ -354,13 +372,15 @@ void MSMain(
             {
                     Vertex v = Vertices[vertexIndex];
                     float4 outpos;
-                    outpos = mul(float4(v.position, 1.0f), model.model_matrix);
+                    float3 world_outpos;
+                    world_outpos = outpos = mul(float4(v.position, 1.0f), model.model_matrix);
                     outpos = mul(outpos, camera.view_projection_matrix);
                 
                     float3 outnormals;
                     outnormals = normalize(mul(v.normals, (float3x3) model.model_matrix));
         
                     verts[gtid].position = outpos;
+                    verts[gtid].world_position = world_outpos;
                     verts[gtid].colour = v.colour;
                     verts[gtid].uvs = v.uvs;
                     verts[gtid].normals = outnormals;
@@ -395,11 +415,11 @@ PS_INPUT VSMain(uint id : SV_VertexID)
     float2 uv = float2((id << 1) & 2, id & 2);
     //psOut.UVs = uv;
     psOut.colour = float3(0,0,0);
-    psOut.position = float4(uv * float2(2, -2) + float2(-1, 1), 0, 1);
+    psOut.world_position = psOut.position = float4(uv * float2(2, -2) + float2(-1, 1), 0, 1);
     psOut.uvs = uv;
     psOut.normals = float3(0, 0, -1);
     
-    #ifdef VERTEX_MIDDLE_TRIANGLE
+#ifdef VERTEX_MIDDLE_TRIANGLE
     if (id == 0)
 	{
         psOut.position.x = 0.0f;
@@ -462,6 +482,9 @@ PS_INPUT VSMain(uint id : SV_VertexID)
 		psOut.position = float4(-1, 1, 0, 1);
 		//psOut.UVs = float2(0, 1);
 	}
+
+    psOut.world_position = psOut.position;
+
     return psOut;
 
 }
@@ -474,7 +497,7 @@ PS_INPUT VSMain(VS_INPUT vs_in, uint id : SV_VertexID)
 
     PS_INPUT result;
     
-    result.position = mul(float4(vs_in.position, 1.0f), model.model_matrix);
+    result.world_position = result.position = mul(float4(vs_in.position, 1.0f), model.model_matrix);
     result.position = mul(result.position, camera.view_projection_matrix);
 
     result.normals = normalize(mul(vs_in.normals, (float3x3)model.model_matrix));
@@ -489,6 +512,49 @@ PS_INPUT VSMain(VS_INPUT vs_in, uint id : SV_VertexID)
     }
     
     return result;
+}
+#endif
+
+#ifdef GEOMETRY_SHADER
+[maxvertexcount(3)]
+void GSMain(triangle PS_INPUT input[3], inout TriangleStream<PS_INPUT> output
+#ifdef PRIMITIVE_ID_SUPPORT
+, uint primitive_id : SV_PrimitiveID
+#endif
+)
+{
+    PS_INPUT gs_output;
+
+    float3 edge1 = input[1].world_position.xyz - input[0].world_position.xyz;
+    float3 edge2 = input[2].world_position.xyz - input[0].world_position.xyz;
+    float3 faceNormal = normalize(cross(edge1, edge2));
+
+    float3 triCenter = (input[0].world_position.xyz + input[1].world_position.xyz + input[2].world_position.xyz) / 3.0f;
+
+    // Direction this triangle flies outward along: from the model's center
+    // to this triangle's center. Guard against triangles that happen to sit
+    // right on the model center, where that direction is undefined - fall
+    // back to the face normal so they still move somewhere sensible.
+    float3 toTri = triCenter /*- ModelCenter*/;
+    float  dist  = length(toTri);
+    float3 explodeDir = (dist > 1e-5f) ? (toTri / dist) : faceNormal;
+    float3 offset = explodeDir * model.geometry_shader_options.y;
+
+    float3 explodedTriCenter = (input[0].world_position.xyz + input[1].world_position.xyz + input[2].world_position.xyz + (offset * 3)) / 3.0f;
+
+    [unroll]
+    for (int i = 0; i < 3; i++)
+    {
+        gs_output = input[i];
+        float4 scaledPos = float4(float3(explodedTriCenter + ( (input[i].world_position.xyz + offset) - explodedTriCenter) * model.geometry_shader_options.x), 1.0f);
+        gs_output.position = mul(scaledPos, camera.view_projection_matrix);
+        gs_output.world_position = float4((float)(i == 0), (float)(i == 1), (float)(i == 2), 1);
+
+#ifdef PRIMITIVE_ID_SUPPORT
+        gs_output.prim_id = primitive_id;
+#endif
+        output.Append(gs_output);
+    }
 }
 #endif
 
@@ -548,12 +614,12 @@ float4 ShadePixelOrder() : SV_TARGET0
 [earlydepthstencil]
 #endif
 float4 PSMain(PS_INPUT input 
-#ifndef MESH_SHADER
+#if !defined(MESH_SHADER) && defined(PRIMITIVE_ID_SUPPORT)
 , uint vid : SV_PrimitiveID
 #endif
 ) : SV_TARGET
 {
-#ifdef MESH_SHADER
+#if defined(MESH_SHADER) || !defined(PRIMITIVE_ID_SUPPORT)
     uint vid = 0; // Not supported for mesh pipelines
 #endif
     
@@ -707,6 +773,20 @@ float4 PSMain(PS_INPUT input
                 return float4(1, 0, 0, 1);
             }
         }
+    }
+    else if (model.shading_mode == SHADING_MODE_TRIANGLE_SIZE)
+    {
+        // When the geometry shader is used world_position has xyz values of 0 or 1.
+        float3 wp = input.world_position.xyz;
+        // fwidth uses ddx/ddy to find max change between pixels. The rate of change allows us to determine roughly how many pixels the triangle covers.
+        float fw = (fwidth(wp.x) + fwidth(wp.y) + fwidth(wp.z)) * model.triangle_size_options.x;
+
+        float4 orange = float4(1.0, 0.47265, 0, 1);
+        if (fw > 1.0)
+        {
+           return lerp(orange, float4(1,0,0,1), clamp(fw - 1.0, 0,1));
+        }
+        return lerp(float4(0,1,0,1), orange, clamp(fw,0,1));
     }
 
     float4 diffuse_col = float4(1,1,1,1);

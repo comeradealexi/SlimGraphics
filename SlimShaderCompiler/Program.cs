@@ -8,21 +8,38 @@ using System.Text.Json;
 using System.Reflection;
 using System.Collections;
 using System.Diagnostics;
+using System.Web.UI;
 
 namespace SlimShaderCompiler
 {
-    public class Attribute_DoNotCopy: Attribute { public string DefaultValue { get; set; } }
+    public class Attribute_DoNotCopy : Attribute { public string DefaultValue { get; set; } }
     public class Attribute_Append : Attribute { public string DefaultValue { get; set; } }
-    public class ShaderJSON
+
+    public struct VariantDefine
+    {
+        // define to expose
+        public string[] defines { get; set; }
+
+        // unique identified appended to start of the string
+        public string id { get; set; }
+    }
+
+    public struct VariationCombinations
+    {
+        public List<string> defines;
+        public string ids;
+    };
+
+    public class ShaderJSON : ICloneable
     {
         public string name { get; set; }
         
         public string input_file { get; set; }
                 
         public string entrypoint { get; set; }
-        
+
         [Attribute_Append]
-        public List<string> defines { get; set; }
+        public List<string> defines { get; set; } = new List<string>();
         
         public string profile { get; set; }
         
@@ -30,6 +47,10 @@ namespace SlimShaderCompiler
         public ShaderJSON[] shaders { get; set; }
 
         public string working_directory { get; set; }
+
+        // We compile each without any extra variant defines, then one version with each variant define
+        [Attribute_Append]
+        public List<VariantDefine> variant_defines { get; set; } = new List<VariantDefine>();
 
         // And null values in `this` will be set by shader argument
         public void SetNullFieldsFromParent(ShaderJSON shader)
@@ -50,13 +71,34 @@ namespace SlimShaderCompiler
                     }
                     else
                     {
-                        List<string> this_defines = (List<string>)property.GetValue(this);
-                        List<string> parent_defines = (List<string>)property.GetValue(shader);
-                        int index = 0;
-                        foreach (var parent in parent_defines)
+                        // TODO: handle below in a generic way
+                        if (property.GetValue(this).GetType().Equals(typeof(List<string>)))
                         {
-                            this_defines.Insert(index, parent);
-                            index++;
+                            List<string> this_defines = (List<string>)property.GetValue(this);
+                            List<string> parent_defines = (List<string>)property.GetValue(shader);
+                            int index = 0;
+                            foreach (var parent in parent_defines)
+                            {
+                                this_defines.Insert(index, parent);
+                                index++;
+                            }
+                        }
+                        else if (property.GetValue(this).GetType().Equals(typeof(List<VariantDefine>)))
+                        {
+                            List<VariantDefine> this_defines = (List<VariantDefine>)property.GetValue(this);
+                            List<VariantDefine> parent_defines = (List<VariantDefine>)property.GetValue(shader);
+                            int index = 0;
+                            foreach (var parent in parent_defines)
+                            {
+                                this_defines.Insert(index, parent);
+                                index++;
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine(typeof(List<string>));
+                            Console.WriteLine(property.GetValue(this).GetType());
+                            throw new Exception();
                         }
                     }
                 }
@@ -70,6 +112,11 @@ namespace SlimShaderCompiler
                 }
     
             }
+        }
+
+        public object Clone()
+        {
+            return this.MemberwiseClone();
         }
     }
     public enum Platform
@@ -177,13 +224,42 @@ namespace SlimShaderCompiler
             return 0;
         }
 
+        // Will gather every variation based on bitset
+        // e.g. 0b0000 will return no defines 0b1111 will return all defines etc
+        static VariationCombinations GatherVariants(List<VariantDefine> variants, int bitset)
+        {
+            VariationCombinations return_data;
+            return_data.defines = new List<string>();
+            return_data.ids = "";
+            for (int i = 0; i < variants.Count; i++)
+            {
+                if (((1 << i) & bitset) != 0)
+                {
+                    return_data.defines.InsertRange(0, variants[i].defines);
+                    return_data.ids += "_" + variants[i].id;
+                }
+            }
+            return return_data;
+        }
+
         // Called recursively
         static void ProcessShader(ShaderJSON shader, ref List<ShaderJSON> shader_compile_list)
         {
             // We're a root level shader, add this shader to be compiled.
             if (shader.shaders == null || shader.shaders.Length == 0)
             {
-                shader_compile_list.Add(shader);
+                int count = 1 << shader.variant_defines.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    VariationCombinations combined_defines = GatherVariants(shader.variant_defines, i);
+                    ShaderJSON shader_tmp = shader.Clone() as ShaderJSON;
+                    if (combined_defines.defines.Count != 0)
+                    {
+                        shader_tmp.defines.InsertRange(0, combined_defines.defines);
+                        shader_tmp.name = string.Format("{0}{1}", shader_tmp.name, combined_defines.ids);
+                    }
+                    shader_compile_list.Add(shader_tmp);
+                }
             }
             else
             {
@@ -229,10 +305,14 @@ namespace SlimShaderCompiler
 
         static bool Compile(CompileArguments args)
         {
-            int counter = 0;
-            foreach (var shader in args.shaders)
+            bool all_success = true;
+
+            Parallel.For(0, args.shaders.Count, index =>
             {
-                Console.WriteLine("Building {0}/{1}: {2}", ++counter, args.shaders.Count, shader.name);
+                var shader = args.shaders[index];
+
+                Stopwatch stop_watch = new Stopwatch();
+                stop_watch.Start();
                 StringBuilder sb = new StringBuilder();
                 if (args.platform == Platform.PC_DXC_SPIRV)
                 {
@@ -269,20 +349,29 @@ namespace SlimShaderCompiler
                 process.StartInfo.RedirectStandardError = true;
                 if (process.Start() == false)
                 {
-                    Console.WriteLine("Failed to start process");
-                    return false;
+                    Console.WriteLine("Shader Index {0} - Failed to start process", index);
+                    all_success = false;
+                    return;
                 }
                 process.WaitForExit();
                 if (process.ExitCode != 0)
                 {
-                    Console.WriteLine("Shader compile failed with command line: {0} {1}", process.StartInfo.FileName, process.StartInfo.Arguments);
-                    Console.WriteLine("Working directory: {0}", process.StartInfo.WorkingDirectory);
-                    Console.WriteLine("stdout: {0}", process.StandardOutput.ReadToEnd());
-                    Console.WriteLine("stderr: {0}", process.StandardError.ReadToEnd());
-                    return false;
+                    string error_string = string.Format("Error: Shader Index {0}", index);
+                    error_string += string.Format("\n\tShader compile failed with command line: {0} {1}", process.StartInfo.FileName, process.StartInfo.Arguments);
+                    error_string += string.Format("\n\tWorking directory: {0}", process.StartInfo.WorkingDirectory);
+                    error_string += string.Format("\n\tstdout: {0}", process.StandardOutput.ReadToEnd());
+                    error_string += string.Format("\n\tstderr: {0}", process.StandardError.ReadToEnd());
+
+                    Console.WriteLine(error_string);
+                    all_success = false;
+                    return;
                 }
-            }
-            return true;
+                stop_watch.Stop();
+                Console.WriteLine("Built {0}/{1}: {2} (Time: {3}ms)", index, args.shaders.Count, shader.name, stop_watch.ElapsedMilliseconds);
+
+            });
+
+            return all_success;
         }
     }
 }

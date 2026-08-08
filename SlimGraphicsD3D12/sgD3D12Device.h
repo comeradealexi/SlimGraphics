@@ -67,6 +67,7 @@ namespace sg
 			SharedPtr<ComputeShader> create_compute_shader(const std::vector<uint8_t>& shader);
 			SharedPtr<MeshShader> create_mesh_shader(const std::vector<uint8_t>& shader);
 			SharedPtr<AmplificationShader> create_amplification_shader(const std::vector<uint8_t>& shader);
+			SharedPtr<GeometryShader> create_geometry_shader(const std::vector<uint8_t>& shader);
 
 			//Returns current index to use
 			u32 create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, SharedPtr<RenderTargetView>* rtv_list);

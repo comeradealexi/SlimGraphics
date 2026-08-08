@@ -12,6 +12,7 @@ namespace sg
 	}
 
 	SharedPtr<VertexShader> create_vertex_shader(Device& device, const char* file_path);
+	SharedPtr<GeometryShader> create_geometry_shader(Device& device, const char* file_path);
 	SharedPtr<PixelShader> create_pixel_shader(Device& device, const char* file_path);
 	SharedPtr<ComputeShader> create_compute_shader(Device& device, const char* file_path);
 	SharedPtr<MeshShader> create_mesh_shader(Device& device, const char* file_path);

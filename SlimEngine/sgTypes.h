@@ -354,6 +354,7 @@ namespace sg
 		struct Graphics
 		{
 			SharedPtr<VertexShader> vertex_shader;
+			SharedPtr<GeometryShader> geometry_shader;
 			SharedPtr<PixelShader> pixel_shader;
 
 			Topology topology = Topology::Triangle;

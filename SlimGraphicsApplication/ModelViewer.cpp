@@ -46,6 +46,8 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 	{
 		shader_vertex = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShader.PC_DXC");
+		shader_geometry = create_geometry_shader(*device, "ShaderBin_Debug\\ModelViewer_GeometryShader.PC_DXC");
+
 		shader_vertex_simple = create_vertex_shader(*device, "ShaderBin_Debug\\SimplifiedModelViewer_VertexShader.PC_DXC");
 
 		shaders_pixel[(int)StandardPixelPipelineMode::Full] = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelShader.PC_DXC");
@@ -79,130 +81,17 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 	CreatePipeline();
 
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/lpshead/head.OBJ");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/teapot.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/cow.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/stanford-bunny.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/suzanne.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/bunny.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/bunny_patched.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/bunny_decimated.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/orb.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/tree.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/column.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/hollowcube.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/platform.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/DebugModels/cube.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Bartek/donut.glb");
-
-	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Bulldozer.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Carved pumpkin.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Cat.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Residential House.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Sunflower - low poly.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Tree.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Trophy cup.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/3DBuilder/Tuft of grass.obj");
-
-	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere3x3.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere6x6.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere9x9.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere16x16.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere32x32.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere64x64.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Blender-LODSpheres/Sphere128x128.obj");
-
-	model_file_list.push_back("../SlimGraphicsAssets/SponzaDae/sponza.dae");
-	model_file_list.push_back("../SlimGraphicsAssets/SponzaGL/sponza.obj");
-
-
-	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/grass.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/palm_tree.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/sponza.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/T34-85.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/armadillo.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/buddha.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/cow.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/Nvidia/dragon.obj");
-
-	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/duck.fbx");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/Cinema4D.fbx");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/COLLADA.fbx");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/ConcavePolygon.fbx");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/Granate.fbx");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/jeep1.fbx");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/mar_rifle.fbx");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/mp5_sil.fbx");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/pyramob.fbx");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/FBX/2013_BINARY/anims_with_full_rotations_between_keys.fbx");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models/IFC/AC14-FZK-Haus.ifc");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models/MDC/spider.mdc");
-
-	model_file_list.push_back("../External/assimp-5.3.1/test/models/OBJ/WusonOBJ.obj");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/OBJ/rifle.obj");
-	model_file_list.push_back("../External/assimp-5.3.1/test/models-nonbsd/OBJ/segment.obj");
-
-
-	model_file_list.push_back("../SlimGraphicsAssets/GL/bunny.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/GL/ChessKing.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/GL/ChessPawn.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/GL/dragon.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/GL/elephant.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/GL/monkey.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/GL/teapot.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/GL/three_objects.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/GL/venusm.obj");
-
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CGTree/cgaxis_models_115_37_obj.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/buddha/buddha.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Mirror.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Original.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Sphere.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Water.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Empty-CO.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Empty-RG.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Empty-Squashed.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Empty-White.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Glossy.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/CornellBox/CornellBox-Glossy-Floor.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/erato/erato.obj");
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/mori_knob/testObj.obj");	
-	model_file_list.push_back("../SlimGraphicsAssets/CGArchive/Nefertiti.obj");	
-
-	// Speed Tree
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/White Oak/HighPoly/White_Oak.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/European Linden/HighPoly/European_Linden.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Azalea/HighPoly/Azalea.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Hedge/HighPoly/Hedge.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Japanese Maple/HighPoly/Japanese_Maple.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Red Maple Young/HighPoly/Red_Maple_Young.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Azalea/LowPoly/Azalea_LowPoly.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Boston Fern/HighPoly/Boston_Fern.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Hedge/LowPoly/Hedge_LowPoly.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/European Linden/LowPoly/European_Linden_LowPoly.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Japanese Maple/LowPoly/Japanese_Maple_LowPoly.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Red Maple Young/LowPoly/Red_Maple_Young_LowPoly.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/White Oak/LowPoly/White_Oak_LowPoly.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Backyard Grass/HighPoly/Backyard_Grass.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Boston Fern/LowPoly/Boston_Fern_LowPoly.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/SpeedTree/Backyard Grass/LowPoly/Backyard_Grass_LowPoly.fbx");
-
-	// https://developer.nvidia.com/orca
-
-	model_file_list.push_back("../SlimGraphicsAssets/Bistro_v5_2/BistroInterior.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/Bistro_v5_2/BistroInterior_Wine.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/Bistro_v5_2/BistroExterior.fbx");
-
-	model_file_list.push_back("../SlimGraphicsAssets/Hermanubis/Hermanubis_High.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/Hermanubis/Hermanubis_low.fbx");
-
-	model_file_list.push_back("../SlimGraphicsAssets/UE4SunTemple_v4/SunTemple/SunTemple.fbx");
-
-	model_file_list.push_back("../SlimGraphicsAssets/EmeraldSquare_v4_1/EmeraldSquare_Day.fbx");
-	model_file_list.push_back("../SlimGraphicsAssets/EmeraldSquare_v4_1/EmeraldSquare_Dusk.fbx");
-
+	const std::vector<const char*> extensions = { ".obj", ".dae", ".fbx" };
+	model_file_list = se::BasicFileIO::find_files_recursive("../SlimGraphicsAssets", extensions);
 	model_init_data.file_path = model_file_list[0];
-
+	for (size_t i = 0; i < model_file_list.size(); i++)
+	{
+		if (model_file_list[i].find("head.OBJ") != std::string::npos)
+		{
+			model_init_data.file_path = model_file_list[i];
+			break;
+		}
+	}
 
 	uav_memory = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024);
 	uav_buffer = device->create_buffer(uav_memory, 64ull * 1024, BufferType::GeneralDataBuffer, true);
@@ -215,7 +104,7 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	// Defaults
 	model_data.vertex_shading_mod = 1.0f;
 	model_data.pixel_order_data1.x = 1.0f;
-	model_data.pixel_order_data1.y = 1.0f/3.0f;
+	model_data.pixel_order_data1.y = 1.0f / 3.0f;
 
 	model_data.textures_enabled.x = 1;
 	model_data.textures_enabled.y = 1;
@@ -223,6 +112,10 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	model_data.textures_enabled.w = 1;
 
 	model_data.texture_options.x = 0.9f; //Discard threshold
+
+	model_data.triangle_size_options.x = triangle_size_scale;
+
+	model_data.geometry_shader_options = geometry_shader_data.shader_options;
 }
 
 // https://zeux.io/2023/01/12/approximate-projected-bounds/
@@ -471,15 +364,33 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		{
 			ImGui::SeparatorText("Model Settings");
 			ImGui::BeginDisabled(!device->SupportsMeshShaders());
-			ImGui::Checkbox("Render with Mesh Shader", &render_as_mesh_shader);
+			{
+				ImGui::Checkbox("Render with Mesh Shader", &render_as_mesh_shader);
+			}
 			ImGui::EndDisabled();
 			ImGui::Checkbox("Force Early Depth Stencil", &use_eds);
 			ImGui::SeparatorText("Mesh Shader");
 			ImGui::BeginDisabled(!render_as_mesh_shader);
-			ImGui::Checkbox("Amplification Shader Stage", &amplification_mesh_shader);
-			ImGui::Checkbox("Cone Culling", &mesh_shader_cone_culling);
-			ImGui::Checkbox("Sphere Frustum Culling", &mesh_shader_sphere_frustum_culling);
+			{
+				ImGui::Checkbox("Amplification Shader Stage", &amplification_mesh_shader);
+				ImGui::Checkbox("Cone Culling", &mesh_shader_cone_culling);
+				ImGui::Checkbox("Sphere Frustum Culling", &mesh_shader_sphere_frustum_culling);
+			}
+			ImGui::EndDisabled();
 
+			ImGui::BeginDisabled(render_as_mesh_shader);
+			if (ImGui::CollapsingHeader("Geometry Shader"))
+			{
+				ImGui::PushID("GeometryShaderInfo");
+				recreate_pipeline |= ImGui::Checkbox("Use Geometry Shader", &geometry_shader_data.enabled);
+
+				ImGui::SliderFloat("Scale", &geometry_shader_data.shader_options.x, 0.0f, 10.0f);
+				ImGui::SliderFloat("Explode", &geometry_shader_data.shader_options.y, -1.0f, 1.0f);
+
+				ImGui::PopID();
+
+				model_data.geometry_shader_options = geometry_shader_data.shader_options;
+			}
 			ImGui::EndDisabled();
 
 			ImGui::SeparatorText("Render Mode");
@@ -508,13 +419,18 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			ImGui::Text("Advanced Render Mode:");
 			ImGui::PushID("Render Mode Radio Buttons");
 			ImGui::RadioButton("Default", (int*)&render_mode, 0);
-			ImGui::RadioButton("Primitive Order", (int*)&render_mode, 1);
-			ImGui::RadioButton("Vertex Order", (int*)&render_mode, 2);
+			ImGui::BeginDisabled(render_as_mesh_shader);
+			{
+				ImGui::RadioButton("Primitive Order", (int*)&render_mode, 1);
+				ImGui::RadioButton("Vertex Order", (int*)&render_mode, 2);
+			}
+			ImGui::EndDisabled();
 			ImGui::RadioButton("Pixel Order", (int*)&render_mode, 3);
 			ImGui::RadioButton("Meshlet Order", (int*)&render_mode, 4);
 			ImGui::RadioButton("Meshlet Cull Angle", (int*)&render_mode, 5);
 			ImGui::RadioButton("Wave Intrinsics", (int*)&render_mode, 6);
 			ImGui::RadioButton("Amplification Order", (int*)&render_mode, 7);
+			ImGui::RadioButton("Triangle Size", (int*)&render_mode, 8);
 			ImGui::PopID();
 			ImGui::EndDisabled();
 
@@ -585,6 +501,18 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 				ImGui::Unindent();
 				model_data.wave_intrinsics.x = (int)device->GetWaveLaneCountMax();
 				model_data.wave_intrinsics.y = static_cast<int>(wave_intrinsic_render_mode);
+			}
+			else if (render_mode == RenderMode::TriangleSize)
+			{
+				ImGui::Indent();
+				ImGui::PushID("Triangle Size ID IMGUI");
+				if (ImGui::CollapsingHeader("Triangle Size Options"))
+				{
+					ImGui::SliderFloat("Triangle Size Colour Scale", &triangle_size_scale, 0.0f, 20.0f);
+				}
+				ImGui::PopID();
+				ImGui::Unindent();
+				model_data.triangle_size_options.x = triangle_size_scale;
 			}
 		}
 	}
@@ -883,6 +811,7 @@ void ModelViewer::CreatePipeline()
 {
 	pipeline_desc.input_layout = Model::Vertex::make_input_layout();
 	pipeline_desc.vertex_shader = standard_vsps_render_mode == StandardPixelPipelineMode::Full ? shader_vertex : shader_vertex_simple;
+	pipeline_desc.geometry_shader = geometry_shader_data.enabled ? shader_geometry : nullptr; 
 	pipeline_desc.pixel_shader = shaders_pixel[(int)standard_vsps_render_mode];
 	pipeline_desc.render_target_count = 1;
 	pipeline_desc.render_target_format_list[0] = render_target_format;
@@ -955,7 +884,6 @@ void ModelViewer::CreatePipeline()
 		amplification_mesh_shading.pipeline_desc.pixel_shader = amplification_mesh_shading.shader_pixel_eds;
 		amplification_mesh_shading.pipeline_eds = device->create_pipeline(amplification_mesh_shading.pipeline_desc, amplification_mesh_shading.binding_desc);
 	}
-
 }
 
 void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap)

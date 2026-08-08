@@ -54,6 +54,8 @@ private:
 	sg::SharedPtr<sg::VertexShader> shader_vertex;
 	sg::SharedPtr<sg::VertexShader> shader_vertex_simple;
 
+	sg::SharedPtr<sg::GeometryShader> shader_geometry;
+
 	sg::SharedPtr<sg::VertexShader> shader_vertex_triangle;
 	sg::SharedPtr<sg::VertexShader> shader_vertex_middle_triangle;
 	sg::SharedPtr<sg::VertexShader> shader_vertex_quad;
@@ -80,6 +82,7 @@ private:
 		MeshletCullAngle,
 		WaveIntrinsics,
 		AmplificationOrder,
+		TriangleSize
 	} render_mode = RenderMode::Default;
 	int cull_mode = 0;
 	bool recreate_model = true;
@@ -103,6 +106,14 @@ private:
 	bool mesh_shader_cone_culling = true;
 	bool mesh_shader_sphere_frustum_culling = true;
 	bool amplification_mesh_shader = true;
+
+	// Geometry Shader
+	struct GeometryShaderSetup
+	{
+		bool enabled = false;
+		ShaderStructs::float4 shader_options = { 1.0f, 0.0f, 0.0f, 0.0f }; // x = scale
+
+	} geometry_shader_data;
 
 
 	// Uav
@@ -172,6 +183,9 @@ private:
 		WaveCount,
 		AllWavesSameValue,
 	} wave_intrinsic_render_mode = WaveIntrinsicRenderMode::LaneIndices;
+
+	// Triangle Size
+	float triangle_size_scale = 1.0f;
 };
 
 	
