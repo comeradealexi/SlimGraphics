@@ -118,7 +118,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 		| aiProcess_ConvertToLeftHanded;
 
 	const aiScene* aScene = ai_importer.ReadFile(init_data.file_path.data(), flags); //By passing file path, allows assimp to auto load material files.
-	seAssert(aScene != nullptr, "Failed To Load Assimp Scene %s\n", init_data.file_path.c_str());
+	seAssert(aScene != nullptr, "Failed To Load Assimp Scene %s\n%s", init_data.file_path.c_str(), ai_importer.GetErrorString());
 	if (aScene)
 	{
 		u32 stride;

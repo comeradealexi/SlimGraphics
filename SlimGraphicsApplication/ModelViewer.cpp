@@ -72,7 +72,7 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 	CreatePipeline();
 
-	const std::vector<const char*> extensions = { ".obj", ".dae", ".fbx" };
+	const std::vector<const char*> extensions = { ".obj", ".dae", ".fbx", ".gltf" };
 	model_file_list = se::BasicFileIO::find_files_recursive("../SlimGraphicsAssets", extensions);
 	model_init_data.file_path = model_file_list[0];
 	for (size_t i = 0; i < model_file_list.size(); i++)
@@ -178,6 +178,12 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		u32 UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT;
 		u32 UAV_INDEX_WAVE_INTRINSIC_COUNTER;
 		u32 UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS;
+		u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_IN;
+		u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_OUT;
+		u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_BACK_FACING;
+		u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_FRONT_FACING;
+		u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_SUBPIXEL;
+
 	} uav_readback_values = {};
 	readback_uav_buffer->read_memory(0, &uav_readback_values, sizeof(uav_readback_values));
 
@@ -186,7 +192,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	{
 		ImGui::Indent();
 		int list_changed = model_file_list_current;
-		if (ImGui::BeginCombo("File", StringPathToFilename(model_file_list[model_file_list_current])))
+		if (ImGui::BeginCombo("File", StringPathToFilename(model_file_list[model_file_list_current]), ImGuiComboFlags_HeightLargest))
 		{
 			for (int n = 0; n < model_file_list.size(); n++)
 			{
@@ -303,19 +309,31 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	}
 
 	{
-		if (ImGui::CollapsingHeader("UAV Readback"))
+		ImGui::BeginDisabled(standard_vsps_render_mode != StandardPixelPipelineMode::Full);
 		{
-			ImGui::PushID("UAV ReadbackInfo");
-			ImGui::Text("Pixels Shaded:   %u", uav_readback_values.UAV_INDEX_PIXELS_SHADED);
-			ImGui::Text("VS Invocations:  %u", uav_readback_values.UAV_INDEX_VERTEX_SHADER_INVOCATIONS);
-			ImGui::Text("MS Invocations:  %u", uav_readback_values.UAV_INDEX_MESH_SHADER_INVOCATIONS);
-			ImGui::Text("Meshlet Prims:   %u", uav_readback_values.UAV_INDEX_MESH_SHADER_PRIM_COUNT);
-			ImGui::Text("Meshlets Culled (By Cone Dir): %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT);
-			ImGui::Text("Meshlets Culled (By Sphere Frustum): %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT);
-			ImGui::Text("%s: %u", wave_intrinsic_render_mode == WaveIntrinsicRenderMode::HelperLaneViewer ? "Non Helper Pixel Count" : "Wave Group Count", uav_readback_values.UAV_INDEX_WAVE_INTRINSIC_COUNTER);
-			ImGui::Text("Amplification Shader Invocations: %u", uav_readback_values.UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS);
-			ImGui::PopID();
+			if (ImGui::CollapsingHeader("UAV Readback"))
+			{
+				ImGui::PushID("UAV ReadbackInfo");
+				ImGui::Text("Pixels Shaded:   %u", uav_readback_values.UAV_INDEX_PIXELS_SHADED);
+				ImGui::Text("VS Invocations:  %u", uav_readback_values.UAV_INDEX_VERTEX_SHADER_INVOCATIONS);
+				ImGui::Text("MS Invocations:  %u", uav_readback_values.UAV_INDEX_MESH_SHADER_INVOCATIONS);
+				ImGui::Text("Meshlet Prims:   %u", uav_readback_values.UAV_INDEX_MESH_SHADER_PRIM_COUNT);
+				ImGui::Text("Meshlets Culled (By Cone Dir):       %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT);
+				ImGui::Text("Meshlets Culled (By Sphere Frustum): %u", uav_readback_values.UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT);
+				ImGui::Text("%s: %u", wave_intrinsic_render_mode == WaveIntrinsicRenderMode::HelperLaneViewer ? "Non Helper Pixel Count" : "Wave Group Count", uav_readback_values.UAV_INDEX_WAVE_INTRINSIC_COUNTER);
+				ImGui::Text("Amplification Shader Invocations: %u", uav_readback_values.UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS);
+
+				ImGui::Text("GS Tris In:      %u", uav_readback_values.UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_IN);
+				ImGui::Text("GS Tris Out:     %u", uav_readback_values.UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_OUT);
+				ImGui::Text("GS Back Facing:  %u", uav_readback_values.UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_BACK_FACING);
+				ImGui::Text("GS Front Facing: %u", uav_readback_values.UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_FRONT_FACING);
+				ImGui::Text("GS Sub Pixel:    %u", uav_readback_values.UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_SUBPIXEL);
+				ImGui::Text(": %u", uav_readback_values.UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_BEHIND_CAMERA_OR_INFINITY);
+
+				ImGui::PopID();
+			}
 		}
+		ImGui::EndDisabled();
 
 		if (ImGui::CollapsingHeader("Mesh Optimizer"))
 		{
@@ -370,7 +388,12 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			ImGui::EndDisabled();
 
 			recreate_pipeline |= ImGui::Checkbox("Force Early Depth Stencil", &pixel_shader_variations[PixelShaderVariations::EarlyDepthStencil]);
-			recreate_pipeline |= ImGui::Checkbox("Use Geometry Shader", &pixel_shader_variations[PixelShaderVariations::GeometryShader]);
+			
+			ImGui::BeginDisabled(render_as_mesh_shader);
+			{
+				recreate_pipeline |= ImGui::Checkbox("Use Geometry Shader", &pixel_shader_variations[PixelShaderVariations::GeometryShader]);
+			}
+			ImGui::EndDisabled();
 
 			ImGui::SeparatorText("Mesh Shader");
 			ImGui::BeginDisabled(!render_as_mesh_shader);
@@ -385,6 +408,16 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			if (ImGui::CollapsingHeader("Geometry Shader"))
 			{
 				ImGui::PushID("GeometryShaderInfo");
+				
+				ImGui::Text("Triangle Culling:");
+
+				static const char* BackFaceCullingNames[] = { "Default", "Cull Back", "Cull Front" };
+				ImGui::SliderInt("Backface Culling", &model_data.geometry_shader_culling.x, 0, 2, BackFaceCullingNames[model_data.geometry_shader_culling.x]);
+
+				static const char* SubPixelCullingNames[] = { "Default", "Cull Small Triangles" };
+				ImGui::SliderInt("Sub Pixel Triangle Culling", &model_data.geometry_shader_culling.y, 0, 1, SubPixelCullingNames[model_data.geometry_shader_culling.y]);
+
+				ImGui::Text("Triangle Scaling:");
 
 				ImGui::SliderFloat("Scale", &geometry_shader_data.shader_options.x, 0.0f, 10.0f);
 				ImGui::SliderFloat("Explode", &geometry_shader_data.shader_options.y, -1.0f, 1.0f);

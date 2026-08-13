@@ -86,14 +86,14 @@ namespace sg
         
         void d3d12_message_callback(D3D12_MESSAGE_CATEGORY Category, D3D12_MESSAGE_SEVERITY Severity, D3D12_MESSAGE_ID ID, LPCSTR pDescription, void* pContext)
         {
-            static std::unordered_set<D3D12_MESSAGE_ID> observed_messages;
             if (Severity == D3D12_MESSAGE_SEVERITY_WARNING)
             {
-                if (observed_messages.find(ID) == observed_messages.end())
-                {
-
-                    observed_messages.insert(ID);
-                }
+            	// Causes a crash on exit due to deconstruct order
+				//static std::unordered_set<D3D12_MESSAGE_ID> observed_messages;
+                //if (observed_messages.find(ID) == observed_messages.end())
+                //{
+                //    observed_messages.insert(ID);
+                //}
             }
             else
             {

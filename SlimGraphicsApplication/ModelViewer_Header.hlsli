@@ -35,6 +35,11 @@ Texture2D texture_opacity : register(t3); // uses sampler_diffuse
 #define UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT 5
 #define UAV_INDEX_WAVE_INTRINSIC_COUNTER 6
 #define UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS 7
+#define UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_IN 8
+#define UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_OUT 9
+#define UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_BACK_FACING 10
+#define UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_FRONT_FACING 11
+#define UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_SUBPIXEL 12
 
 struct VS_INPUT
 {
@@ -98,22 +103,25 @@ float4 PSMain(PS_INPUT input) : SV_TARGET
     if (idx_y < (int)(((float)model.simplified_shading.x) * 16.0)) discard;
 #endif
     
-    float4 diffuse_col = float4(1,1,1,1);
-    float4 spec_col = float4(1,1,1,1);
-    float4 normals_col = float4(1,1,1,1);
+    float4 diffuse_col = float4(1, 1, 1, 1);
+    float4 spec_col = float4(1, 1, 1, 1);
+    float4 normals_col = float4(1, 1, 1, 1);
 
-    if (model.textures_enabled.x != 0) diffuse_col = texture_diffuse.Sample(sampler_diffuse, input.uvs * float2(1, 1));
-    if (model.textures_enabled.y != 0) spec_col = texture_specular.Sample(sampler_specular, input.uvs * float2(1, 1));
-    if (model.textures_enabled.z != 0) normals_col = texture_normals.Sample(sampler_normals, input.uvs * float2(1, 1));
+    if (model.textures_enabled.x != 0)
+        diffuse_col = texture_diffuse.Sample(sampler_diffuse, input.uvs * float2(1, 1));
+    if (model.textures_enabled.y != 0)
+        spec_col = texture_specular.Sample(sampler_specular, input.uvs * float2(1, 1));
+    if (model.textures_enabled.z != 0)
+        normals_col = texture_normals.Sample(sampler_normals, input.uvs * float2(1, 1));
     
-    #ifdef MODEL_VIEWER_SIMPLIFIED_PIXEL_SHADER_DISCARD
+#ifdef MODEL_VIEWER_SIMPLIFIED_PIXEL_SHADER_DISCARD
     float4 opacity_col = float4(1,1,1,1); // Some models have a greyscale texture for opacity when not part of the diffuse alpha
     if (model.textures_enabled.w != 0) opacity_col = texture_opacity.Sample(sampler_diffuse, input.uvs * float2(1, 1));
     if (diffuse_col.a < model.texture_options.x || opacity_col.r < model.texture_options.x) discard;
-    #endif
+#endif
 
-    float normals_mult = abs(dot(float3(0,0,1), input.normals));
-    return diffuse_col * float4(input.colour.xyz, 1) * max(normals_mult,0.0f);
+    float normals_mult = abs(dot(float3(0, 0, 1), input.normals));
+    return diffuse_col * float4(input.colour.xyz, 1) * max(normals_mult, 0.0f);
 }
 
 #else
@@ -532,6 +540,9 @@ PS_INPUT VSMain(VS_INPUT vs_in, uint id : SV_VertexID)
 void GSMain(triangle VS_OUTPUT input[3], inout TriangleStream<PS_INPUT> output, uint primitive_id : SV_PrimitiveID
 )
 {
+        uint original;
+        InterlockedAdd(uav0[UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_IN], 1, original);
+
     PS_INPUT gs_output;
 
     float3 edge1 = input[1].world_position.xyz - input[0].world_position.xyz;
@@ -551,6 +562,86 @@ void GSMain(triangle VS_OUTPUT input[3], inout TriangleStream<PS_INPUT> output, 
 
     float3 explodedTriCenter = (input[0].world_position.xyz + input[1].world_position.xyz + input[2].world_position.xyz + (offset * 3)) / 3.0f;
 
+    bool emitTriangle = true;
+
+    // Backface cull check
+    {
+        // Perspective-divide to get NDC-ish coordinates
+        float2 a = input[0].position.xy / input[0].position.w;
+        float2 b = input[1].position.xy / input[1].position.w;
+        float2 c = input[2].position.xy / input[2].position.w;
+
+        float signedArea = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
+
+        // D3D default: clockwise winding = front-facing, so a NEGATIVE
+        // signed area (in this Y-down convention) typically means front-facing.
+        // Verify against your actual pipeline state and flip if needed.
+        bool isBackFacing = signedArea > 0.0;
+
+        if (model.geometry_shader_culling.x == 1 && isBackFacing) emitTriangle = false;
+        else if (model.geometry_shader_culling.x == 2 && !isBackFacing) emitTriangle = false;
+
+        if (isBackFacing)
+        {
+            InterlockedAdd(uav0[UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_BACK_FACING], 1, original);
+        }
+        else
+        {
+            InterlockedAdd(uav0[UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_FRONT_FACING], 1, original);
+        }
+
+        float2 p0 = (a * 0.5 + 0.5) * camera.screen_dimensions_and_depth_info.xy;
+        float2 p1 = (b * 0.5 + 0.5) * camera.screen_dimensions_and_depth_info.xy;
+        float2 p2 = (c * 0.5 + 0.5) * camera.screen_dimensions_and_depth_info.xy;
+
+        // Guard against negative w values
+        if (input[0].position.w > 0.0 && input[1].position.w > 0.0 && input[2].position.w  > 0.0)
+        {
+            bool subpixeltriangle = false;
+
+    // None of the small triangle culling here works becuase you can still have a very small triangle that contains the pixel centre and needs to rasterise
+
+#if 1       // BB check
+            // Screen-space bounding box
+            float2 minP = min(p0, min(p1, p2));
+            float2 maxP = max(p0, max(p1, p2));
+            float2 bboxSize = maxP - minP;
+
+            // Cull if the bounding box is smaller than one pixel in either dimension
+            const float MIN_PIXEL_SIZE = 0.1;
+            if (bboxSize.x < MIN_PIXEL_SIZE && bboxSize.y < MIN_PIXEL_SIZE)
+            {
+                subpixeltriangle = true;
+            }
+#else
+            float area = abs((p1.x - p0.x) * (p2.y - p0.y) - (p2.x - p0.x) * (p1.y - p0.y)) * 0.5;
+            const float MIN_PIXEL_AREA = 0.5;
+            if (area < MIN_PIXEL_AREA)
+            {
+                subpixeltriangle = true;
+            }
+#endif
+            if (subpixeltriangle)
+            {
+                InterlockedAdd(uav0[UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_SUBPIXEL], 1, original);
+            }
+
+            if (model.geometry_shader_culling.y == 1 && subpixeltriangle)
+            {
+                emitTriangle = false;
+            }
+        }
+    }
+
+    // Sub pixel
+    {
+
+    }
+    
+    if (emitTriangle)
+{
+        InterlockedAdd(uav0[UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_OUT], 1, original);
+
     [unroll]
     for (int i = 0; i < 3; i++)
     {
@@ -568,6 +659,8 @@ void GSMain(triangle VS_OUTPUT input[3], inout TriangleStream<PS_INPUT> output, 
         output.Append(gs_output);
     }
 }
+}
+
 #endif
 
 float4 ShadePixelOrder() : SV_TARGET0

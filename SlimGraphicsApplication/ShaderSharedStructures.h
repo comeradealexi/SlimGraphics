@@ -55,7 +55,9 @@ struct ModelData
 
 	float4 triangle_size_options; // x = scale
 
-	float4 geometry_shader_options; // x = triangle scale
+	float4 geometry_shader_options; // x = triangle scale, y = explode amount
+
+	int4 geometry_shader_culling; // x = backface culling (0 = do nothing, 1 = cull back, 2 = cull front)
 };
 
 struct CameraData
