@@ -320,34 +320,51 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		//ImPlot::ShowDemoWindow();
 		//ImGui::ShowStyleEditor();
 
-		static bool top_bar_once = true;
-		if (top_bar_once)
-		{
-			// If we set this every frame, we need to be accurate to the screen pixel coordinates, by setting it only once, imgui keeps it tracked internally.
-			ImGui::SetNextWindowPos(ImVec2(x_off, y_off));
-			top_bar_once = false;
-		}
-		ImGui::SetNextWindowSize(ImVec2(w, 30));
+		static bool ExpandedStatsWindow = false;
+		bool CurrentExpandedStatsWindow = ExpandedStatsWindow;
+		static float TargetTimeMicroSeconds = 33'000.0f;
+		ImGui::SetNextWindowPos(ImVec2(x_off, y_off), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(w, CurrentExpandedStatsWindow ? 0 : 30));
 		ImGui::SetNextWindowBgAlpha(0.5f);
-		ImGui::Begin("Top Bar", nullptr, 			
-			ImGuiWindowFlags_NoTitleBar |
-			ImGuiWindowFlags_NoMove |
-			ImGuiWindowFlags_NoResize |
-			ImGuiWindowFlags_NoSavedSettings | 
-			ImGuiWindowFlags_NoCollapse | 
-			ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration
-#ifdef SE_IMGUI_DOCKING
-			| ImGuiWindowFlags_NoDocking
-#endif
+		ImGui::Begin("Top Bar", nullptr
+ 			, 			
+ 			ImGuiWindowFlags_NoTitleBar |
+ 			ImGuiWindowFlags_NoMove |
+ 			ImGuiWindowFlags_NoResize |
+ 			ImGuiWindowFlags_NoSavedSettings | 
+ 			ImGuiWindowFlags_NoCollapse | 
+ 			/*ImGuiWindowFlags_AlwaysAutoResize |*/ ImGuiWindowFlags_NoDecoration
+ #ifdef SE_IMGUI_DOCKING
+ 			| ImGuiWindowFlags_NoDocking
+ #endif
 
-		);
-		ImGui::Text("CPU: %5.1fus", cpu_timer.get_average());
+		);		
 		ImGui::SameLine();
-		ImGui::Text("GPU: %5.1fus", gpu_timer.get_average());
+		ImGui::Text("CPU: %5.0fus", cpu_timer.get_average());
 		ImGui::SameLine();
-		ImGui::PlotHistogram("gpu", gpu_timer.get_history_buffer(), gpu_timer.get_history_count(), gpu_timer.get_history_idx());
+		ImGui::Text("GPU: %5.0fus", gpu_timer.get_average());				
+// 		ImGui::SameLine(); ImGui::SetNextItemWidth(300);
+// 		ImGui::PlotHistogram("gpu", gpu_timer.get_history_buffer(), gpu_timer.get_history_count(), gpu_timer.get_history_idx(), nullptr, 0.0f, TargetTimeMicroSeconds);
+// 		ImGui::SameLine(); ImGui::SetNextItemWidth(300);
+// 		ImGui::PlotHistogram("cpu", cpu_timer.get_history_buffer(), cpu_timer.get_history_count(), cpu_timer.get_history_idx(), nullptr, 0.0f, TargetTimeMicroSeconds);		
+		ImGui::SameLine();
+		ImGui::Checkbox("Expand", &ExpandedStatsWindow);
+		if (CurrentExpandedStatsWindow)
+		{
+			if (ImPlot::BeginPlot("GPU Implot", ImVec2(-1,0), ImPlotFlags_NoTitle));
+			{				
+				//ImPlot::SetupAxes("", "", ImPlotAxisFlags_AutoFit);
+				ImPlot::SetNextLineStyle(ImVec4(247.0 / 255.0, 227 / 255.0, 121.0 / 255.0, 1.0));
+				ImPlot::PlotLine<float>("GPU", gpu_timer.get_history_buffer(), gpu_timer.get_history_count(), 1.0, 0.0, 0, gpu_timer.get_history_idx());
+				ImPlot::SetNextLineStyle(ImVec4(68.0 / 255.0, 206 / 255.0, 27.0 / 255.0, 1.0));
+				ImPlot::PlotLine<float>("CPU", cpu_timer.get_history_buffer(), cpu_timer.get_history_count(), 1.0, 0.0, 0, cpu_timer.get_history_idx());
+				ImPlot::EndPlot();
+			}
+		}
+
 		//static float 
-		//ImPlot::PlotHistogram2D(,)
+		//ImGui::SameLine();
+
 		//ImGui::PlotHistogram("GPU Time", )
 
 		ImGui::End();

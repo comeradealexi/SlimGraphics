@@ -2,7 +2,7 @@
 #include <sgTypes.h>
 namespace sg
 {
-	template <u32 GRAPH_COUNT = 150>
+	template <u32 GRAPH_COUNT = 300>
 	class AverageTimer
 	{
 	public:

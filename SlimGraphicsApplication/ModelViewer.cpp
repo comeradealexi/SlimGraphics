@@ -328,7 +328,6 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 				ImGui::Text("GS Back Facing:  %u", uav_readback_values.UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_BACK_FACING);
 				ImGui::Text("GS Front Facing: %u", uav_readback_values.UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_FRONT_FACING);
 				ImGui::Text("GS Sub Pixel:    %u", uav_readback_values.UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_SUBPIXEL);
-				ImGui::Text(": %u", uav_readback_values.UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_BEHIND_CAMERA_OR_INFINITY);
 
 				ImGui::PopID();
 			}

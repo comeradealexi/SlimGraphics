@@ -49,3 +49,6 @@
 [submodule "SubModules/stb"]
 	path = SubModules/stb
 	url = https://github.com/nothings/stb
+[submodule "SubModules/nlohmannjson"]
+	path = SubModules/nlohmannjson
+	url = https://github.com/nlohmann/json

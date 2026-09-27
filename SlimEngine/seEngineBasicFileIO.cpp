@@ -22,6 +22,17 @@ namespace se
 		return m_data;
 	}
 
+	bool BasicFileIO::write_file(const char* data, size_t data_size, const char* file_path)
+	{
+		std::ofstream os(file_path, std::ofstream::ate);
+		if (os.good() == false)
+		{
+			return false;
+		}
+		os.write(data, data_size);
+		os.close();
+	}
+
 	void find_files_recursive_internal(std::filesystem::directory_iterator directory, std::vector<std::string>& return_paths, const std::vector<const char*>& extensions)
 	{
 		for (const auto& entry : std::filesystem::directory_iterator(directory))
