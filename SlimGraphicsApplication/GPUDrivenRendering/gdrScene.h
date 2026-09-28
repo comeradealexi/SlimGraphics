@@ -7,6 +7,7 @@
 #include "Camera.h"
 #include "DebugDraw.h"
 #include "gdrJSON.h"
+#include "gdrEditor.h"
 /*
 
 GPU Driven Rendering Plan
@@ -25,11 +26,13 @@ namespace gdr
 {
 	class Scene
 	{
+		friend class Editor;
 	public:
-
-		void imgui_scene_overlay();
+		Scene();
+		void update();
 
 	private:
 		SceneNode root_scene_node;
+		Editor editor;
 	};
 }

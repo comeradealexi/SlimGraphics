@@ -1,6 +1,8 @@
 #pragma once
 #include <nlohmann/json.hpp>
 #include <DirectXMath.h>
+#include <atomic>
+#include <list>
 
 namespace gdr
 {
@@ -19,9 +21,19 @@ namespace gdr
 		Float3 scale	= { 1.0f, 1.0f, 1.0f };
 		Float3 colour	= { 1.0f, 1.0f, 1.0f };
 		std::string model_name = "unknown";
-		std::vector<SceneNode> children;
+		std::list<SceneNode> children;
+
+		// Non serialised fields
+		size_t unique_id = generate_unique_id();
+	private:
+		static size_t generate_unique_id();
 	};
 	NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SceneNode, position, rotation, scale, colour, model_name, children);
+
+	constexpr bool operator==(const SceneNode& lhs, const SceneNode& rhs)
+	{
+		return lhs.unique_id == rhs.unique_id;
+	}
 
 	void serialise(const SceneNode& node, const char* file_path);
 	void deserialise(SceneNode& node, const char* file_path);

@@ -23,6 +23,8 @@
 #include "PostProcess/PostProcess.h"
 #include "BitonicSort.h"
 
+#include "GPUDrivenRendering/gdrScene.h"
+
 void OverrideImguiStyle()
 {
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -296,6 +298,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	AverageTimer gpu_timer;
 	AverageTimer cpu_timer;
 
+	gdr::Scene gdr_scene;
+
 	bool bOpen = true;
 	float delta_time; // seconds
 	float total_time; // seconds
@@ -319,6 +323,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImGui::NewFrame();
 		//ImPlot::ShowDemoWindow();
 		//ImGui::ShowStyleEditor();
+
+		gdr_scene.update();
 
 		static bool ExpandedStatsWindow = false;
 		bool CurrentExpandedStatsWindow = ExpandedStatsWindow;
