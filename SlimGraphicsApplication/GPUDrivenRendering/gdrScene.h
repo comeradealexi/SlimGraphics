@@ -27,6 +27,7 @@ namespace gdr
 	{
 	public:
 
+		void imgui_scene_overlay();
 
 	private:
 		SceneNode root_scene_node;
