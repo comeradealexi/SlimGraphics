@@ -3,9 +3,27 @@
 #include <imgui.h>
 #include <stack>
 #include <format>
+#include "seEngineBasicFileIO.h"
 
 namespace gdr
 {
+	inline const char* StringPathToFilename(std::string& str)
+	{
+		size_t slashpos = str.find_first_of('/');
+		slashpos = str.find_first_of('/', slashpos + 1);
+		if (slashpos == std::string::npos) slashpos = 0;
+		else slashpos++;
+		return str.c_str() + slashpos;
+	}
+
+	Editor::Editor()
+	{
+		
+scene_file_list = se::BasicFileIO::find_files_recursive("..\\SlimGraphicsAssets\\GDRAssets", { ".json" });
+		const std::vector<const char*> model_extensions = { ".obj", ".dae", ".fbx", ".gltf" };
+		model_file_list = se::BasicFileIO::find_files_recursive("../SlimGraphicsAssets", model_extensions);
+	}
+
 	void Editor::imgui_scene_overlay(Scene& scene)
 	{
 		if (!ImGui::Begin("Scene Overlay"))
@@ -16,7 +34,30 @@ namespace gdr
 		if (ImGui::CollapsingHeader("Save/Load", ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			static char file_path_buffer[256] = {};
-			ImGui::InputText("File", file_path_buffer, 256);
+
+			ImGui::BeginDisabled(scene_file_list.size() == 0);
+			if (ImGui::BeginCombo("Select Existing File", scene_file_list.size() ? StringPathToFilename(scene_file_list[current_scene_file_index]) : "", ImGuiComboFlags_HeightLargest))
+			{
+				for (int n = 0; n < scene_file_list.size(); n++)
+				{
+					const bool is_selected = (current_scene_file_index == n);
+					if (ImGui::Selectable(StringPathToFilename(scene_file_list[n]), is_selected))
+					{
+						current_scene_file_index = n;
+						strcpy(file_path_buffer,scene_file_list[n].c_str());
+					}
+
+					// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+					if (is_selected)
+					{
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+				ImGui::EndCombo();
+			}
+			ImGui::EndDisabled();
+
+			ImGui::InputText("File Name", file_path_buffer, 256);
 			ImGui::BeginDisabled(file_path_buffer[0] == '\0');
 			static const char* last_message = nullptr;
 			if (ImGui::Button("Save"))
@@ -33,6 +74,7 @@ namespace gdr
 			ImGui::SameLine();
 			if (ImGui::Button("Load"))
 			{
+				selected_node = nullptr;
 				if (deserialise(scene.root_scene_node, file_path_buffer))
 				{
 					last_message = "Load Successful";
@@ -59,8 +101,38 @@ namespace gdr
 
 		SceneNode* new_node_added = nullptr;
 		bool delete_selected_node = false;
+		bool duplicate_selected_node = false;
 		if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			int32_t current_model_index = -1;
+			for (int32_t i = 0; i < model_file_list.size(); i++)
+			{
+				if (selected_node->model_name == model_file_list[i])
+				{
+					current_model_index = i;
+					break;
+				}
+			}
+
+			if (ImGui::BeginCombo("Model File Path", current_model_index >= 0 ? StringPathToFilename(model_file_list[current_model_index]) : selected_node->model_name.c_str(), ImGuiComboFlags_HeightLargest))
+			{
+				for (int n = 0; n < model_file_list.size(); n++)
+				{
+					const bool is_selected = (current_model_index == n);
+					if (ImGui::Selectable(StringPathToFilename(model_file_list[n]), is_selected))
+					{
+						current_model_index = n;
+						selected_node->model_name = model_file_list[n];
+					}
+
+					// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+					if (is_selected)
+					{
+						ImGui::SetItemDefaultFocus();
+					}
+				}
+				ImGui::EndCombo();
+			}
 			ImGui::TextDisabled("Model: %s", selected_node->model_name.c_str());
 			ImGui::DragFloat3("Position", &selected_node->position.x);
 			ImGui::DragFloat3("Rotation", &selected_node->rotation.x);
@@ -78,7 +150,13 @@ namespace gdr
 				new_node_added = &(selected_node->children.emplace_back());
 			}
 			ImGui::SameLine();
-			ImGui::TextDisabled("ID: %llu", selected_node->unique_id);
+			ImGui::BeginDisabled(selected_node == &scene.root_scene_node); // Can't duplicate root
+			if (ImGui::Button("Duplicate"))
+			{
+				duplicate_selected_node = true;
+			}
+			ImGui::EndDisabled();
+			ImGui::SameLine();
 		}
 
 		if (ImGui::CollapsingHeader("Scene Graph", ImGuiTreeNodeFlags_DefaultOpen))
@@ -101,20 +179,28 @@ namespace gdr
 						}
 					}
 
-					if (ImGui::TreeNodeEx((const void*)cur_node, tree_flags | extra_flags, "%llu: %s", cur_node->unique_id, cur_node->model_name.c_str()))
+					if (ImGui::TreeNodeEx((const void*)cur_node, tree_flags | extra_flags, "%s", cur_node->model_name.c_str()))
 					{
 						auto it = cur_node->children.begin();
 
 						while (it != cur_node->children.end())
 						{
-							if (delete_selected_node && &(*it) == selected_node)
+							if ((duplicate_selected_node || delete_selected_node) && &(*it) == selected_node)
 							{
-								delete_selected_node = false;
-								it = cur_node->children.erase(it);
-								selected_node = nullptr;
-								if (it != cur_node->children.end()) //Update selected note to be next child after a delete
+								if (delete_selected_node)
 								{
-									selected_node = &(*it);
+									delete_selected_node = false;
+									it = cur_node->children.erase(it);
+									selected_node = nullptr;
+									if (it != cur_node->children.end()) //Update selected note to be next child after a delete
+									{
+										selected_node = &(*it);
+									}
+								}
+								else if (duplicate_selected_node)
+								{
+									duplicate_selected_node = false;
+									cur_node->children.push_back(*it);
 								}
 							}
 							else

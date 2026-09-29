@@ -27,11 +27,4 @@ namespace gdr
 		node = nlohmann::json::parse(file_data);
 		return true;
 	}
-
-	size_t SceneNode::generate_unique_id()
-	{
-		static std::atomic_size_t unique_id;
-		return unique_id++;
-	}
-
 }
