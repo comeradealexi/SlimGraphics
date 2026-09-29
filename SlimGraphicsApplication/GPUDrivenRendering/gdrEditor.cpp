@@ -12,6 +12,43 @@ namespace gdr
 		{
 			return;
 		}
+
+		if (ImGui::CollapsingHeader("Save/Load", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			static char file_path_buffer[256] = {};
+			ImGui::InputText("File", file_path_buffer, 256);
+			ImGui::BeginDisabled(file_path_buffer[0] == '\0');
+			static const char* last_message = nullptr;
+			if (ImGui::Button("Save"))
+			{
+				if (serialise(scene.root_scene_node, file_path_buffer))
+				{
+					last_message = "Save Successful";
+				}
+				else
+				{
+					last_message = "Save Failed";
+				}
+			}
+			ImGui::SameLine();
+			if (ImGui::Button("Load"))
+			{
+				if (deserialise(scene.root_scene_node, file_path_buffer))
+				{
+					last_message = "Load Successful";
+				}
+				else
+				{
+					last_message = "Load Failed";
+				}
+			}
+			ImGui::EndDisabled();
+			if (last_message)
+			{
+				ImGui::Text(last_message);
+			}
+		}
+
 		const ImGuiTreeNodeFlags tree_flags = ImGuiTreeNodeFlags_DrawLinesToNodes | ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
 
 		std::stack<std::pair<SceneNode*, bool>> node_stack;

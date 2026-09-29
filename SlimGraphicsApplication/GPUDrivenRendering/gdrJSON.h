@@ -35,6 +35,6 @@ namespace gdr
 		return lhs.unique_id == rhs.unique_id;
 	}
 
-	void serialise(const SceneNode& node, const char* file_path);
-	void deserialise(SceneNode& node, const char* file_path);
+	bool serialise(const SceneNode& node, const char* file_path);
+	bool deserialise(SceneNode& node, const char* file_path);
 }

@@ -5,7 +5,7 @@
 
 namespace gdr
 {
-	void serialise(const SceneNode& node, const char* file_path)
+	bool serialise(const SceneNode& node, const char* file_path)
 	{
 		nlohmann::json j = node;
 		std::ofstream os(file_path, std::ofstream::ate);
@@ -14,13 +14,18 @@ namespace gdr
 		{
 			os << j;
 			os.close();
+			return true;
 		}
+		return false;
 	}
 
-	void deserialise(SceneNode& node, const char* file_path)
+	bool deserialise(SceneNode& node, const char* file_path)
 	{
 		std::vector<uint8_t> file_data = se::BasicFileIO::load_file(file_path);
+		if (file_data.size() == 0)
+			return false;
 		node = nlohmann::json::parse(file_data);
+		return true;
 	}
 
 	size_t SceneNode::generate_unique_id()
