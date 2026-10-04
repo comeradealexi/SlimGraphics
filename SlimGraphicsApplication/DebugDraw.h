@@ -27,7 +27,7 @@ public:
 			sg::u8 b;
 			sg::u8 a;
 		};
-		sg::u32 rgba;
+		sg::u32 rgba = ~0u;
 	};
 	static_assert(sizeof(ColourRGBA) == 4);
 
@@ -35,6 +35,7 @@ public:
 
 	bool IsEnabled() const { return options.enabled; }
 
+	void DrawOBB(ColourRGBA colour, const DirectX::BoundingOrientedBox& obb);
 	void DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::XMFLOAT3& min_extent, const DirectX::XMFLOAT3& max_extent);
 	void DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::BoundingBox aabb);
 
@@ -70,8 +71,8 @@ private:
 	std::array<sg::SharedPtr<sg::Buffer>, UPLOAD_BUFFER_COUNT> upload_buffers;
 	sg::SharedPtr<sg::Buffer> gpu_vertex_buffer;
 	sg::SharedPtr<sg::Buffer> gpu_index_buffer;
-	sg::SharedPtr<sg::Pipeline> pipeline_depth;
-	sg::SharedPtr<sg::Pipeline> pipeline_no_depth;
+	sg::SharedPtr<sg::Pipeline> pipeline_depth[2];
+	sg::SharedPtr<sg::Pipeline> pipeline_no_depth[2];
 
 	struct VertexFormat
 	{
@@ -97,5 +98,6 @@ private:
 	{
 		bool enabled = false;
 		bool depth_test = false;
+		bool wireframe = true;
 	}options;
 };

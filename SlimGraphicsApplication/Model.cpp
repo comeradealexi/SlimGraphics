@@ -137,6 +137,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 
 				const bool use_color = aMesh->mColors[0] != nullptr;
 
+				DirectX::XMFLOAT3 position_total = {};
 				for (uint32_t vert_idx = 0; vert_idx < aMesh->mNumVertices; vert_idx++)
 				{
 					Vertex v;
@@ -148,6 +149,10 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					v.Tangent = aMesh->mTangents ? XMFLOAT3(&aMesh->mTangents[vert_idx].x) : XMFLOAT3(0, 0, 0);
 					mesh.vertices.push_back(v);
 
+					position_total.x += v.Position.x;
+					position_total.y += v.Position.y;
+					position_total.z += v.Position.z;
+
 					max_extent = SetAbsMax(max_extent, v.Position);
 					mesh.max_extent = SetAbsMax(mesh.max_extent, v.Position);
 
@@ -156,6 +161,24 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 
 					bounding_box_min = Min(bounding_box_min, v.Position);
 					mesh.bounding_box_min = Min(mesh.bounding_box_min, v.Position);
+				}
+				
+				// Accurate Sphere Calculation
+				{
+					mesh.sphere_centre.x = position_total.x / static_cast<float>(aMesh->mNumVertices);
+					mesh.sphere_centre.y = position_total.y / static_cast<float>(aMesh->mNumVertices);
+					mesh.sphere_centre.z = position_total.z / static_cast<float>(aMesh->mNumVertices);
+
+					// Distance from centre of object to each vertex
+					mesh.sphere_radius = 0.0f;
+					const XMVECTOR sphere_centre = DirectX::XMLoadFloat3(&mesh.sphere_centre);	
+					for (uint32_t vert_idx = 0; vert_idx < aMesh->mNumVertices; vert_idx++)
+					{
+						const XMVECTOR vertex = DirectX::XMLoadFloat3((XMFLOAT3*) &aMesh->mVertices[vert_idx].x);
+
+						const XMVECTOR length = DirectX::XMVector3Length(DirectX::XMVectorSubtract(sphere_centre, vertex));
+						mesh.sphere_radius = std::max<float>(mesh.sphere_radius, fabsf(DirectX::XMVectorGetX(length)));
+					}
 				}
 
 				// AABB
@@ -170,6 +193,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					mesh.aabb.Extents.y = dist_y / 2;
 					mesh.aabb.Extents.z = dist_z / 2;
 
+					// Initial OBB is from AABB
+					DirectX::BoundingOrientedBox::CreateFromBoundingBox(mesh.obb, mesh.aabb);
 				}
 
 				mesh.vertex_count = aMesh->mNumVertices;

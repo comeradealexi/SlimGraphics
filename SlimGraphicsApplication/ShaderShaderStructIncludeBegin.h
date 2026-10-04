@@ -10,6 +10,7 @@
 		using float4x4 = DirectX::XMMATRIX;
 		using uint = uint32_t;
 		using int4 = DirectX::XMINT4;
+		using uint4 = DirectX::XMUINT4;
 	#else
 
 	#endif

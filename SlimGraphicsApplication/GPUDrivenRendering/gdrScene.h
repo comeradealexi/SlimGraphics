@@ -8,6 +8,7 @@
 #include "DebugDraw.h"
 #include "gdrJSON.h"
 #include "gdrEditor.h"
+#include "gdrModel.h"
 
 namespace gdr
 {
@@ -21,5 +22,6 @@ namespace gdr
 	private:
 		SceneNode root_scene_node;
 		Editor editor;
+		std::vector<Model> models;
 	};
 }

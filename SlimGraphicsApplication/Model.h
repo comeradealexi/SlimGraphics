@@ -121,6 +121,8 @@ public:
 		sg::u32 draw_count = 0;
 		sg::u32 vertex_count = 0;
 		DirectX::XMFLOAT3 max_extent = {};
+		DirectX::XMFLOAT3 sphere_centre;
+		float sphere_radius;
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
 		MeshShadingData mesh_shader_data;
@@ -128,6 +130,7 @@ public:
 		DirectX::XMFLOAT3 bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };
 		DirectX::XMFLOAT3 bounding_box_max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 		DirectX::BoundingBox aabb;
+		DirectX::BoundingOrientedBox obb;
 
 
 		// ACMR (Average Cache Miss Ratio)

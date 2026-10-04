@@ -50,14 +50,59 @@ DebugDraw::DebugDraw(sg::Device& device)
 		pipeline_desc.depth_stencil_desc.depth_write = false;
 		pipeline_desc.rasterizer_desc.fill_mode = Rasterizer::FillMode::Wireframe;
 		pipeline_desc.rasterizer_desc.cull_mode = Rasterizer::CullMode::None;
-		pipeline_no_depth = device.create_pipeline(pipeline_desc, pipeline_binding_desc);
-		seAssert(pipeline_no_depth != nullptr, "Failed to create pipeline");
+		pipeline_no_depth[0] = device.create_pipeline(pipeline_desc, pipeline_binding_desc);
+		seAssert(pipeline_no_depth[0] != nullptr, "Failed to create pipeline");
+		
+		pipeline_desc.rasterizer_desc.fill_mode = Rasterizer::FillMode::Solid;
+		pipeline_no_depth[1] = device.create_pipeline(pipeline_desc, pipeline_binding_desc);
+		seAssert(pipeline_no_depth[1] != nullptr, "Failed to create pipeline");
 
+		pipeline_desc.rasterizer_desc.fill_mode = Rasterizer::FillMode::Wireframe;
 		pipeline_desc.depth_stencil_format = DXGI_FORMAT_D32_FLOAT;
 		pipeline_desc.depth_stencil_desc.depth_enable = true;
-		pipeline_depth = device.create_pipeline(pipeline_desc, pipeline_binding_desc);
-		seAssert(pipeline_depth != nullptr, "Failed to pipeline");
+		pipeline_depth[0] = device.create_pipeline(pipeline_desc, pipeline_binding_desc);
+		seAssert(pipeline_depth[0] != nullptr, "Failed to pipeline");
+
+		pipeline_desc.rasterizer_desc.fill_mode = Rasterizer::FillMode::Solid;
+		pipeline_depth[1] = device.create_pipeline(pipeline_desc, pipeline_binding_desc);
+		seAssert(pipeline_depth[1] != nullptr, "Failed to create pipeline");
 	}
+}
+
+void DebugDraw::DrawOBB(ColourRGBA colour, const DirectX::BoundingOrientedBox& obb)
+{
+	if (!IsEnabled()) return;
+
+	DirectX::VertexCollection vc;
+	DirectX::IndexCollection ic;
+
+	DirectX::XMFLOAT3 corners[8];
+	obb.GetCorners(corners);
+
+	for (auto& v : corners)
+	{
+		vc.emplace_back().position = v;
+	}
+
+	auto add_face = [&](int16_t a, int16_t b, int16_t c, int16_t d)
+		{
+			ic.push_back(a); ic.push_back(b); ic.push_back(c);
+			ic.push_back(b); ic.push_back(c); ic.push_back(d);
+		};
+
+	// Z
+	add_face(0, 1, 2, 3);
+	add_face(4, 5, 6, 7);
+
+	// X
+	add_face(0, 3, 4, 7);
+	add_face(1, 2, 5, 6);
+
+	// Y
+	add_face(0, 1, 4, 5);
+	add_face(2, 3, 6, 7);
+
+	FinaliseDraw(colour, {}, vc, ic);
 }
 
 void DebugDraw::DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::XMFLOAT3& min_extent, const DirectX::XMFLOAT3& max_extent)
@@ -169,7 +214,7 @@ void DebugDraw::Render(sg::CommandList& command_list, sg::ConstantBufferView& cb
 		command_list.copy_buffer_to_buffer(vertex_size, gpu_vertex_buffer.get(), 0, upload.get(), 0);
 		command_list.copy_buffer_to_buffer(index_size, gpu_index_buffer.get(), 0, upload.get(), vertex_size);
 
-		command_list.set_pipeline(options.depth_test ? pipeline_depth.get() : pipeline_no_depth.get());
+		command_list.set_pipeline(options.depth_test ? pipeline_depth[options.wireframe ? 0 : 1].get() : pipeline_no_depth[options.wireframe ? 0 : 1].get());
 
 		command_list.bind_vertex_buffer(gpu_vertex_buffer_view);
 		command_list.bind_index_buffer(gpu_index_buffer_view);
@@ -198,5 +243,6 @@ void DebugDraw::Update()
 	{
 		ImGui::Checkbox("Enabled", &options.enabled);
 		ImGui::Checkbox("Depth Test", &options.depth_test);
+		ImGui::Checkbox("Wireframe", &options.wireframe);
 	}
 }

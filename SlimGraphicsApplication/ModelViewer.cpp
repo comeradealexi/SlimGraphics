@@ -592,6 +592,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	{
 		ImGui::PushID("Model Debug Draw");
 		ImGui::Checkbox("Model Parts (AABB)", &debug_drawing.render_model_parts_aabb);
+		ImGui::Checkbox("Model Parts (OBB)", &debug_drawing.render_model_parts_obb);
 		ImGui::Checkbox("Model Parts (Sphere)", &debug_drawing.render_model_parts_sphere);
 		ImGui::Checkbox("Meshlet Parts", &debug_drawing.render_meshlet_parts);
 		ImGui::PopID();
@@ -723,12 +724,24 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 
 				if (debug_drawing.render_model_parts_aabb)
 				{
-					debug_draw.DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
+					DirectX::BoundingBox aabb = mesh_part.aabb;
+					aabb.Transform(aabb, model_data.model_matrix);
+					debug_draw.DrawAABB(DebugDraw::ColourRGBA(255, 255, 0, 255), {}, aabb);
 				}
+
+				if (debug_drawing.render_model_parts_obb)
+				{
+					DirectX::BoundingOrientedBox obb = mesh_part.obb;
+					obb.Transform(obb, model_data.model_matrix);
+					debug_draw.DrawOBB(DebugDraw::ColourRGBA(255, 0, 0, 255), obb);
+				}
+
 				if (debug_drawing.render_model_parts_sphere)
 				{
-					float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z));
-					debug_draw.DrawSphere(DebugDraw::ColourRGBA(), mesh_part.aabb.Center, radius * 2.0, 8ui64);
+					//float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z));
+					DirectX::BoundingSphere bs(mesh_part.sphere_centre, mesh_part.sphere_radius);
+					bs.Transform(bs, model_data.model_matrix);
+					debug_draw.DrawSphere(DebugDraw::ColourRGBA(255, 127, 255, 255), bs.Center, bs.Radius * 2.0, 8ui64);
 				}
 
 				b.set_srv(mesh_part.mesh_shader_data.gpu_meshlets_view_srv, 5);
@@ -803,12 +816,24 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 
 				if (debug_drawing.render_model_parts_aabb)
 				{
-					debug_draw.DrawAABB(DebugDraw::ColourRGBA(), {}, mesh_part.aabb);
+					DirectX::BoundingBox aabb = mesh_part.aabb;
+					aabb.Transform(aabb, model_data.model_matrix);
+					debug_draw.DrawAABB(DebugDraw::ColourRGBA(255,255,0,255), {}, aabb);
 				}
+
+				if (debug_drawing.render_model_parts_obb)
+				{
+					DirectX::BoundingOrientedBox obb = mesh_part.obb;
+					obb.Transform(obb, model_data.model_matrix);
+					debug_draw.DrawOBB(DebugDraw::ColourRGBA(255,0,0,255), obb);
+				}
+
 				if (debug_drawing.render_model_parts_sphere)
 				{
-					float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z));
-					debug_draw.DrawSphere(DebugDraw::ColourRGBA(), mesh_part.aabb.Center, radius * 2.0, 8ui64);
+					//float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z));
+					DirectX::BoundingSphere bs(mesh_part.sphere_centre, mesh_part.sphere_radius);
+					bs.Transform(bs, model_data.model_matrix);
+					debug_draw.DrawSphere(DebugDraw::ColourRGBA(255,127,255,255), bs.Center, bs.Radius * 2.0, 8ui64);
 				}
 
 				model_data.primitive_count = mesh_part.draw_count / 3;
