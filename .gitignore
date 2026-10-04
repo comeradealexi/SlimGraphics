@@ -433,3 +433,7 @@ FodyWeavers.xsd
 /Sharpmake/projects/*
 /Sharpmake/csharp_projects/*
 /Sharpmake/sharpmake_projects/*
+/SlimGraphicsApplication/ShaderBin_Debug
+/SlimGraphicsApplication/ShaderBin_Profile
+/SlimGraphicsApplication/ShaderBin_Release
+/slimgraphics_vs2022.sln
