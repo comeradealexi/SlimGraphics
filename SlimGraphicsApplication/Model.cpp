@@ -94,7 +94,7 @@ static DirectX::XMFLOAT3 Min(const DirectX::XMFLOAT3& a, DirectX::XMFLOAT3& b)
 	return o;
 }
 
-Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data, const Camera& camera) : init_data(_init_data)
+Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data, const Camera* camera) : init_data(_init_data)
 {
 	// Create the default texture
 	{
@@ -276,13 +276,14 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 				case InitData::VertexCachOptimisation::CameraBackToFront:
 				case InitData::VertexCachOptimisation::CameraFrontToBack:
 				{
+					seAssert(camera, "Expecting non-nullptr for camera");
 					std::vector<uint32_t> face_remap;
 					face_remap.resize(mesh.indices.size() / 3);
 					for (size_t i = 0; i < face_remap.size(); i++)
 					{
 						face_remap[i] = i;
 					}
-					const DirectX::XMVECTOR camera_position = DirectX::XMLoadFloat3(&camera.GetPosition());
+					const DirectX::XMVECTOR camera_position = DirectX::XMLoadFloat3(&camera->GetPosition());
 					const bool front_to_back = init_data.vertex_cache_opt_mode == InitData::VertexCachOptimisation::CameraFrontToBack;
 					std::sort(face_remap.begin(), face_remap.end(), [camera_position, front_to_back, &mesh](uint32_t a, uint32_t b)
 						{

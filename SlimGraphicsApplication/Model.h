@@ -85,7 +85,7 @@ public:
 	};
 
 public:
-	Model(sg::Device* device, sg::UploadHeap* upload_heap, const InitData& _init_data, const Camera& camera);
+	Model(sg::Device* device, sg::UploadHeap* upload_heap, const InitData& _init_data, const Camera* camera);
 
 	struct MeshShadingData
 	{

@@ -2,11 +2,5 @@
 
 namespace gdr
 {
-	class Model : public ::Model
-	{
-	public:
-
-	private:
-
-	};
+	using Model = ::Model;
 }

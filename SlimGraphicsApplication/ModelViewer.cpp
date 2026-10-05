@@ -959,7 +959,7 @@ void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap, const Camera& camera
 		render_model_bool_array = nullptr;
 	}
 
-	model = Ptr<Model>(new Model(device.get(), upload_heap.get(), model_init_data, camera));
+	model = Ptr<Model>(new Model(device.get(), upload_heap.get(), model_init_data, &camera));
 
 	if (model)
 	{

@@ -12,6 +12,7 @@ struct ModelData
 	float4 aabb_centre;		// Center of the box.
 	float4 aabb_extents;	// Distance from the center to each side.
 
+	float4 sphere_centre;
 	float4 sphere_size;		// x = sphere radius - TODO - Doesn't need to be float4
 };
 

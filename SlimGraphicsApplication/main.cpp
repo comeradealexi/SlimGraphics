@@ -298,7 +298,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	AverageTimer gpu_timer;
 	AverageTimer cpu_timer;
 
-	gdr::Scene gdr_scene;
+	gdr::Scene gdr_scene(device);
 
 	bool bOpen = true;
 	float delta_time; // seconds
@@ -324,7 +324,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		//ImPlot::ShowDemoWindow();
 		//ImGui::ShowStyleEditor();
 
-		gdr_scene.update();
+		gdr_scene.update(frame_upload_heap);
 
 		static bool ExpandedStatsWindow = false;
 		bool CurrentExpandedStatsWindow = ExpandedStatsWindow;
