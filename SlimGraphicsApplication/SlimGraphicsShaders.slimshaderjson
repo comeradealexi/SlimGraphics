@@ -52,6 +52,11 @@
         "input_file": "ModelViewer_PixelShader.hlsl"
       },
       {
+        "name": "SimplifiedModelViewer_PixelShader_DEPTHWRITE",
+        "defines": [ "MODEL_VIEWER_SIMPLIFIED", "MODEL_VIEWER_SIMPLIFIED_PIXEL_SHADER_DEPTHWRITE" ],
+        "input_file": "ModelViewer_PixelShader.hlsl"
+      },
+      {
         "name": "DebugWireframeShader_PixelShader",
         "input_file": "DebugWireframeShader.hlsl"
       },

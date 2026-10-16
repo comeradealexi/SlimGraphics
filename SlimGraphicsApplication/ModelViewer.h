@@ -38,6 +38,7 @@ private:
 		Full,
 		Simple,
 		SimpleAndDiscard,
+		SimpleAndPixelDepthWrite,
 		Max
 	} standard_vsps_render_mode = StandardPixelPipelineMode::Full;
 

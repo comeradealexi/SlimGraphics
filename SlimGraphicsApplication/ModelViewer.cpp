@@ -445,6 +445,8 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 				recreate_pipeline |= ImGui::RadioButton("Full", (int*)&standard_vsps_render_mode, (int)StandardPixelPipelineMode::Full);
 				recreate_pipeline |= ImGui::RadioButton("Simple", (int*)&standard_vsps_render_mode, (int)StandardPixelPipelineMode::Simple);
 				recreate_pipeline |= ImGui::RadioButton("Simple + Discard", (int*)&standard_vsps_render_mode, (int)StandardPixelPipelineMode::SimpleAndDiscard);
+				recreate_pipeline |= ImGui::RadioButton("Simple + Depth Write", (int*)&standard_vsps_render_mode, (int)StandardPixelPipelineMode::SimpleAndPixelDepthWrite);
+
 			}
 			ImGui::SliderFloat("Discard Value:", &model_data.simplified_shading.x, 0.0f, 1.0f);
 			ImGui::EndDisabled();
@@ -875,6 +877,7 @@ void ModelViewer::CreatePipeline()
 		case StandardPixelPipelineMode::Full: pixel_shader_file += "ModelViewer_PixelShader"; break;
 		case StandardPixelPipelineMode::Simple: pixel_shader_file += "SimplifiedModelViewer_PixelShader"; break;
 		case StandardPixelPipelineMode::SimpleAndDiscard: pixel_shader_file += "SimplifiedModelViewer_PixelShader_DISCARD"; break;
+		case StandardPixelPipelineMode::SimpleAndPixelDepthWrite: pixel_shader_file += "SimplifiedModelViewer_PixelShader_DEPTHWRITE"; break;
 	}
 	
 	if (pixel_shader_variations[PixelShaderVariations::EarlyDepthStencil]) pixel_shader_file += "_EDS";

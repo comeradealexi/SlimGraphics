@@ -94,7 +94,12 @@ PS_INPUT VSMain(VS_INPUT vs_in, uint id : SV_VertexID)
 #ifdef FORCE_EARLY_DEPTH_STENCIL
 [earlydepthstencil]
 #endif
-float4 PSMain(PS_INPUT input) : SV_TARGET
+float4 PSMain(PS_INPUT input
+#ifdef MODEL_VIEWER_SIMPLIFIED_PIXEL_SHADER_DEPTHWRITE
+, out float     outDepth : SV_Depth
+#endif
+
+) : SV_TARGET
 {
 #ifdef MODEL_VIEWER_SIMPLIFIED_PIXEL_SHADER_DISCARD
     int idx_x = (int)((float)input.position.x) % 16;
@@ -103,6 +108,10 @@ float4 PSMain(PS_INPUT input) : SV_TARGET
     if (idx_y < (int)(((float)model.simplified_shading.x) * 16.0)) discard;
 #endif
     
+#ifdef MODEL_VIEWER_SIMPLIFIED_PIXEL_SHADER_DEPTHWRITE
+    outDepth = saturate(input.position.z + (float)model.simplified_shading.x);
+#endif
+
     float4 diffuse_col = float4(1, 1, 1, 1);
     float4 spec_col = float4(1, 1, 1, 1);
     float4 normals_col = float4(1, 1, 1, 1);
