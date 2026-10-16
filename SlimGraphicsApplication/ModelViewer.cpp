@@ -215,6 +215,11 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		ImGui::SliderFloat("Render Scale", &model_scale, 0.0f, 20.0f);
 		ImGui::EndDisabled();
 		ImGui::SliderFloat("Render Percent", &render_percentage, 0.0f, 1.0f);
+		ImGui::BeginDisabled(render_as_mesh_shader);
+		{
+			ImGui::SliderInt("Draw Instance Count", &instance_count, 1, 65535);
+		}
+		ImGui::EndDisabled();
 		int max_models = model ? model->GetMeshParts().size() : 0;
 		ImGui::SliderInt("Models To Render", &model_render_count, 0, max_models);
 		if (ImGui::Checkbox("Scale model size -1/+1", &scale_model_to_1))
@@ -570,6 +575,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		recreate_pipeline |= ImGui::Checkbox("Depth Enable", &depth_enable);
 		recreate_pipeline |= ImGui::Checkbox("Depth Write", &depth_write);
 		recreate_pipeline |= ImGui::Combo("Cull Mode", &cull_mode, "Back\0Front\0None\0", 3);
+		recreate_pipeline |= ImGui::Combo("Depth Comparison", &depth_comparison, "None\0Never\0Less\0Equal\0LessEqual\0Greater\0NotEqual\0GreaterEqual\0Always", 9);
 	}
 
 	if (ImGui::CollapsingHeader("CPU Optimisations"))
@@ -856,11 +862,11 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 						pipeline = pipeline_fullscreen_quad.get();
 					}
 					command_list.set_pipeline(pipeline);
-					command_list.draw_instanced((render_geo == RenderGeo::FullscreenQuad) ? 6 : 3, 1, 0, 0);
+					command_list.draw_instanced((render_geo == RenderGeo::FullscreenQuad) ? 6 : 3, instance_count, 0, 0);
 					break;
 				}
 
-				command_list.draw_indexed_instanced(static_cast<sg::u32>(mesh_part.draw_count* render_percentage), 1, mesh_part.ib_offset, mesh_part.vb_offset, 0);
+				command_list.draw_indexed_instanced(static_cast<sg::u32>(mesh_part.draw_count* render_percentage), instance_count, mesh_part.ib_offset, mesh_part.vb_offset, 0);
 			}
 		}
 
@@ -896,6 +902,7 @@ void ModelViewer::CreatePipeline()
 	pipeline_desc.depth_stencil_format = depth_stencil_format;
 	pipeline_desc.depth_stencil_desc.depth_enable = depth_enable;
 	pipeline_desc.depth_stencil_desc.depth_write = depth_write;
+	pipeline_desc.depth_stencil_desc.comparison_function = (ComparisonFunction)depth_comparison;
 	pipeline_desc.rasterizer_desc.fill_mode = render_wireframe ? Rasterizer::FillMode::Wireframe : Rasterizer::FillMode::Solid;
 	const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
 	pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
@@ -925,6 +932,7 @@ void ModelViewer::CreatePipeline()
 		mesh_shading.pipeline_desc.depth_stencil_format = depth_stencil_format;
 		mesh_shading.pipeline_desc.depth_stencil_desc.depth_enable = depth_enable;
 		mesh_shading.pipeline_desc.depth_stencil_desc.depth_write = depth_write;
+		mesh_shading.pipeline_desc.depth_stencil_desc.comparison_function = (ComparisonFunction)depth_comparison;
 		mesh_shading.pipeline_desc.rasterizer_desc.fill_mode = render_wireframe ? Rasterizer::FillMode::Wireframe : Rasterizer::FillMode::Solid;
 		const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
 		mesh_shading.pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
@@ -944,6 +952,7 @@ void ModelViewer::CreatePipeline()
 		amplification_mesh_shading.pipeline_desc.depth_stencil_format = depth_stencil_format;
 		amplification_mesh_shading.pipeline_desc.depth_stencil_desc.depth_enable = depth_enable;
 		amplification_mesh_shading.pipeline_desc.depth_stencil_desc.depth_write = depth_write;
+		amplification_mesh_shading.pipeline_desc.depth_stencil_desc.comparison_function = (ComparisonFunction)depth_comparison;
 		amplification_mesh_shading.pipeline_desc.rasterizer_desc.fill_mode = render_wireframe ? Rasterizer::FillMode::Wireframe : Rasterizer::FillMode::Solid;
 		const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
 		amplification_mesh_shading.pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
