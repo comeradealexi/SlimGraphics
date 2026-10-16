@@ -298,6 +298,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	AverageTimer gpu_timer;
 	AverageTimer cpu_timer;
 
+	float depth_clear_value = 1.0f;
+
 	gdr::Scene gdr_scene(device);
 
 	bool bOpen = true;
@@ -437,7 +439,13 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				//ImGui::Text("MSPrimitives:  %ull", query_data.MSPrimitives);
 			}
 		}
+		if (ImGui::CollapsingHeader("Clear Values"))
+		{
+			ImGui::SliderFloat("Depth Clear", &depth_clear_value, 0.0f, 1.0f);
+		}
 		ImGui::End();
+
+
 	
 		command_buffer->start_recording();
 		timestamp_pool->begin_frame();
@@ -474,7 +482,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				float4 colour = { 0.0f,1.0f,0.0f,1.0f };
 				command_buffer->clear_render_target_view(final_rtv, colour);
 			}
-			command_buffer->clear_depth_stencil_view(dsv, true, false);
+			command_buffer->clear_depth_stencil_view(dsv, true, false, depth_clear_value);
 			{
 				command_buffer->copy_buffer_to_buffer(cbfr.get(), upload_buffer.get());
 			}
