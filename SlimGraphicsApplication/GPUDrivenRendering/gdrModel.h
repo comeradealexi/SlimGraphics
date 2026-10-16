@@ -2,5 +2,13 @@
 
 namespace gdr
 {
-	using Model = ::Model;
+	struct Models
+	{
+
+	};
+
+	struct Materials
+	{
+
+	};
 }

@@ -326,7 +326,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		//ImPlot::ShowDemoWindow();
 		//ImGui::ShowStyleEditor();
 
-		//gdr_scene.update(frame_upload_heap);
+		gdr_scene.update(frame_upload_heap);
 
 		static bool ExpandedStatsWindow = false;
 		bool CurrentExpandedStatsWindow = ExpandedStatsWindow;

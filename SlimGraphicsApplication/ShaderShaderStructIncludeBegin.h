@@ -1,5 +1,3 @@
-#ifndef HEADER_SHARED_STRUCTURE_BEGIN
-#define HEADER_SHARED_STRUCTURE_BEGIN
 	#ifdef __cplusplus
 	#include <stdint.h>
 	#define row_major 
@@ -14,4 +12,3 @@
 	#else
 
 	#endif
-#endif

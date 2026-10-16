@@ -96,9 +96,11 @@ private:
 		TriangleSize
 	} render_mode = RenderMode::Default;
 	int cull_mode = 0;
+	int depth_comparison = (int) sg::ComparisonFunction::LessEqual;
 	bool recreate_model = true;
 	bool render_wireframe = false;
 	float render_percentage = 1.0f;
+	int instance_count = 1;
 	bool auto_render_percent = false;
 	bool auto_render_percent_decrementing = true;
 	int model_render_count = 1;

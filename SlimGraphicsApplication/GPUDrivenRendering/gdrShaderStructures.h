@@ -1,41 +1,92 @@
 #ifndef GDR_HEADER_SHARED_STRUCTURE
 #define GDR_HEADER_SHARED_STRUCTURE
 
+#ifdef __cplusplus
+namespace gdr {
+#endif
+
 #include "../ShaderShaderStructIncludeBegin.h"
 
-struct ModelData
-{	
-	float4 obb_center;		// Center of the box.
-	float4 obb_extents;		// Distance from the center to each side.
-	float4 obb_orientation;	// Unit quaternion representing rotation (box -> world).
-	
-	float4 aabb_centre;		// Center of the box.
-	float4 aabb_extents;	// Distance from the center to each side.
+	struct CameraData
+	{
+		row_major float4x4 view_matrix;
+		row_major float4x4 projection_matrix;
+		row_major float4x4 view_projection_matrix;
+		float4 screen_dimensions_and_depth_info;
+		float4 camera_position;
+		float4 camera_direction;
 
-	float4 sphere_centre;
-	float4 sphere_size;		// x = sphere radius - TODO - Doesn't need to be float4
-};
+		// Camera frustum planes
+		float4 Planes[6];
+	};
 
-struct ObjectData
-{
-	row_major float4x4 model_matrix;
-	row_major float4x4 model_matrix_inverse;
-	uint4 model_index; // x = model index
-	float4 colour; // RGBA
-};
+	struct ModelData
+	{
+		row_major float4x4 model_matrix;
+		float4 colour;
 
-struct CameraData
-{
-	row_major float4x4 view_matrix;
-	row_major float4x4 projection_matrix;
-	row_major float4x4 view_projection_matrix;
-	float4 screen_dimensions_and_depth_info;
-	float4 camera_position;
-	float4 camera_direction;
+		// Sphere
+		float4 sphere_centre;
+		float4 sphere_size;		// x = sphere radius - TODO - Doesn't need to be float4
 
-	// Camera frustum planes
-	float4 Planes[6];
-};
+		// AABB
+		float4 aabb_center;  // Center of the box.
+		float4 aabb_extents; // Distance from the center to each side.
+
+		// OBB
+		float4 obb_center;       // Center of the box.
+		float4 obb_extents;      // Distance from the center to each side.
+		float4 obb_orientation;  // Unit quaternion representing rotation (box -> world).
+	};
+
+	struct MaterialData
+	{
+		uint texture_diffuse_index;
+		uint texture_specular_index;
+		uint texture_normals_index;
+		uint texture_opacity_index;
+	};
+
+	struct MeshletData
+	{
+		/* offsets within meshlet_vertices and meshlet_triangles arrays with meshlet data */
+		uint vertex_offset;
+		uint triangle_offset;
+
+		/* number of vertices and triangles used in the meshlet; data is stored in consecutive range defined by offset and count */
+		uint vertex_count;
+		uint triangle_count;
+
+		// Other Data
+		uint model_data_index;
+		uint material_data_index;
+		uint data_index_unused1;
+		uint data_index_unused2;
+
+		// Meshlet Culling Data
+		float4 spherepos_xyz_radius_w;
+		float4 cone_apex_xyz;
+		float4 cone_axis_xyz_cone_cutoff_w;
+
+		int cone_axis_s8xyz_cone_cutoff_s8w;
+		int pad1;
+		int pad2;
+		int pad3;
+
+		// AABB
+		float4 aabb_center;  // Center of the box.
+		float4 aabb_extents; // Distance from the center to each side.
+
+		// OBB
+		float4 obb_center;       // Center of the box.
+		float4 obb_extents;      // Distance from the center to each side.
+		float4 obb_orientation;  // Unit quaternion representing rotation (box -> world).
+	};
 
 #include "../ShaderShaderStructIncludeEnd.h"
+
+#ifdef __cplusplus
+	/*namespace gdr*/ }
+#endif
+
 #endif

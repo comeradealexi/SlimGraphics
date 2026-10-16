@@ -51,7 +51,7 @@ namespace gdr
 	{
 		editor.imgui_scene_overlay(*this);
 
-		load_models(upload_heap);
+		load_gpu_data(upload_heap);
 	}
 
 	void Scene::render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw)
@@ -59,22 +59,9 @@ namespace gdr
 
 	}
 
-	Ptr<Model> Scene::load_model(Ptr<UploadHeap>& upload_heap, const char* file_path)
+	void Scene::load_gpu_data(Ptr<UploadHeap>& upload_heap)
 	{
-		Model::InitData model_init_data = {};
-		model_init_data.file_path = file_path;
-		return Ptr<Model>(new Model(device.get(), upload_heap.get(), model_init_data, nullptr));
-	}
 
-	void Scene::load_models(Ptr<UploadHeap>& upload_heap)
-	{
-		for (auto& [name, model] : models)
-		{
-			if (model == nullptr)
-			{
-				model = load_model(upload_heap, name.c_str());
-			}
-		}
 	}
 
 }
