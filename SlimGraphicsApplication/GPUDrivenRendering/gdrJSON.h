@@ -6,6 +6,8 @@
 
 namespace gdr
 {
+	constexpr std::string_view kINVALID_MODEL_NAME = "unknown";
+
 	struct Float3
 	{
 		float x;
@@ -20,8 +22,11 @@ namespace gdr
 		Float3 rotation	= { 0.0f, 0.0f, 0.0f };
 		Float3 scale	= { 1.0f, 1.0f, 1.0f };
 		Float3 colour	= { 1.0f, 1.0f, 1.0f };
-		std::string model_name = "unknown";
+		std::string model_name = std::string(kINVALID_MODEL_NAME);
 		std::list<SceneNode> children;
+
+		// Non-serialised fields
+		SceneNode* parent = nullptr;
 	};
 	NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SceneNode, position, rotation, scale, colour, model_name, children);
 

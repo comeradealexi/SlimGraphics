@@ -5,6 +5,8 @@
 
 namespace gdr
 {
+	static void scene_node_traverse(SceneNode& scene_node, SceneNode* parent);
+
 	bool serialise(const SceneNode& node, const char* file_path)
 	{
 		nlohmann::json j = node;
@@ -25,6 +27,19 @@ namespace gdr
 		if (file_data.size() == 0)
 			return false;
 		node = nlohmann::json::parse(file_data);
+
+		// Set parent pointers
+		scene_node_traverse(node, nullptr);
+
 		return true;
+	}
+
+	void scene_node_traverse(SceneNode& scene_node, SceneNode* parent)
+	{
+		scene_node.parent = parent;
+		for (SceneNode& child_node : scene_node.children)
+		{
+			scene_node_traverse(child_node, &scene_node);
+		}
 	}
 }

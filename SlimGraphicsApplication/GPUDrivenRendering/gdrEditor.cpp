@@ -138,6 +138,8 @@ scene_file_list = se::BasicFileIO::find_files_recursive("..\\SlimGraphicsAssets\
 			ImGui::DragFloat3("Rotation", &selected_node->rotation.x);
 			ImGui::DragFloat3("Scale", &selected_node->scale.x);
 			ImGui::ColorEdit3("Colour", &selected_node->colour.x);
+			ImGui::TextDisabled("Address: %p", selected_node);
+			ImGui::TextDisabled("Parent Address: %p", selected_node->parent);
 			ImGui::BeginDisabled(selected_node == &scene.root_scene_node); // Can't delete root
 			if (ImGui::Button("Delete"))
 			{
@@ -148,6 +150,7 @@ scene_file_list = se::BasicFileIO::find_files_recursive("..\\SlimGraphicsAssets\
 			if (ImGui::Button("Add Child"))
 			{
 				new_node_added = &(selected_node->children.emplace_back());
+				new_node_added->parent = selected_node;
 			}
 			ImGui::SameLine();
 			ImGui::BeginDisabled(selected_node == &scene.root_scene_node); // Can't duplicate root
