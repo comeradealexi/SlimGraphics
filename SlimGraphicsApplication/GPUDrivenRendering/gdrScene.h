@@ -66,10 +66,10 @@ namespace gdr
 
 	struct ModelBuffers
 	{
-		// Per Node Data
-		GPUBuffer<ShaderStructs::InstanceData> node_data;
+		// Per Node Data - (Can change per frame)
+		GPUBuffer<ShaderStructs::InstanceData> instance_data;
 
-		// Per Model Data
+		// Per Model Data - (Changes when models used changes)
 		GPUBuffer<ShaderStructs::MeshletData>	meshlet_data;
 
 		// Data buffers below should only change if model changes
@@ -83,11 +83,18 @@ namespace gdr
 		{
 			std::string name;
 			sg::u32 material_count = 0;
-			sg::u32 meshlet_count = 0;
-			sg::u32 vertex_data_offset = 0;
-			sg::u32 meshlet_vertex_index_offset = 0;
-			sg::u32 meshlet_primitive_index_offset = 0;
 
+			struct MeshParts
+			{
+				sg::u32 material_index = 0;
+				sg::u32 vertex_data_offset = 0;
+				sg::u32 meshlet_data_offset = 0;
+				sg::u32 meshlet_vertex_index_offset = 0;
+				sg::u32 meshlet_primitive_index_offset = 0;
+
+				sg::u32 meshlet_count = 0;
+			};
+			std::vector<MeshParts> mesh_parts;
 		};
 		std::vector<PerModelData> models;
 	};
@@ -113,7 +120,9 @@ namespace gdr
 		Scene(sg::SharedPtr<sg::Device>& _device);
 		void update(Ptr<UploadHeap>& upload_heap);
 		void render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw);
+		void load_model(std::string path);
 		void load_gpu_data(SceneGraphTraverser& scene_graph, Ptr<UploadHeap>& upload_heap);
+
 
 	private:
 		SceneNode root_scene_node;

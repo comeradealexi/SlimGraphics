@@ -20,10 +20,12 @@ namespace gdr {
 		float4 Planes[6];
 	};
 
-	struct PerInstanceProcessingData_Input
+	struct PerInstanceProcessingData
 	{
-		uint instance_index;
-		uint model_index;
+		uint meshlets_to_process_count;
+		uint meshlets_per_instance;
+		uint meshlet_offset;
+		uint instance_offset;
 	};
 
 	struct PerInstanceProcessingData_Output
@@ -72,6 +74,7 @@ namespace gdr {
 	struct MeshletData
 	{
 		/* offsets within meshlet_vertices and meshlet_triangles arrays with meshlet data */
+		uint vertex_buffer_offset;
 		uint vertex_offset;
 		uint triangle_offset;
 

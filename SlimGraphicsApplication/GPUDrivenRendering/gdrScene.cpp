@@ -2,6 +2,11 @@
 #include <imgui.h>
 #include <stack>
 
+//assimp
+#include <assimp\Importer.hpp>
+#include <assimp\scene.h>
+#include <assimp\postprocess.h>
+
 /*
 
 GPU Driven Rendering Plan
@@ -82,6 +87,10 @@ Instanced Mesh Rendering Specifics:
 		- meshlet index
 
 	- We then have an indirect dispatch mesh call, iterating over everything in our intermediate list
+
+
+	// Buffer Layout
+	- Per Instance Buffer - Contains All Instances - Instances of the same type are sequential
 */
 
 namespace gdr
@@ -118,9 +127,194 @@ namespace gdr
 
 	}
 
+	static std::vector<Vertex> load_vertex_buffer(const aiMesh* assimp_mesh)
+	{
+		using namespace DirectX;
+
+		std::vector<Vertex> vertices;
+
+		for (uint32_t vert_idx = 0; vert_idx < assimp_mesh->mNumVertices; vert_idx++)
+		{
+			Vertex v;
+
+			v.Position = XMFLOAT3(&assimp_mesh->mVertices[vert_idx].x);
+			v.Color = /*use_color ? XMFLOAT3(assimp_mesh->mColors[0][vert_idx].r, assimp_mesh->mColors[0][vert_idx].g, assimp_mesh->mColors[0][vert_idx].b) :*/ XMFLOAT3(1.0f, 1.0f, 1.0f);
+			v.UV = assimp_mesh->mTextureCoords[0] ? XMFLOAT2(&assimp_mesh->mTextureCoords[0][vert_idx].x) : XMFLOAT2(0, 0);
+			v.Normal = XMFLOAT3(&assimp_mesh->mNormals[vert_idx].x);
+			v.Tangent = assimp_mesh->mTangents ? XMFLOAT3(&assimp_mesh->mTangents[vert_idx].x) : XMFLOAT3(0, 0, 0);
+			vertices.push_back(v);
+		}
+
+		return vertices;
+	}
+
+	static std::vector<uint32_t> load_index_buffer(const aiMesh* assimp_mesh)
+	{
+		std::vector<uint32_t> indices;
+		for (uint32_t face_idx = 0; face_idx < assimp_mesh->mNumFaces; face_idx++)
+		{
+			// For some reason we're getting a face idx through where mNumIndices is 2! But the documentation lies! 
+			// "Together with the #aiProcess_Triangulate flag you can then be sure that *#aiFace::mNumIndices is always 3."
+
+			//seAssert(aMesh->mFaces[face_idx].mNumIndices == 3, "Expected 3 indicies per face...");					
+			if (assimp_mesh->mFaces[face_idx].mNumIndices == 3)
+			{
+				indices.push_back(assimp_mesh->mFaces[face_idx].mIndices[0]);
+				indices.push_back(assimp_mesh->mFaces[face_idx].mIndices[1]);
+				indices.push_back(assimp_mesh->mFaces[face_idx].mIndices[2]);
+			}
+		}
+
+		return indices;
+	}
+
+	void Scene::load_model(std::string path)
+	{
+		Assimp::Importer ai_importer;
+		const int flags = aiProcess_Triangulate
+			| aiProcess_PreTransformVertices
+			| aiProcess_CalcTangentSpace
+			| aiProcess_GenSmoothNormals
+			| aiProcess_JoinIdenticalVertices
+			| aiProcess_SplitLargeMeshes
+			| aiProcess_ConvertToLeftHanded;
+
+		const aiScene* aScene = ai_importer.ReadFile(path.c_str(), flags); //By passing file path, allows assimp to auto load material files.
+		seAssert(aScene != nullptr, "Failed To Load Assimp Scene %s\n%s", path.c_str(), ai_importer.GetErrorString());
+		if (!aScene)
+			return;
+
+		ModelBuffers::PerModelData& new_model = model_buffers.models.emplace_back();
+		new_model.name = path;
+
+		new_model.mesh_parts.resize(aScene->mNumMeshes);
+
+		for (size_t mesh_part_idx = 0; mesh_part_idx < new_model.mesh_parts.size(); mesh_part_idx++)
+		{
+			ModelBuffers::PerModelData::MeshParts& mesh_part = new_model.mesh_parts[mesh_part_idx];
+			mesh_part = {};
+
+			mesh_part.vertex_data_offset = model_buffers.vertex_data.cpu_data.size();
+			mesh_part.meshlet_data_offset = model_buffers.meshlet_data.cpu_data.size();
+			mesh_part.meshlet_vertex_index_offset = model_buffers.meshlet_vertex_index.cpu_data.size();
+			mesh_part.meshlet_primitive_index_offset = model_buffers.meshlet_primitive_index.cpu_data.size();
+
+			aiMesh* assimp_mesh = aScene->mMeshes[mesh_part_idx];
+			mesh_part.material_index = assimp_mesh->mMaterialIndex;
+
+			// Load normal vertex and index buffer data (only used to generate meshlet data from
+			std::vector<Vertex> vertices = load_vertex_buffer(assimp_mesh);
+			std::vector<uint32_t> indices = load_index_buffer(assimp_mesh);
+
+			// Create meshlets
+			{
+				const size_t max_vertices = 64;
+				const size_t max_triangles = 124;
+				const float cone_weight = 0.0f;
+				const size_t max_meshlets = meshopt_buildMeshletsBound(indices.size(), max_vertices, max_triangles);
+
+				std::vector<meshopt_Meshlet> tmp_meshlets;
+				std::vector<unsigned int>	 tmp_meshlet_vertices;
+				std::vector<unsigned char>	 tmp_meshlet_triangles;
+
+				tmp_meshlets.resize(max_meshlets);
+				tmp_meshlet_vertices.resize(max_meshlets * max_vertices);
+				tmp_meshlet_triangles.resize(max_meshlets * max_triangles * 3);
+
+				const size_t meshlet_count = mesh_part.meshlet_count = meshopt_buildMeshlets(tmp_meshlets.data(), tmp_meshlet_vertices.data(), tmp_meshlet_triangles.data(), indices.data(),
+					indices.size(), (float*)&vertices[0], vertices.size(), sizeof(Vertex), max_vertices, max_triangles, cone_weight);
+
+				// Trim excess of vectors
+				const meshopt_Meshlet& last = tmp_meshlets[meshlet_count - 1];
+				tmp_meshlet_vertices.resize(last.vertex_offset + last.vertex_count);
+				tmp_meshlet_triangles.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3));
+				tmp_meshlets.resize(meshlet_count);
+
+				// TODO: Add meshopt_optimizeMeshlet
+
+				// Now place our data for how it will be used on the GPU.				
+
+				// Meshlet Data
+				for (meshopt_Meshlet& meshlet : tmp_meshlets)
+				{
+					ShaderStructs::MeshletData& gpu_meshlet = model_buffers.meshlet_data.cpu_data.emplace_back();
+					
+					gpu_meshlet.vertex_buffer_offset = mesh_part.vertex_data_offset;
+					gpu_meshlet.vertex_offset		 = mesh_part.meshlet_vertex_index_offset + meshlet.vertex_offset;
+					gpu_meshlet.triangle_offset		 = mesh_part.meshlet_primitive_index_offset + meshlet.triangle_offset;
+					gpu_meshlet.vertex_count		 = meshlet.vertex_count;
+					gpu_meshlet.triangle_count		 = meshlet.triangle_count;					
+				}
+
+				// Vertex Data
+				for (const Vertex& v : vertices)
+				{
+					model_buffers.vertex_data.cpu_data.push_back(v);
+				}
+
+				// Vertex Index
+				for (sg::u32 vid : tmp_meshlet_vertices)
+				{
+					model_buffers.meshlet_vertex_index.cpu_data.push_back(vid);
+				}
+
+				// Index Data
+				for (meshopt_Meshlet& meshlet : tmp_meshlets)
+				{
+					for (size_t tri_idx = 0; tri_idx < meshlet.triangle_count; tri_idx++)
+					{
+						const sg::u32 tri_offset = meshlet.triangle_offset + (tri_idx * 3);
+						seAssert((tri_offset + 2) < tmp_meshlet_triangles.size(), "Reading too many tris");
+						sg::u32 tri = 0;
+						tri |= static_cast<sg::u32>(tmp_meshlet_triangles[tri_offset + 0]) << 0u;
+						tri |= static_cast<sg::u32>(tmp_meshlet_triangles[tri_offset + 1]) << 8u;
+						tri |= static_cast<sg::u32>(tmp_meshlet_triangles[tri_offset + 2]) << 16u;
+
+						model_buffers.meshlet_primitive_index.cpu_data.push_back(tri);
+					}
+				}
+			}	
+		}
+
+		ai_importer.FreeScene();
+	}
+
 	void Scene::load_gpu_data(SceneGraphTraverser& scene_graph, Ptr<UploadHeap>& upload_heap)
 	{
+		bool recreate_gpu_buffers = false;
 
+		if (scene_graph.unique_model_paths.size() != model_buffers.models.size())
+		{
+			recreate_gpu_buffers = true;
+		}
+		else 
+		{
+			for (auto& model : scene_graph.unique_model_paths)
+			{
+				for (auto& loaded_models : model_buffers.models)
+				{
+					if (model != loaded_models.name)
+					{
+						recreate_gpu_buffers = true;
+						break;
+					}
+				}
+			}
+		}
+
+		if (!recreate_gpu_buffers)
+		{
+			return;
+		}
+
+		model_buffers = {};
+
+		for (auto& model : scene_graph.unique_model_paths)
+		{
+			load_model(model);
+		}
+
+		// Upload all model data to GPU
 	}
 
 	// Scene Graph Traverser
