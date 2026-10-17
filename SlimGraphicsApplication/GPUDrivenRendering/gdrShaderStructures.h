@@ -20,10 +20,32 @@ namespace gdr {
 		float4 Planes[6];
 	};
 
-	struct ModelData
+	struct PerInstanceProcessingData_Input
+	{
+		uint instance_index;
+		uint model_index;
+	};
+
+	struct PerInstanceProcessingData_Output
+	{
+		uint instance_index;
+		uint meshlet_index;
+	};
+
+	struct InstanceData
 	{
 		row_major float4x4 model_matrix;
 		float4 colour;
+
+		uint model_index;
+	};
+
+	struct ModelData
+	{
+		uint meshlet_offset;
+		uint meshlet_count;
+		uint meshlet_vertex_buffer_offset;
+		uint meshlet_pad1;
 
 		// Sphere
 		float4 sphere_centre;
@@ -56,12 +78,6 @@ namespace gdr {
 		/* number of vertices and triangles used in the meshlet; data is stored in consecutive range defined by offset and count */
 		uint vertex_count;
 		uint triangle_count;
-
-		// Other Data
-		uint model_data_index;
-		uint material_data_index;
-		uint data_index_unused1;
-		uint data_index_unused2;
 
 		// Meshlet Culling Data
 		float4 spherepos_xyz_radius_w;

@@ -848,6 +848,30 @@ namespace sg
 			return texture;
 		}
 
+
+		se::SharedPtr<sg::D3D12::IndirectArguments> Device::create_indirect_arguments()
+		{
+            // WARNING - Currently ONLY used for mesh shader dispatch
+
+			D3D12_INDIRECT_ARGUMENT_DESC arg = {};
+			arg.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH_MESH;
+
+			D3D12_COMMAND_SIGNATURE_DESC desc = {};
+			desc.ByteStride = sizeof(D3D12_DISPATCH_MESH_ARGUMENTS);
+			desc.NumArgumentDescs = 1;
+			desc.pArgumentDescs = &arg;
+			desc.NodeMask = 0;
+
+			SharedPtr<IndirectArguments> indirect_arguments(new IndirectArguments());
+
+            CHECKHR(device->CreateCommandSignature(&desc, nullptr, IID_PPV_ARGS(&indirect_arguments->command_signature)));
+
+            auto indirect_memory = allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024);
+            indirect_arguments->indirect_buffer = create_buffer(indirect_memory, 64ull * 1024, BufferType::GeneralDataBuffer, true);
+
+            return indirect_arguments;
+		}
+
 		SharedPtr<RenderTargetView> Device::create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format /*= DXGI_FORMAT_UNKNOWN*/)
 		{
             seAssert(texture.get(), "Invalid texture pointer");

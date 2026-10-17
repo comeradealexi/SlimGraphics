@@ -67,7 +67,7 @@ namespace gdr
 	struct ModelBuffers
 	{
 		// Per Node Data
-		GPUBuffer<ShaderStructs::NodeData> node_data;
+		GPUBuffer<ShaderStructs::InstanceData> node_data;
 
 		// Per Model Data
 		GPUBuffer<ShaderStructs::MeshletData>	meshlet_data;

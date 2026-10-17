@@ -295,6 +295,12 @@ namespace sg
 			flush_bound_uavs();
 		}
 
+		void CommandList::execute_indirect(IndirectArguments& indirect_argument)
+		{
+			command_list->ExecuteIndirect(indirect_argument.command_signature.Get(), 1, indirect_argument.indirect_buffer->get().Get(), 0, nullptr, 0);
+			flush_bound_uavs();
+		}
+
 		void CommandList::clear_buffer_float(UnorderedAccessView& uav, ShaderResourceView& srv, float value)
 		{			
 			ID3D12Resource* buffer_dx12 = uav.buffer_resource->get().Get();

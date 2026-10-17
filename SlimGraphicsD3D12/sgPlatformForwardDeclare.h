@@ -27,6 +27,7 @@ namespace sg
 		class GPUTimestampPool;
 		class GPUStatisticPool;
 		class IndexBufferView;
+		class IndirectArguments;
 		class Memory;
 		class MeshShader;
 		class Pipeline;
@@ -58,6 +59,7 @@ namespace sg
 	using GPUTimestampPool = D3D12::GPUTimestampPool;
 	using GPUStatisticPool = D3D12::GPUStatisticPool;
 	using IndexBufferView = D3D12::IndexBufferView;
+	using IndirectArguments = D3D12::IndirectArguments;
 	using Memory = D3D12::Memory;
 	using MeshShader = D3D12::MeshShader;
 	using Pipeline = D3D12::Pipeline;

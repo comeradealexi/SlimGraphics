@@ -82,6 +82,9 @@ namespace sg
 
 			SharedPtr<Texture> create_texture_from_dds(const void* dds_memory, u64 dds_size, sg::UploadHeap& upload_heap);
 
+			// Indirect
+			SharedPtr<IndirectArguments> create_indirect_arguments();
+
 			// DXGI_FORMAT_UNKNOWN means use default target format
 			SharedPtr<RenderTargetView> create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN);
 			void free_render_target_view(RenderTargetView* rtv);

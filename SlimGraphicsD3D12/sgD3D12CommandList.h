@@ -11,6 +11,16 @@ namespace sg
 	namespace D3D12
 	{
 		class DescriptorHeap;
+
+		class IndirectArguments
+		{
+			friend class CommandList;
+			friend class Device;
+
+			SharedPtr<Buffer> indirect_buffer;
+			ComPtr<ID3D12CommandSignature> command_signature;
+		};
+
 		class CommandList
 		{
 			friend class Device;
@@ -35,6 +45,7 @@ namespace sg
 
 			void dispatch(u32 x = 1, u32 y = 1, u32 z = 1);
 			void dispatch_mesh(u32 x = 1, u32 y = 1, u32 z = 1);
+			void execute_indirect(IndirectArguments& indirect_argument);
 
 			void clear_buffer_float(UnorderedAccessView& uav, ShaderResourceView& srv, float value);
 			void clear_buffer_uint(UnorderedAccessView& uav, ShaderResourceView& srv, sg::u32 value);

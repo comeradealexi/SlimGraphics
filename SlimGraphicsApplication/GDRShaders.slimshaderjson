@@ -1,0 +1,12 @@
+[
+  {
+    "profile": "cs_6_1",
+    "entrypoint": "per_instance_processing_main",
+    "shaders": [
+      {
+        "name": "GDR_PerInstanceProcessingMain",
+        "input_file": "GPUDrivenRendering/gdrShaderCompute.hlsl"
+      }
+    ]
+  }
+]
