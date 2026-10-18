@@ -25,8 +25,26 @@ namespace gdr
 		sg::UnorderedAccessView		uav;
 		sg::ShaderResourceView		srv;
 
-		void create_and_upload_to_gpu(sg::Ptr<sg::UploadHeap>& upload_heap);
+		void create_and_upload_to_gpu(sg::SharedPtr<sg::Device>& device, sg::Ptr<sg::UploadHeap>& upload_heap);
 	};
+
+	template <typename T>
+	void gdr::GPUBuffer<T>::create_and_upload_to_gpu(sg::SharedPtr<sg::Device>& device, sg::Ptr<sg::UploadHeap>& upload_heap)
+	{
+		if (cpu_data.size() == 0)
+			return;
+
+		const size_t memory_size = cpu_data.size() * sizeof(T);
+		sg::SharedPtr<sg::Memory> mem = device->allocate_memory(sg::MemoryType::GPUOptimal, sg::MemorySubType::Buffer, memory_size);
+		buffer = device->create_buffer(mem, memory_size, sg::BufferType::GeneralDataBuffer, true);
+
+		uav = device->create_unordered_access_view(buffer, sizeof(T), cpu_data.size());
+		srv = device->create_shader_resource_view(buffer, sizeof(T), cpu_data.size());
+
+		UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(memory_size, 256);
+		upload_heap->write_upload_memory(upload_offset, cpu_data.data(), memory_size);
+		upload_heap->upload_to_buffer(buffer.get(), 0, upload_offset, memory_size);
+	}
 
 	struct Vertex
 	{
@@ -97,18 +115,21 @@ namespace gdr
 			std::vector<MeshParts> mesh_parts;
 		};
 		std::vector<PerModelData> models;
+
+		const PerModelData& find_model(std::string_view name);
+		void create_and_upload_to_gpu(sg::SharedPtr<sg::Device>& device, sg::Ptr<sg::UploadHeap>& upload_heap);
 	};
 
 	struct SceneGraphTraverser
 	{
-		std::set<std::string> unique_model_paths;
 
 		struct PerModelData
 		{
 			DirectX::XMMATRIX model_matrix;
 			const SceneNode* scene_node = nullptr;
 		};
-		std::vector<PerModelData> nodes;
+
+		std::map<std::string, std::vector<PerModelData>> model_map;
 
 		void process_scene_graph(SceneNode& root_node);
 	};
@@ -131,5 +152,14 @@ namespace gdr
 		sg::SharedPtr<sg::Device> device;
 
 		ModelBuffers model_buffers;
+		struct PerInstanceRenderInfo
+		{
+			sg::u32 start_index;
+			sg::u32 count;
+			sg::u32 meshlets_per_instance;
+		};
+		std::vector<PerInstanceRenderInfo> per_instance_render_list;
+
+		sg::SharedPtr<sg::Pipeline> per_instance_compute_pipeline;
 	};
 }

@@ -6,6 +6,7 @@
 #include <assimp\Importer.hpp>
 #include <assimp\scene.h>
 #include <assimp\postprocess.h>
+#include "sgUtils.h"
 
 /*
 
@@ -108,7 +109,16 @@ namespace gdr
 
 	Scene::Scene(sg::SharedPtr<sg::Device>& _device) : device(_device)
 	{
+		using namespace sg;
 
+		BindingDesc global_binding_desc;
+		global_binding_desc.uav_binding_count = 2;
+		global_binding_desc.srv_binding_count = 6;
+		global_binding_desc.cbv_binding_count = 1;
+
+		PipelineDesc::Compute desc;
+		desc.compute_shader = sg::create_compute_shader(*device, "ShaderBin_Debug\\GDR_PerInstanceProcessingMain.PC_DXC");
+		per_instance_compute_pipeline = device->create_pipeline(desc, global_binding_desc);
 	}
 
 	void Scene::update(Ptr<UploadHeap>& upload_heap)
@@ -120,11 +130,42 @@ namespace gdr
 
 		load_gpu_data(scene_graph_traverser, upload_heap);
 
+		// Construct and upload per-instance data
+		model_buffers.instance_data.cpu_data = {};
+
+		const auto& model_lists = scene_graph_traverser.model_map;
+
+		sg::u32 model_index = 0;
+		for (const auto& [model_name, model_list] : model_lists)
+		{
+			const ModelBuffers::PerModelData& per_model_data = model_buffers.find_model(model_name);
+
+			// TODO: Not ideal to treat each mesh part as its own instances, wastes space and data
+			for (const auto& mesh_part : per_model_data.mesh_parts)
+			{
+				PerInstanceRenderInfo& instance_render_info = per_instance_render_list.emplace_back();
+				instance_render_info.start_index = model_buffers.instance_data.cpu_data.size();
+				instance_render_info.count = model_list.size();
+				instance_render_info.meshlets_per_instance = mesh_part.meshlet_count;
+
+				for (const auto& instance : model_list)
+				{
+					ShaderStructs::InstanceData gpu_instance = model_buffers.instance_data.cpu_data.emplace_back();
+					gpu_instance.model_matrix = instance.model_matrix;
+					gpu_instance.colour = DirectX::XMFLOAT4A(1.0f, 1.0f, 1.0f, 1.0f);
+					gpu_instance.model_index = model_index;
+				}
+			}
+			model_index++;
+		}
+		model_buffers.instance_data.create_and_upload_to_gpu(device, upload_heap);
 	}
 
 	void Scene::render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw)
 	{
-
+		// Stage 1: Compute dispatch for each instance type for the per-instance-pre-pass
+		// Stage TODO: Sorting Step
+		// Stage 2: Execute Indirect DispatchMesh
 	}
 
 	static std::vector<Vertex> load_vertex_buffer(const aiMesh* assimp_mesh)
@@ -283,17 +324,17 @@ namespace gdr
 	{
 		bool recreate_gpu_buffers = false;
 
-		if (scene_graph.unique_model_paths.size() != model_buffers.models.size())
+		if (scene_graph.model_map.size() != model_buffers.models.size())
 		{
 			recreate_gpu_buffers = true;
 		}
 		else 
 		{
-			for (auto& model : scene_graph.unique_model_paths)
+			for (auto& [model_string, model_list] : scene_graph.model_map)
 			{
 				for (auto& loaded_models : model_buffers.models)
 				{
-					if (model != loaded_models.name)
+					if (model_string != loaded_models.name)
 					{
 						recreate_gpu_buffers = true;
 						break;
@@ -309,12 +350,13 @@ namespace gdr
 
 		model_buffers = {};
 
-		for (auto& model : scene_graph.unique_model_paths)
+		for (auto& [model_string, model_list] : scene_graph.model_map)
 		{
-			load_model(model);
+			load_model(model_string);
 		}
 
 		// Upload all model data to GPU
+		model_buffers.create_and_upload_to_gpu(device, upload_heap);
 	}
 
 	// Scene Graph Traverser
@@ -322,14 +364,11 @@ namespace gdr
 	{
 		auto process_node = [this](const SceneNode& scene_node)
 			{
-				if (scene_node.model_name != kINVALID_MODEL_NAME)
-				{
-					unique_model_paths.insert(scene_node.model_name);
-				}
+				auto model_entry = model_map[scene_node.model_name];
 
 				using namespace DirectX;
 
-				PerModelData& node_data = nodes.emplace_back();
+				PerModelData& node_data = model_entry.emplace_back();
 				node_data.model_matrix = XMMatrixIdentity();
 				node_data.scene_node = &scene_node;
 
@@ -354,5 +393,29 @@ namespace gdr
 			};
 
 		scene_node_traverse(root_node, process_node);
+	}
+
+
+	const ModelBuffers::PerModelData& ModelBuffers::find_model(std::string_view name)
+	{
+		for (const auto& model : models)
+		{
+			if (model.name == name)
+			{
+				return model;
+			}
+		}
+		seAssert(false, "Failed to find model!");
+		return models[0];
+	}
+
+	void ModelBuffers::create_and_upload_to_gpu(sg::SharedPtr<sg::Device>& device, sg::Ptr<sg::UploadHeap>& upload_heap)
+	{
+		// NODE: We do this separately. 
+		meshlet_data.create_and_upload_to_gpu(device, upload_heap);
+		material_data.create_and_upload_to_gpu(device, upload_heap);
+		vertex_data.create_and_upload_to_gpu(device, upload_heap);
+		meshlet_vertex_index.create_and_upload_to_gpu(device, upload_heap);
+		meshlet_primitive_index.create_and_upload_to_gpu(device, upload_heap);
 	}
 }
