@@ -1,11 +1,26 @@
 [
   {
-    "profile": "cs_6_1",
-    "entrypoint": "per_instance_processing_main",
+    "input_file": "GPUDrivenRendering/gdrShaderCompute.hlsl",
     "shaders": [
       {
-        "name": "GDR_PerInstanceProcessingMain",
-        "input_file": "GPUDrivenRendering/gdrShaderCompute.hlsl"
+        "profile": "cs_6_5",
+        "entrypoint": "per_instance_processing_main",
+        "name": "GDR_PerInstanceProcessingMain"
+      },
+      {
+        "profile": "cs_6_5",
+        "entrypoint": "build_indirect_arguments",
+        "name": "GDR_BuildIndirectArguments"
+      },
+      {
+        "profile": "ms_6_5",
+        "entrypoint": "ms_main",
+        "name": "GDR_MeshShader"
+      },
+      {
+        "profile": "ps_6_5",
+        "entrypoint": "build_indirect_arguments",
+        "name": "GDR_PixelShader"
       }
     ]
   }

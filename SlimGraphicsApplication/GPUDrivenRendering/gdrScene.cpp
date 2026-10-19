@@ -112,13 +112,36 @@ namespace gdr
 		using namespace sg;
 
 		BindingDesc global_binding_desc;
-		global_binding_desc.uav_binding_count = 2;
+		global_binding_desc.uav_binding_count = 3;
 		global_binding_desc.srv_binding_count = 5;
 		global_binding_desc.cbv_binding_count = 1;
 
-		PipelineDesc::Compute desc;
-		desc.compute_shader = sg::create_compute_shader(*device, "ShaderBin_Debug\\GDR_PerInstanceProcessingMain.PC_DXC");
-		per_instance_compute_pipeline = device->create_pipeline(desc, global_binding_desc);
+		// Compute
+		{
+			PipelineDesc::Compute desc;
+			desc.compute_shader = sg::create_compute_shader(*device, "ShaderBin_Debug\\GDR_PerInstanceProcessingMain.PC_DXC");
+			per_instance_compute_pipeline = device->create_pipeline(desc, global_binding_desc);
+			seAssert(per_instance_compute_pipeline != nullptr, "Failed to create pipeline");
+
+			desc.compute_shader = sg::create_compute_shader(*device, "ShaderBin_Debug\\GDR_BuildIndirectArguments.PC_DXC");
+			build_indirect_arguments_pipeline = device->create_pipeline(desc, global_binding_desc);
+			seAssert(build_indirect_arguments_pipeline != nullptr, "Failed to create pipeline");
+
+			mesh_shader_indirect_arguments = device->create_indirect_arguments();
+		}
+
+		// Mesh Shader
+		{
+			PipelineDesc::Mesh desc;
+
+			desc.mesh_shader = sg::create_mesh_shader(*device, "ShaderBin_Debug\\GDR_MeshShader.PC_DXC");
+			desc.pixel_shader = sg::create_pixel_shader(*device, "ShaderBin_Debug\\GDR_PixelShader.PC_DXC");		
+			desc.render_target_count = 1;
+			desc.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+			desc.depth_stencil_format = DXGI_FORMAT_D32_FLOAT; // TODO - UNDO HARDCODING
+			mesh_render_pipeline = device->create_pipeline(desc, global_binding_desc);
+			seAssert(mesh_render_pipeline != nullptr, "Failed to create pipeline");
+		}
 	}
 
 	void Scene::update(Ptr<UploadHeap>& upload_heap)
@@ -183,15 +206,17 @@ namespace gdr
 			return;
 
 		command_list.clear_buffer_uint(model_buffers.gpu_pre_process_instances_output.uav, model_buffers.gpu_pre_process_instances_output.srv, 0);
+		command_list.clear_buffer_uint(model_buffers.atomic_counter.uav, model_buffers.atomic_counter.srv, 0);
 		command_list.clear_buffer_uint(model_buffers.indirect_arguments.uav, model_buffers.indirect_arguments.srv, 0);
 
 		Binding b;
-		b.uav_binding_count = 2;
+		b.uav_binding_count = 3;
 		b.srv_binding_count = 5;
 		b.cbv_binding_count = 1;
 		
 		b.set_uav(model_buffers.gpu_pre_process_instances_output.uav, 0);
-		b.set_uav(model_buffers.indirect_arguments.uav, 1);
+		b.set_uav(model_buffers.atomic_counter.uav, 1);
+		b.set_uav(model_buffers.indirect_arguments.uav, 2);
 
 		b.set_srv(model_buffers.vertex_data.srv, 0);
 		b.set_srv(model_buffers.meshlet_data.srv, 1);
@@ -215,7 +240,18 @@ namespace gdr
 			command_list.dispatch(sg::AlignUp<uint32_t>(pre_process_cbuffer.meshlets_to_process_count, 32u), 1, 1);
 		}
 
+		// Stage 1.5 - Build indirect arguments
+		command_list.set_pipeline(build_indirect_arguments_pipeline.get());
+		command_list.dispatch(1, 1, 1);
 
+		// Stage 2
+		// So at this point we now have a list of final meshlets to be rendered in model_buffers.gpu_pre_process_instances_output
+		command_list.bind(b, PipelineType::Geometry);
+
+		command_list.set_pipeline(mesh_render_pipeline.get());
+
+		mesh_shader_indirect_arguments->set_indirect_buffer(model_buffers.indirect_arguments.buffer);
+		command_list.execute_indirect(*mesh_shader_indirect_arguments);
 	}
 
 	static std::vector<Vertex> load_vertex_buffer(const aiMesh* assimp_mesh)
@@ -475,6 +511,7 @@ namespace gdr
 		meshlet_primitive_index.create_and_upload_to_gpu(device, upload_heap);
 		//model_data.create_and_upload_to_gpu(device, upload_heap);
 
+		atomic_counter.create(device, 1);
 		indirect_arguments.create(device, 1);
 	}
 }

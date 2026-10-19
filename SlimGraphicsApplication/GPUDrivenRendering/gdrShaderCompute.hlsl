@@ -19,7 +19,8 @@ StructuredBuffer<InstanceData> Instances : register(t4);
 
 // Write Buffers
 RWStructuredBuffer<PerInstanceProcessingData_Output> PerInstanceDataOutput : register(u0);
-RWStructuredBuffer<uint> IndirectArgumentBuffer : register(u1);
+RWStructuredBuffer<uint> AtomicCounter : register(u1);
+RWStructuredBuffer<uint> IndirectArgumentBuffer : register(u2);
 
 cbuffer PerInstanceProcessingDataCBuffer : register(b0)
 {
@@ -45,7 +46,7 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
         if (visible)
         {
             uint data_output_index;
-            InterlockedAdd(IndirectArgumentBuffer[0], 1, data_output_index);
+            InterlockedAdd(AtomicCounter[0], 1, data_output_index);
             
             PerInstanceProcessingData_Output meshlet;
             meshlet.instance_index = instance_index;
@@ -54,4 +55,40 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
             PerInstanceDataOutput[data_output_index] = meshlet;
         }
     }
+}
+
+[numthreads(1, 1, 1)]
+void build_indirect_arguments()
+{
+    // Align to 32 for indirect dispatch size...
+    IndirectArgumentBuffer[0] = (AtomicCounter[0] + 32 - 1) / 32 * 32;
+}
+
+struct PSInput
+{
+    float4 position : SV_POSITION;
+    float3 colour : COLOR0;
+    float2 uvs : TEXCOORD0;
+    float3 normals : NORMAL;  
+    uint MeshletIndex : COLOR1;   
+    noperspective float3 world_position : COLOR2;
+};
+
+[NumThreads(32, 1, 1)]
+[OutputTopology("triangle")]
+void ms_main(uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, uint3 dtid : SV_DispatchThreadID, out indices uint3 tris[124], out vertices PSInput verts[64])
+{
+    if (dtid.x < AtomicCounter[0])
+    {
+        PerInstanceProcessingData_Output instance_stage_output = PerInstanceDataOutput[dtid.x];
+        MeshletData meshlet = Meshlets[instance_stage_output.meshlet_index];
+        InstanceData instance = Instances[instance_stage_output.instance_index];
+        //ModelData model = Models[instance.model_index];
+        
+    }
+}
+
+float4 ps_main(PSInput input) : SV_TARGET
+{
+    return 0.0.xxxx;
 }
