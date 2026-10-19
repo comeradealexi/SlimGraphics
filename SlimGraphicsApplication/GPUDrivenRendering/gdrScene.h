@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <sgPlatformInclude.h>
 #include <DirectXMath.h>
 #include <DirectXCollision.h>
@@ -26,6 +27,7 @@ namespace gdr
 		sg::ShaderResourceView		srv;
 
 		void create_and_upload_to_gpu(sg::SharedPtr<sg::Device>& device, sg::Ptr<sg::UploadHeap>& upload_heap);
+		void create(sg::SharedPtr<sg::Device>& device, sg::u32 element_count);
 	};
 
 	template <typename T>
@@ -44,6 +46,17 @@ namespace gdr
 		UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(memory_size, 256);
 		upload_heap->write_upload_memory(upload_offset, cpu_data.data(), memory_size);
 		upload_heap->upload_to_buffer(buffer.get(), 0, upload_offset, memory_size);
+	}
+
+	template <typename T>
+	void gdr::GPUBuffer<T>::create(sg::SharedPtr<sg::Device>& device, sg::u32 element_count)
+	{
+		const size_t memory_size = element_count * sizeof(T);
+		sg::SharedPtr<sg::Memory> mem = device->allocate_memory(sg::MemoryType::GPUOptimal, sg::MemorySubType::Buffer, memory_size);
+		buffer = device->create_buffer(mem, memory_size, sg::BufferType::GeneralDataBuffer, true);
+
+		uav = device->create_unordered_access_view(buffer, sizeof(T), element_count);
+		srv = device->create_shader_resource_view(buffer, sizeof(T), element_count);
 	}
 
 	struct Vertex
@@ -92,9 +105,14 @@ namespace gdr
 
 		// Data buffers below should only change if model changes
 		GPUBuffer<ShaderStructs::MaterialData>	material_data;
+		GPUBuffer<ShaderStructs::ModelData>		model_data;
 		GPUBuffer<Vertex>  vertex_data;
 		GPUBuffer<sg::u32> meshlet_vertex_index;
 		GPUBuffer<sg::u32> meshlet_primitive_index; // Packed Data - 1 tri per u32
+
+		// GPU Write Only Buffers
+		GPUBuffer<ShaderStructs::PerInstanceProcessingData_Output> gpu_pre_process_instances_output;
+		GPUBuffer<std::array<sg::u32,4>> indirect_arguments;
 
 		// Record of all loaded models
 		struct PerModelData
@@ -141,7 +159,7 @@ namespace gdr
 		Scene(sg::SharedPtr<sg::Device>& _device);
 		void update(Ptr<UploadHeap>& upload_heap);
 		void render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw);
-		void load_model(std::string path);
+		void load_model(std::string path, ShaderStructs::ModelData& gpu_model_data);
 		void load_gpu_data(SceneGraphTraverser& scene_graph, Ptr<UploadHeap>& upload_heap);
 
 

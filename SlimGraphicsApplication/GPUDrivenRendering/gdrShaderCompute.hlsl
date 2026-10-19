@@ -15,7 +15,7 @@ StructuredBuffer<MeshletData> Meshlets : register(t1);
 StructuredBuffer<uint> UniqueVertexIndices : register(t2);
 StructuredBuffer<uint> PrimitiveIndices : register(t3);
 StructuredBuffer<InstanceData> Instances : register(t4);
-StructuredBuffer<ModelData> Models : register(t5);
+//StructuredBuffer<ModelData> Models : register(t5);
 
 // Write Buffers
 RWStructuredBuffer<PerInstanceProcessingData_Output> PerInstanceDataOutput : register(u0);

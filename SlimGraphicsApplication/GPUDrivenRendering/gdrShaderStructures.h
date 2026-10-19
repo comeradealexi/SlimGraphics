@@ -22,7 +22,7 @@ namespace gdr {
 
 	struct PerInstanceProcessingData
 	{
-		uint meshlets_to_process_count;
+		uint meshlets_to_process_count; // meshlet count * instance count
 		uint meshlets_per_instance;
 		uint meshlet_offset;
 		uint instance_offset;

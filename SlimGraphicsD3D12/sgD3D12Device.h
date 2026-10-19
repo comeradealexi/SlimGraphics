@@ -39,7 +39,7 @@ namespace sg
 		{
 		public:
 			class ImGuiTextureViewer;
-			static constexpr u64 DESCRIPTOR_COUNT = 2048;
+			static constexpr u64 DESCRIPTOR_COUNT = 4080; // D3D12 Limit
 
 		public:
 			Device();

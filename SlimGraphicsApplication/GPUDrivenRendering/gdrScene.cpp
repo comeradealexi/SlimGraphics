@@ -113,7 +113,7 @@ namespace gdr
 
 		BindingDesc global_binding_desc;
 		global_binding_desc.uav_binding_count = 2;
-		global_binding_desc.srv_binding_count = 6;
+		global_binding_desc.srv_binding_count = 5;
 		global_binding_desc.cbv_binding_count = 1;
 
 		PipelineDesc::Compute desc;
@@ -132,40 +132,90 @@ namespace gdr
 
 		// Construct and upload per-instance data
 		model_buffers.instance_data.cpu_data = {};
+		per_instance_render_list = {};
 
 		const auto& model_lists = scene_graph_traverser.model_map;
-
-		sg::u32 model_index = 0;
-		for (const auto& [model_name, model_list] : model_lists)
+		sg::u32 total_meshlets = 0;
+		if (model_lists.size())
 		{
-			const ModelBuffers::PerModelData& per_model_data = model_buffers.find_model(model_name);
-
-			// TODO: Not ideal to treat each mesh part as its own instances, wastes space and data
-			for (const auto& mesh_part : per_model_data.mesh_parts)
+			sg::u32 model_index = 0;
+			for (const auto& [model_name, model_list] : model_lists)
 			{
-				PerInstanceRenderInfo& instance_render_info = per_instance_render_list.emplace_back();
-				instance_render_info.start_index = model_buffers.instance_data.cpu_data.size();
-				instance_render_info.count = model_list.size();
-				instance_render_info.meshlets_per_instance = mesh_part.meshlet_count;
+				const ModelBuffers::PerModelData& per_model_data = model_buffers.find_model(model_name);
 
-				for (const auto& instance : model_list)
+				// TODO: Not ideal to treat each mesh part as its own instances, wastes space and data
+				for (const auto& mesh_part : per_model_data.mesh_parts)
 				{
-					ShaderStructs::InstanceData gpu_instance = model_buffers.instance_data.cpu_data.emplace_back();
-					gpu_instance.model_matrix = instance.model_matrix;
-					gpu_instance.colour = DirectX::XMFLOAT4A(1.0f, 1.0f, 1.0f, 1.0f);
-					gpu_instance.model_index = model_index;
+					PerInstanceRenderInfo& instance_render_info = per_instance_render_list.emplace_back();
+					instance_render_info.start_index = model_buffers.instance_data.cpu_data.size();
+					instance_render_info.count = model_list.size();
+					instance_render_info.meshlets_per_instance = mesh_part.meshlet_count;
+
+					for (const auto& instance : model_list)
+					{
+						ShaderStructs::InstanceData gpu_instance = model_buffers.instance_data.cpu_data.emplace_back();
+						gpu_instance.model_matrix = instance.model_matrix;
+						gpu_instance.colour = DirectX::XMFLOAT4A(1.0f, 1.0f, 1.0f, 1.0f);
+						gpu_instance.model_index = model_index;
+
+						total_meshlets += mesh_part.meshlet_count;
+					}
 				}
+				model_index++;
 			}
-			model_index++;
+			model_buffers.instance_data.create_and_upload_to_gpu(device, upload_heap);
+			model_buffers.gpu_pre_process_instances_output.create(device, total_meshlets); // Output buffer allocated matches input
 		}
-		model_buffers.instance_data.create_and_upload_to_gpu(device, upload_heap);
+
 	}
 
 	void Scene::render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw)
 	{
+		using namespace sg;
+
 		// Stage 1: Compute dispatch for each instance type for the per-instance-pre-pass
 		// Stage TODO: Sorting Step
 		// Stage 2: Execute Indirect DispatchMesh
+
+
+		// Nothing in the scene to render
+		if (per_instance_render_list.size() == 0)
+			return;
+
+		command_list.clear_buffer_uint(model_buffers.gpu_pre_process_instances_output.uav, model_buffers.gpu_pre_process_instances_output.srv, 0);
+		command_list.clear_buffer_uint(model_buffers.indirect_arguments.uav, model_buffers.indirect_arguments.srv, 0);
+
+		Binding b;
+		b.uav_binding_count = 2;
+		b.srv_binding_count = 5;
+		b.cbv_binding_count = 1;
+		
+		b.set_uav(model_buffers.gpu_pre_process_instances_output.uav, 0);
+		b.set_uav(model_buffers.indirect_arguments.uav, 1);
+
+		b.set_srv(model_buffers.vertex_data.srv, 0);
+		b.set_srv(model_buffers.meshlet_data.srv, 1);
+		b.set_srv(model_buffers.meshlet_vertex_index.srv, 2);
+		b.set_srv(model_buffers.meshlet_primitive_index.srv, 3);
+		b.set_srv(model_buffers.instance_data.srv, 4);
+		//b.set_srv(model_buffers.model_data.srv, 5);
+
+		command_list.set_pipeline(per_instance_compute_pipeline.get());
+
+		for (const PerInstanceRenderInfo& instance_section : per_instance_render_list)
+		{
+			ShaderStructs::PerInstanceProcessingData pre_process_cbuffer = {};
+			pre_process_cbuffer.instance_offset = instance_section.start_index;
+			pre_process_cbuffer.meshlets_per_instance = instance_section.meshlets_per_instance;
+			pre_process_cbuffer.meshlets_to_process_count = instance_section.count * instance_section.meshlets_per_instance;
+			ConstantBufferView cbv = cbuffer.AllocateAndWrite(pre_process_cbuffer);
+			b.set_cbv(cbv, 0);
+
+			command_list.bind(b, PipelineType::Compute);
+			command_list.dispatch(sg::AlignUp<uint32_t>(pre_process_cbuffer.meshlets_to_process_count, 32u), 1, 1);
+		}
+
+
 	}
 
 	static std::vector<Vertex> load_vertex_buffer(const aiMesh* assimp_mesh)
@@ -209,7 +259,7 @@ namespace gdr
 		return indices;
 	}
 
-	void Scene::load_model(std::string path)
+	void Scene::load_model(std::string path, ShaderStructs::ModelData& gpu_model_data)
 	{
 		Assimp::Importer ai_importer;
 		const int flags = aiProcess_Triangulate
@@ -349,10 +399,11 @@ namespace gdr
 		}
 
 		model_buffers = {};
-
+		
 		for (auto& [model_string, model_list] : scene_graph.model_map)
 		{
-			load_model(model_string);
+			ShaderStructs::ModelData& model_gpu_data = model_buffers.model_data.cpu_data.emplace_back();
+			load_model(model_string, model_gpu_data);
 		}
 
 		// Upload all model data to GPU
@@ -364,7 +415,12 @@ namespace gdr
 	{
 		auto process_node = [this](const SceneNode& scene_node)
 			{
-				auto model_entry = model_map[scene_node.model_name];
+				if (scene_node.model_name == kINVALID_MODEL_NAME)
+				{
+					return;
+				}
+
+				auto& model_entry = model_map[scene_node.model_name];
 
 				using namespace DirectX;
 
@@ -417,5 +473,8 @@ namespace gdr
 		vertex_data.create_and_upload_to_gpu(device, upload_heap);
 		meshlet_vertex_index.create_and_upload_to_gpu(device, upload_heap);
 		meshlet_primitive_index.create_and_upload_to_gpu(device, upload_heap);
+		//model_data.create_and_upload_to_gpu(device, upload_heap);
+
+		indirect_arguments.create(device, 1);
 	}
 }
