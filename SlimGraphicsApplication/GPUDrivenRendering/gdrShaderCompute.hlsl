@@ -22,7 +22,12 @@ RWStructuredBuffer<PerInstanceProcessingData_Output> PerInstanceDataOutput : reg
 RWStructuredBuffer<uint> AtomicCounter : register(u1);
 RWStructuredBuffer<uint> IndirectArgumentBuffer : register(u2);
 
-cbuffer PerInstanceProcessingDataCBuffer : register(b0)
+cbuffer ConstantBufferData : register(b0)
+{
+    CameraData camera;
+};
+
+cbuffer PerInstanceProcessingDataCBuffer : register(b1)
 {
     PerInstanceProcessingData constant_data;
 };
@@ -61,7 +66,9 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
 void build_indirect_arguments()
 {
     // Align to 32 for indirect dispatch size...
-    IndirectArgumentBuffer[0] = (AtomicCounter[0] + 32 - 1) / 32 * 32;
+    IndirectArgumentBuffer[0] = AtomicCounter[0];
+    IndirectArgumentBuffer[1] = 1;
+    IndirectArgumentBuffer[2] = 2;
 }
 
 struct PSInput
@@ -70,21 +77,70 @@ struct PSInput
     float3 colour : COLOR0;
     float2 uvs : TEXCOORD0;
     float3 normals : NORMAL;  
-    uint MeshletIndex : COLOR1;   
+    uint meshlet_index : COLOR1;   
     noperspective float3 world_position : COLOR2;
 };
 
-[NumThreads(32, 1, 1)]
+// SV_GroupThreadID 0 - 128
+// SV_GroupID 0 - dispatchx
+// SV_GroupThreadID 0 - 128 * dispatchx
+
+[numthreads(128, 1, 1)]
 [OutputTopology("triangle")]
-void ms_main(uint gtid : SV_GroupThreadID, uint gid : SV_GroupID, uint3 dtid : SV_DispatchThreadID, out indices uint3 tris[124], out vertices PSInput verts[64])
-{
-    if (dtid.x < AtomicCounter[0])
+void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, uint3 dtid : SV_DispatchThreadID, out indices uint3 tris[124], out vertices PSInput verts[64])
+{   
+    bool valid_thread = gid.x < AtomicCounter[0];
+    uint out_vertex_count = 0;
+    uint out_triangle_count = 0;
+    
+    PerInstanceProcessingData_Output instance_stage_output;
+    MeshletData meshlet;
+    InstanceData instance;
+    //ModelData model;
+    
+    if (valid_thread)
     {
-        PerInstanceProcessingData_Output instance_stage_output = PerInstanceDataOutput[dtid.x];
-        MeshletData meshlet = Meshlets[instance_stage_output.meshlet_index];
-        InstanceData instance = Instances[instance_stage_output.instance_index];
-        //ModelData model = Models[instance.model_index];
+        instance_stage_output = PerInstanceDataOutput[gid.x];
+        meshlet = Meshlets[instance_stage_output.meshlet_index];
+        instance = Instances[instance_stage_output.instance_index];
+        // model = Models[instance.model_index];
         
+        out_vertex_count = meshlet.vertex_count;
+        out_triangle_count = meshlet.triangle_count;
+    }
+
+    SetMeshOutputCounts(out_vertex_count, out_triangle_count);
+
+    if (valid_thread)
+    {              
+        if (gtid.x < meshlet.vertex_count)
+        {
+            uint vertex_index = UniqueVertexIndices[meshlet.vertex_offset + gtid.x];
+            Vertex v = Vertices[vertex_index];
+            float4 outpos;
+            float3 world_outpos;
+            world_outpos = outpos = mul(float4(v.position, 1.0f), instance.model_matrix);
+            outpos = mul(outpos, camera.view_projection_matrix);
+                
+            float3 outnormals;
+            outnormals = normalize(mul(v.normals, (float3x3) instance.model_matrix));
+            
+            PSInput vertex_output;
+            vertex_output.position = outpos;
+            vertex_output.world_position = world_outpos;
+            vertex_output.colour = v.colour;
+            vertex_output.uvs = v.uvs;
+            vertex_output.normals = outnormals;
+            vertex_output.meshlet_index = instance_stage_output.meshlet_index;
+            verts[gtid.x] = vertex_output;
+        }
+        
+        if (gtid.x < meshlet.triangle_count)
+        {
+            uint offset = meshlet.triangle_offset + gtid.x;
+            uint packedIndices = PrimitiveIndices[offset];
+            tris[gtid.x] = uint3(packedIndices & 0xFF, (packedIndices >> 8) & 0xFF, (packedIndices >> 16) & 0xFF);
+        }
     }
 }
 

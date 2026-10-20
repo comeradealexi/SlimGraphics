@@ -77,10 +77,13 @@ namespace gdr {
 		uint vertex_buffer_offset;
 		uint vertex_offset;
 		uint triangle_offset;
-
 		/* number of vertices and triangles used in the meshlet; data is stored in consecutive range defined by offset and count */
 		uint vertex_count;
+
 		uint triangle_count;
+		uint upad1;
+		uint upad2;
+		uint upad3;
 
 		// Meshlet Culling Data
 		float4 spherepos_xyz_radius_w;

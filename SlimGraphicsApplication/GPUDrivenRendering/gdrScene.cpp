@@ -114,7 +114,7 @@ namespace gdr
 		BindingDesc global_binding_desc;
 		global_binding_desc.uav_binding_count = 3;
 		global_binding_desc.srv_binding_count = 5;
-		global_binding_desc.cbv_binding_count = 1;
+		global_binding_desc.cbv_binding_count = 2;
 
 		// Compute
 		{
@@ -176,7 +176,7 @@ namespace gdr
 
 					for (const auto& instance : model_list)
 					{
-						ShaderStructs::InstanceData gpu_instance = model_buffers.instance_data.cpu_data.emplace_back();
+						ShaderStructs::InstanceData& gpu_instance = model_buffers.instance_data.cpu_data.emplace_back();
 						gpu_instance.model_matrix = instance.model_matrix;
 						gpu_instance.colour = DirectX::XMFLOAT4A(1.0f, 1.0f, 1.0f, 1.0f);
 						gpu_instance.model_index = model_index;
@@ -212,7 +212,7 @@ namespace gdr
 		Binding b;
 		b.uav_binding_count = 3;
 		b.srv_binding_count = 5;
-		b.cbv_binding_count = 1;
+		b.cbv_binding_count = 2;
 		
 		b.set_uav(model_buffers.gpu_pre_process_instances_output.uav, 0);
 		b.set_uav(model_buffers.atomic_counter.uav, 1);
@@ -224,6 +224,8 @@ namespace gdr
 		b.set_srv(model_buffers.meshlet_primitive_index.srv, 3);
 		b.set_srv(model_buffers.instance_data.srv, 4);
 		//b.set_srv(model_buffers.model_data.srv, 5);
+		
+		b.set_cbv(cbv_camera, 0);
 
 		command_list.set_pipeline(per_instance_compute_pipeline.get());
 
@@ -234,7 +236,7 @@ namespace gdr
 			pre_process_cbuffer.meshlets_per_instance = instance_section.meshlets_per_instance;
 			pre_process_cbuffer.meshlets_to_process_count = instance_section.count * instance_section.meshlets_per_instance;
 			ConstantBufferView cbv = cbuffer.AllocateAndWrite(pre_process_cbuffer);
-			b.set_cbv(cbv, 0);
+			b.set_cbv(cbv, 1);
 
 			command_list.bind(b, PipelineType::Compute);
 			command_list.dispatch(sg::AlignUp<uint32_t>(pre_process_cbuffer.meshlets_to_process_count, 32u), 1, 1);
@@ -246,9 +248,9 @@ namespace gdr
 
 		// Stage 2
 		// So at this point we now have a list of final meshlets to be rendered in model_buffers.gpu_pre_process_instances_output
-		command_list.bind(b, PipelineType::Geometry);
-
+		
 		command_list.set_pipeline(mesh_render_pipeline.get());
+		command_list.bind(b, PipelineType::Geometry);
 
 		mesh_shader_indirect_arguments->set_indirect_buffer(model_buffers.indirect_arguments.buffer);
 		command_list.execute_indirect(*mesh_shader_indirect_arguments);
@@ -354,7 +356,7 @@ namespace gdr
 				// Trim excess of vectors
 				const meshopt_Meshlet& last = tmp_meshlets[meshlet_count - 1];
 				tmp_meshlet_vertices.resize(last.vertex_offset + last.vertex_count);
-				tmp_meshlet_triangles.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3));
+				tmp_meshlet_triangles.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3)); // Align total to be multiple of 4
 				tmp_meshlets.resize(meshlet_count);
 
 				// TODO: Add meshopt_optimizeMeshlet
@@ -368,9 +370,21 @@ namespace gdr
 					
 					gpu_meshlet.vertex_buffer_offset = mesh_part.vertex_data_offset;
 					gpu_meshlet.vertex_offset		 = mesh_part.meshlet_vertex_index_offset + meshlet.vertex_offset;
-					gpu_meshlet.triangle_offset		 = mesh_part.meshlet_primitive_index_offset + meshlet.triangle_offset;
+					gpu_meshlet.triangle_offset		 = model_buffers.meshlet_primitive_index.cpu_data.size(); // Offset by the current primitive index offset.
 					gpu_meshlet.vertex_count		 = meshlet.vertex_count;
-					gpu_meshlet.triangle_count		 = meshlet.triangle_count;					
+					gpu_meshlet.triangle_count		 = meshlet.triangle_count;
+
+					for (size_t tri_idx = 0; tri_idx < meshlet.triangle_count; tri_idx++)
+					{
+						const sg::u32 tri_offset = meshlet.triangle_offset + (tri_idx * 3);
+						seAssert((tri_offset + 2) < tmp_meshlet_triangles.size(), "Reading too many tris");
+						sg::u32 tri = 0;
+						tri |= static_cast<sg::u32>(tmp_meshlet_triangles[tri_offset + 0]) << 0u;
+						tri |= static_cast<sg::u32>(tmp_meshlet_triangles[tri_offset + 1]) << 8u;
+						tri |= static_cast<sg::u32>(tmp_meshlet_triangles[tri_offset + 2]) << 16u;
+
+						model_buffers.meshlet_primitive_index.cpu_data.push_back(tri);
+					}
 				}
 
 				// Vertex Data
@@ -383,22 +397,6 @@ namespace gdr
 				for (sg::u32 vid : tmp_meshlet_vertices)
 				{
 					model_buffers.meshlet_vertex_index.cpu_data.push_back(vid);
-				}
-
-				// Index Data
-				for (meshopt_Meshlet& meshlet : tmp_meshlets)
-				{
-					for (size_t tri_idx = 0; tri_idx < meshlet.triangle_count; tri_idx++)
-					{
-						const sg::u32 tri_offset = meshlet.triangle_offset + (tri_idx * 3);
-						seAssert((tri_offset + 2) < tmp_meshlet_triangles.size(), "Reading too many tris");
-						sg::u32 tri = 0;
-						tri |= static_cast<sg::u32>(tmp_meshlet_triangles[tri_offset + 0]) << 0u;
-						tri |= static_cast<sg::u32>(tmp_meshlet_triangles[tri_offset + 1]) << 8u;
-						tri |= static_cast<sg::u32>(tmp_meshlet_triangles[tri_offset + 2]) << 16u;
-
-						model_buffers.meshlet_primitive_index.cpu_data.push_back(tri);
-					}
 				}
 			}	
 		}

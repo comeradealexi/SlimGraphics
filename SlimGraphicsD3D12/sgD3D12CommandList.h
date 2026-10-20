@@ -16,7 +16,13 @@ namespace sg
 		{
 			friend class CommandList;
 			friend class Device;
+		public:
+			void set_indirect_buffer(SharedPtr<Buffer> _indirect_buffer)
+			{
+				indirect_buffer = _indirect_buffer;
+			}
 
+		private:
 			SharedPtr<Buffer> indirect_buffer;
 			ComPtr<ID3D12CommandSignature> command_signature;
 		};

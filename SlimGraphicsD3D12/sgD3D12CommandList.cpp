@@ -297,7 +297,15 @@ namespace sg
 
 		void CommandList::execute_indirect(IndirectArguments& indirect_argument)
 		{
+			{
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_argument.indirect_buffer->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
+				command_list->ResourceBarrier(1, &barrier);
+			}
 			command_list->ExecuteIndirect(indirect_argument.command_signature.Get(), 1, indirect_argument.indirect_buffer->get().Get(), 0, nullptr, 0);
+			{
+				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_argument.indirect_buffer->get().Get(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				command_list->ResourceBarrier(1, &barrier);
+			}
 			flush_bound_uavs();
 		}
 
