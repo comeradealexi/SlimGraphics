@@ -466,12 +466,12 @@ namespace gdr
 				const SceneNode* current_node = &scene_node;
 				while (current_node != nullptr)
 				{
-					XMMATRIX node_matrix = XMMatrixScaling(scene_node.scale.x, scene_node.scale.y, scene_node.scale.z);
+					XMMATRIX node_matrix = XMMatrixScaling(current_node->scale.x, current_node->scale.y, current_node->scale.z);
 
-					const XMMATRIX rotation_matrix = XMMatrixRotationRollPitchYaw(XMConvertToRadians(scene_node.rotation.x), XMConvertToRadians(scene_node.rotation.y), XMConvertToRadians(scene_node.rotation.z));
+					const XMMATRIX rotation_matrix = XMMatrixRotationRollPitchYaw(XMConvertToRadians(current_node->rotation.x), XMConvertToRadians(current_node->rotation.y), XMConvertToRadians(current_node->rotation.z));
 					node_matrix = XMMatrixMultiply(node_matrix, rotation_matrix);
 
-					const XMMATRIX translation_matrix = XMMatrixTranslation(scene_node.position.x, scene_node.position.y, scene_node.position.z);
+					const XMMATRIX translation_matrix = XMMatrixTranslation(current_node->position.x, current_node->position.y, current_node->position.z);
 					node_matrix = XMMatrixMultiply(node_matrix, translation_matrix);
 
 					// Now multiply this nodes matrix in to child

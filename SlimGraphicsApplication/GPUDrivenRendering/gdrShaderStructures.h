@@ -40,6 +40,9 @@ namespace gdr {
 		float4 colour;
 
 		uint model_index;
+		uint pad1;
+		uint pad2;
+		uint pad3;
 	};
 
 	struct ModelData

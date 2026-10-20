@@ -19,7 +19,7 @@
       },
       {
         "profile": "ps_6_5",
-        "entrypoint": "build_indirect_arguments",
+        "entrypoint": "ps_main",
         "name": "GDR_PixelShader"
       }
     ]

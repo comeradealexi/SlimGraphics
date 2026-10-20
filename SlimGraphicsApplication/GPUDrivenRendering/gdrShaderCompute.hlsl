@@ -62,6 +62,7 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
     }
 }
 
+// TODO - We can actually remove this entirely since we can just rebind the UAV as this pass does zero processing. Must ensure values set to 1 though on upload.
 [numthreads(1, 1, 1)]
 void build_indirect_arguments()
 {
