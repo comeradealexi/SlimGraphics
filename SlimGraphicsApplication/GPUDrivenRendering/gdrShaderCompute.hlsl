@@ -117,7 +117,7 @@ void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, uint3 dtid :
         if (gtid.x < meshlet.vertex_count)
         {
             uint vertex_index = UniqueVertexIndices[meshlet.vertex_offset + gtid.x];
-            Vertex v = Vertices[vertex_index];
+            Vertex v = Vertices[meshlet.vertex_buffer_offset + vertex_index];
             float4 outpos;
             float3 world_outpos;
             world_outpos = outpos = mul(float4(v.position, 1.0f), instance.model_matrix);
@@ -129,7 +129,7 @@ void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, uint3 dtid :
             PSInput vertex_output;
             vertex_output.position = outpos;
             vertex_output.world_position = world_outpos;
-            vertex_output.colour = v.colour;
+            vertex_output.colour = v.colour * instance.colour.xyz;
             vertex_output.uvs = v.uvs;
             vertex_output.normals = outnormals;
             vertex_output.meshlet_index = instance_stage_output.meshlet_index;
@@ -147,5 +147,5 @@ void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, uint3 dtid :
 
 float4 ps_main(PSInput input) : SV_TARGET
 {
-    return 0.0.xxxx;
+    return float4(input.colour, 1);
 }

@@ -170,15 +170,16 @@ namespace gdr
 				for (const auto& mesh_part : per_model_data.mesh_parts)
 				{
 					PerInstanceRenderInfo& instance_render_info = per_instance_render_list.emplace_back();
-					instance_render_info.start_index = model_buffers.instance_data.cpu_data.size();
+					instance_render_info.instance_offset = model_buffers.instance_data.cpu_data.size();
 					instance_render_info.count = model_list.size();
+					instance_render_info.meshlet_offset = mesh_part.meshlet_data_offset;
 					instance_render_info.meshlets_per_instance = mesh_part.meshlet_count;
 
 					for (const auto& instance : model_list)
 					{
 						ShaderStructs::InstanceData& gpu_instance = model_buffers.instance_data.cpu_data.emplace_back();
 						gpu_instance.model_matrix = instance.model_matrix;
-						gpu_instance.colour = DirectX::XMFLOAT4A(1.0f, 1.0f, 1.0f, 1.0f);
+						gpu_instance.colour = DirectX::XMFLOAT4A(instance.colour.x, instance.colour.y, instance.colour.z, 1.0f);
 						gpu_instance.model_index = model_index;
 
 						total_meshlets += mesh_part.meshlet_count;
@@ -232,9 +233,11 @@ namespace gdr
 		for (const PerInstanceRenderInfo& instance_section : per_instance_render_list)
 		{
 			ShaderStructs::PerInstanceProcessingData pre_process_cbuffer = {};
-			pre_process_cbuffer.instance_offset = instance_section.start_index;
+			pre_process_cbuffer.instance_offset = instance_section.instance_offset;
 			pre_process_cbuffer.meshlets_per_instance = instance_section.meshlets_per_instance;
+			pre_process_cbuffer.meshlet_offset = instance_section.meshlet_offset;
 			pre_process_cbuffer.meshlets_to_process_count = instance_section.count * instance_section.meshlets_per_instance;
+			
 			ConstantBufferView cbv = cbuffer.AllocateAndWrite(pre_process_cbuffer);
 			b.set_cbv(cbv, 1);
 
@@ -416,13 +419,19 @@ namespace gdr
 		{
 			for (auto& [model_string, model_list] : scene_graph.model_map)
 			{
+				bool found_model = false;
 				for (auto& loaded_models : model_buffers.models)
 				{
-					if (model_string != loaded_models.name)
+					if (model_string == loaded_models.name)
 					{
-						recreate_gpu_buffers = true;
+						found_model = true;
 						break;
 					}
+				}
+				if (!found_model)
+				{
+					recreate_gpu_buffers = true;
+					break;
 				}
 			}
 		}
@@ -460,6 +469,7 @@ namespace gdr
 
 				PerModelData& node_data = model_entry.emplace_back();
 				node_data.model_matrix = XMMatrixIdentity();
+				node_data.colour = { 1.0f, 1.0f, 1.0f };
 				node_data.scene_node = &scene_node;
 
 				// Construct the final matrix for this node - Walk up the parent nodes
@@ -476,6 +486,10 @@ namespace gdr
 
 					// Now multiply this nodes matrix in to child
 					node_data.model_matrix = XMMatrixMultiply(node_data.model_matrix, node_matrix);
+
+					node_data.colour.x *= current_node->colour.x;
+					node_data.colour.y *= current_node->colour.y;
+					node_data.colour.z *= current_node->colour.z;
 
 					// Apply parents matrix next
 					current_node = current_node->parent;

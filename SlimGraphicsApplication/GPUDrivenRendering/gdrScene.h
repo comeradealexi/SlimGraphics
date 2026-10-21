@@ -145,6 +145,7 @@ namespace gdr
 		struct PerModelData
 		{
 			DirectX::XMMATRIX model_matrix;
+			Float3 colour;
 			const SceneNode* scene_node = nullptr;
 		};
 
@@ -173,8 +174,9 @@ namespace gdr
 		ModelBuffers model_buffers;
 		struct PerInstanceRenderInfo
 		{
-			sg::u32 start_index;
+			sg::u32 instance_offset;
 			sg::u32 count;
+			sg::u32 meshlet_offset;
 			sg::u32 meshlets_per_instance;
 		};
 		std::vector<PerInstanceRenderInfo> per_instance_render_list;
