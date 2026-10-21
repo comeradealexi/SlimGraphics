@@ -245,7 +245,7 @@ namespace gdr
 			b.set_cbv(cbv, 1);
 
 			command_list.bind(b, PipelineType::Compute);
-			command_list.dispatch(sg::AlignUp<uint32_t>(pre_process_cbuffer.meshlets_to_process_count, 32u), 1, 1);
+			command_list.dispatch(sg::AlignUp<uint32_t>(pre_process_cbuffer.meshlets_to_process_count, 32u) / 32u, 1, 1);
 		}
 
 		// Stage 1.5 - Build indirect arguments
