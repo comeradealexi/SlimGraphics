@@ -116,40 +116,39 @@ namespace gdr
 		GPUBuffer<std::array<sg::u32, 4>> indirect_arguments;
 
 		// Record of all loaded models
-		struct PerModelData
+		struct ModelData
 		{
 			std::string name;
 			sg::u32 material_count = 0;
 
-			struct MeshParts
+			struct MeshPart
 			{
 				sg::u32 material_index = 0;
 				sg::u32 vertex_data_offset = 0;
 				sg::u32 meshlet_data_offset = 0;
 				sg::u32 meshlet_vertex_index_offset = 0;
 				sg::u32 meshlet_primitive_index_offset = 0;
-
 				sg::u32 meshlet_count = 0;
 			};
-			std::vector<MeshParts> mesh_parts;
+			std::vector<MeshPart> mesh_parts;
 		};
-		std::vector<PerModelData> models;
+		std::vector<ModelData> models;
 
-		const PerModelData& find_model(std::string_view name);
+		const ModelData& find_model(std::string_view name);
 		void create_and_upload_to_gpu(sg::SharedPtr<sg::Device>& device, sg::Ptr<sg::UploadHeap>& upload_heap);
 	};
 
 	struct SceneGraphTraverser
 	{
 
-		struct PerModelData
+		struct InstanceData
 		{
 			DirectX::XMMATRIX model_matrix;
 			Float3 colour;
 			const SceneNode* scene_node = nullptr;
 		};
 
-		std::map<std::string, std::vector<PerModelData>> model_map;
+		std::map<std::string, std::vector<InstanceData>> model_instance_map;
 
 		void process_scene_graph(SceneNode& root_node);
 	};

@@ -157,14 +157,17 @@ namespace gdr
 		model_buffers.instance_data.cpu_data = {};
 		per_instance_render_list = {};
 
-		const auto& model_lists = scene_graph_traverser.model_map;
+		// Now we iterate over all loaded models and each instance within that model
+		// We then add each instance we want to render to a list to send to the GPU	
+		// Meshes with mutiple parts are sent as if they were separate instances	
+		const auto& model_lists = scene_graph_traverser.model_instance_map;
 		sg::u32 total_meshlets = 0;
 		if (model_lists.size())
 		{
 			sg::u32 model_index = 0;
 			for (const auto& [model_name, model_list] : model_lists)
 			{
-				const ModelBuffers::PerModelData& per_model_data = model_buffers.find_model(model_name);
+				const ModelBuffers::ModelData& per_model_data = model_buffers.find_model(model_name);
 
 				// TODO: Not ideal to treat each mesh part as its own instances, wastes space and data
 				for (const auto& mesh_part : per_model_data.mesh_parts)
@@ -316,14 +319,14 @@ namespace gdr
 		if (!aScene)
 			return;
 
-		ModelBuffers::PerModelData& new_model = model_buffers.models.emplace_back();
+		ModelBuffers::ModelData& new_model = model_buffers.models.emplace_back();
 		new_model.name = path;
 
 		new_model.mesh_parts.resize(aScene->mNumMeshes);
 
 		for (size_t mesh_part_idx = 0; mesh_part_idx < new_model.mesh_parts.size(); mesh_part_idx++)
 		{
-			ModelBuffers::PerModelData::MeshParts& mesh_part = new_model.mesh_parts[mesh_part_idx];
+			ModelBuffers::ModelData::MeshPart& mesh_part = new_model.mesh_parts[mesh_part_idx];
 			mesh_part = {};
 
 			mesh_part.vertex_data_offset = model_buffers.vertex_data.cpu_data.size();
@@ -411,13 +414,13 @@ namespace gdr
 	{
 		bool recreate_gpu_buffers = false;
 
-		if (scene_graph.model_map.size() != model_buffers.models.size())
+		if (scene_graph.model_instance_map.size() != model_buffers.models.size())
 		{
 			recreate_gpu_buffers = true;
 		}
 		else 
 		{
-			for (auto& [model_string, model_list] : scene_graph.model_map)
+			for (auto& [model_string, model_list] : scene_graph.model_instance_map)
 			{
 				bool found_model = false;
 				for (auto& loaded_models : model_buffers.models)
@@ -443,7 +446,7 @@ namespace gdr
 
 		model_buffers = {};
 		
-		for (auto& [model_string, model_list] : scene_graph.model_map)
+		for (auto& [model_string, model_list] : scene_graph.model_instance_map)
 		{
 			ShaderStructs::ModelData& model_gpu_data = model_buffers.model_data.cpu_data.emplace_back();
 			load_model(model_string, model_gpu_data);
@@ -463,11 +466,11 @@ namespace gdr
 					return;
 				}
 
-				auto& model_entry = model_map[scene_node.model_name];
+				auto& instance_list = model_instance_map[scene_node.model_name];
 
 				using namespace DirectX;
 
-				PerModelData& node_data = model_entry.emplace_back();
+				InstanceData& node_data = instance_list.emplace_back();
 				node_data.model_matrix = XMMatrixIdentity();
 				node_data.colour = { 1.0f, 1.0f, 1.0f };
 				node_data.scene_node = &scene_node;
@@ -500,7 +503,7 @@ namespace gdr
 	}
 
 
-	const ModelBuffers::PerModelData& ModelBuffers::find_model(std::string_view name)
+	const ModelBuffers::ModelData& ModelBuffers::find_model(std::string_view name)
 	{
 		for (const auto& model : models)
 		{
