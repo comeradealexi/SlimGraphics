@@ -302,6 +302,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	gdr::Scene gdr_scene(device);
 
+	bool enable_model_viewer = true;
+	bool enable_gdr = true;
+
 	bool bOpen = true;
 	float delta_time; // seconds
 	float total_time; // seconds
@@ -326,7 +329,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		//ImPlot::ShowDemoWindow();
 		//ImGui::ShowStyleEditor();
 
-		gdr_scene.update(frame_upload_heap);
+		if (enable_gdr)
+		{
+			gdr_scene.update(frame_upload_heap);
+		}
 
 		static bool ExpandedStatsWindow = false;
 		bool CurrentExpandedStatsWindow = ExpandedStatsWindow;
@@ -351,12 +357,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImGui::Text("CPU: %5.0fus", cpu_timer.get_average());
 		ImGui::SameLine();
 		ImGui::Text("GPU: %5.0fus", gpu_timer.get_average());				
-// 		ImGui::SameLine(); ImGui::SetNextItemWidth(300);
 // 		ImGui::PlotHistogram("gpu", gpu_timer.get_history_buffer(), gpu_timer.get_history_count(), gpu_timer.get_history_idx(), nullptr, 0.0f, TargetTimeMicroSeconds);
 // 		ImGui::SameLine(); ImGui::SetNextItemWidth(300);
 // 		ImGui::PlotHistogram("cpu", cpu_timer.get_history_buffer(), cpu_timer.get_history_count(), cpu_timer.get_history_idx(), nullptr, 0.0f, TargetTimeMicroSeconds);		
 		ImGui::SameLine();
-		ImGui::Checkbox("Expand", &ExpandedStatsWindow);
+		ImGui::Checkbox("Expand Stats |", &ExpandedStatsWindow);
+		ImGui::SameLine(); ImGui::Text("Render Scenes: ");
+		ImGui::SameLine(); ImGui::Checkbox("Model Viewer", &enable_model_viewer);
+		ImGui::SameLine(); ImGui::Checkbox("GDR", &enable_gdr);
 		if (CurrentExpandedStatsWindow)
 		{
 			if (ImPlot::BeginPlot("GPU Implot", ImVec2(-1,0), ImPlotFlags_NoTitle));
@@ -384,7 +392,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		// https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples
 		
 		debug_draw->Update();
-		model_viewer->Update(delta_time, total_time, camera, *debug_draw);
+		if (enable_model_viewer)
+		{
+			model_viewer->Update(delta_time, total_time, camera, *debug_draw);
+		}
 		magnifying_glass->Update(wnd->g_hWnd, *input, delta_time, total_time, camera, *debug_draw);
 		basic_grid.Update(delta_time, total_time, camera);
 		post_process->Update(wnd->g_hWnd, *input, delta_time, total_time, camera, *debug_draw);
@@ -514,8 +525,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			command_buffer->start_geometry_pass(1, &final_rtv, vp, sc, dsv);
 			{ // Model Viewer
 				stats_pool->begin_query(stat_query_idx, command_buffer.get());
-				model_viewer->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
-				gdr_scene.render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
+				if (enable_model_viewer)
+				{
+					model_viewer->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
+				}
+				if (enable_gdr)
+				{
+					gdr_scene.render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
+				}
 				terrain->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
 				stats_pool->end_query(stat_query_idx, command_buffer.get());
 				basic_grid.Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb);

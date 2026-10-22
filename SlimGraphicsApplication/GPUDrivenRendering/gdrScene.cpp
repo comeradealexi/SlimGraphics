@@ -203,11 +203,14 @@ namespace gdr
 
 		if (ImGui::CollapsingHeader("Rendering Options", ImGuiTreeNodeFlags_DefaultOpen))
 		{
+			ImGui::Text("Pipeline");
+			ImGui::Indent();
 			render_options.recreate_pipelines |= ImGui::Checkbox("Wireframe", &render_options.render_wireframe);
 			render_options.recreate_pipelines |= ImGui::Checkbox("Depth Enable", &render_options.depth_enable);
 			render_options.recreate_pipelines |= ImGui::Checkbox("Depth Write", &render_options.depth_write);
 			render_options.recreate_pipelines |= ImGui::Combo("Cull Mode", &render_options.cull_mode, "None\0Front\0Back\0", 3);
 			render_options.recreate_pipelines |= ImGui::Combo("Depth Comparison", &render_options.depth_comparison, "None\0Never\0Less\0Equal\0LessEqual\0Greater\0NotEqual\0GreaterEqual\0Always", 9);
+			ImGui::Unindent();
 		}
 
 		ImGui::End();

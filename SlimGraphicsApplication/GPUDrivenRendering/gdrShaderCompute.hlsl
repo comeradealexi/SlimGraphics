@@ -163,5 +163,6 @@ void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, uint3 dtid :
 
 float4 ps_main(PSInput input) : SV_TARGET
 {
-    return float4(input.colour, 1);
+    float normals_mult = abs(dot(float3(0, 0, 1), input.normals));
+    return float4(input.colour, 1) * max(normals_mult, 0.0f);
 }
