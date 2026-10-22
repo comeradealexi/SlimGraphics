@@ -284,6 +284,7 @@ namespace gdr
 		// Stage TODO: Sorting Step
 		// Stage 2: Execute Indirect DispatchMesh
 
+		// TODO - Add a per-instance culling pass, not just per-meshlet initially
 
 		// Nothing in the scene to render
 		if (per_instance_render_list.size() == 0)
@@ -476,6 +477,28 @@ namespace gdr
 						tri |= static_cast<sg::u32>(tmp_meshlet_triangles[tri_offset + 2]) << 16u;
 
 						model_buffers.meshlet_primitive_index.cpu_data.push_back(tri);
+					}
+
+					// Culling data
+					{
+						meshopt_Bounds meshlet_bounds = meshopt_computeMeshletBounds(
+							&tmp_meshlet_vertices[meshlet.vertex_offset],
+							&tmp_meshlet_triangles[meshlet.triangle_offset],
+							meshlet.triangle_count,
+							(float*)vertices.data(),
+							vertices.size(),
+							sizeof(vertices[0]));
+
+						gpu_meshlet.spherepos_xyz_radius_w = DirectX::XMFLOAT4A(meshlet_bounds.center[0], meshlet_bounds.center[1], meshlet_bounds.center[2], meshlet_bounds.radius);
+						gpu_meshlet.cone_apex_xyz = DirectX::XMFLOAT4A(meshlet_bounds.cone_apex[0], meshlet_bounds.cone_apex[1], meshlet_bounds.cone_apex[2], 0.0f);
+
+						gpu_meshlet.cone_axis_xyz_cone_cutoff_w = DirectX::XMFLOAT4A(meshlet_bounds.cone_axis[0], meshlet_bounds.cone_axis[1], meshlet_bounds.cone_axis[2], meshlet_bounds.cone_cutoff);
+
+						char* cone_axis = (char*)&gpu_meshlet.cone_axis_s8xyz_cone_cutoff_s8w;
+						cone_axis[0] = meshlet_bounds.cone_axis_s8[0];
+						cone_axis[1] = meshlet_bounds.cone_axis_s8[1];
+						cone_axis[2] = meshlet_bounds.cone_axis_s8[2];
+						cone_axis[3] = meshlet_bounds.cone_cutoff_s8;
 					}
 				}
 
