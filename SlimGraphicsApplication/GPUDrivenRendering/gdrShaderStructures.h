@@ -7,6 +7,14 @@ namespace gdr {
 
 #include "../ShaderShaderStructIncludeBegin.h"
 
+	struct DebugData
+	{
+		uint debug_mode;
+		uint cull_all_instances;
+		uint pad2;
+		uint pad3;
+	};
+
 	struct CameraData
 	{
 		row_major float4x4 view_matrix;

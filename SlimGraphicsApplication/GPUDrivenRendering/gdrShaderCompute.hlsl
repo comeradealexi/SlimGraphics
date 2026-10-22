@@ -32,6 +32,18 @@ cbuffer PerInstanceProcessingDataCBuffer : register(b1)
     PerInstanceProcessingData constant_data;
 };
 
+#ifdef GDR_DEBUG
+cbuffer DebugConstantBufferData : register(b2)
+{
+    DebugData debug;
+};
+
+bool CullAllInstances()
+{
+    return debug.cull_all_instances != 0;
+}
+#endif
+
 [numthreads(32, 1, 1)]
 void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
 {
@@ -47,6 +59,10 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
         
         // TODO: Visibility and culling checks before adding to list
         bool visible = true;
+        
+        #ifdef GDR_DEBUG
+        if (CullAllInstances()) visible = false;
+        #endif
         
         if (visible)
         {

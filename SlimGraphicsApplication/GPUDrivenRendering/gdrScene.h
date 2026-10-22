@@ -158,6 +158,8 @@ namespace gdr
 		friend class Editor;
 	public:
 		Scene(sg::SharedPtr<sg::Device>& _device);
+		void create_pipelines();
+		void imgui();
 		void update(Ptr<UploadHeap>& upload_heap);
 		void render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw);
 		void load_model(std::string path, ShaderStructs::ModelData& gpu_model_data);
@@ -182,8 +184,26 @@ namespace gdr
 
 		sg::SharedPtr<sg::IndirectArguments> mesh_shader_indirect_arguments;
 
-		sg::SharedPtr<sg::Pipeline> per_instance_compute_pipeline;
-		sg::SharedPtr<sg::Pipeline> build_indirect_arguments_pipeline;
-		sg::SharedPtr<sg::Pipeline> mesh_render_pipeline;
+
+		struct Pipelines
+		{
+			enum Type { Default, Debug, Count };
+			sg::SharedPtr<sg::Pipeline> per_instance_compute_pipeline;
+			sg::SharedPtr<sg::Pipeline> build_indirect_arguments_pipeline;
+			sg::SharedPtr<sg::Pipeline> mesh_render_pipeline;
+		};
+		Pipelines pipelines[Pipelines::Type::Count];
+
+		ShaderStructs::DebugData debug_data = {};
+
+		struct RenderOptions
+		{
+			bool recreate_pipelines = false;
+			bool render_wireframe = false;
+			bool depth_enable = true;
+			bool depth_write = true;
+			int cull_mode = (int) sg::Rasterizer::CullMode::Back;
+			int depth_comparison = (int) sg::ComparisonFunction::LessEqual;
+		} render_options = {};
 	};
 }

@@ -1,6 +1,14 @@
 [
   {
     "input_file": "GPUDrivenRendering/gdrShaderCompute.hlsl",
+    "variant_defines": [
+      {
+        "defines": [
+          "GDR_DEBUG"
+        ],
+        "id": "DEBUG"
+      }
+    ],
     "shaders": [
       {
         "profile": "cs_6_5",

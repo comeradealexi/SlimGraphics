@@ -109,6 +109,11 @@ namespace gdr
 
 	Scene::Scene(sg::SharedPtr<sg::Device>& _device) : device(_device)
 	{
+		create_pipelines();
+	}
+
+	void Scene::create_pipelines()
+	{
 		using namespace sg;
 
 		BindingDesc global_binding_desc;
@@ -116,37 +121,109 @@ namespace gdr
 		global_binding_desc.srv_binding_count = 5;
 		global_binding_desc.cbv_binding_count = 2;
 
-		// Compute
+		const char* shaders[Pipelines::Type::Count][4] =
 		{
-			PipelineDesc::Compute desc;
-			desc.compute_shader = sg::create_compute_shader(*device, "ShaderBin_Debug\\GDR_PerInstanceProcessingMain.PC_DXC");
-			per_instance_compute_pipeline = device->create_pipeline(desc, global_binding_desc);
-			seAssert(per_instance_compute_pipeline != nullptr, "Failed to create pipeline");
+			{
+				"ShaderBin_Debug\\GDR_PerInstanceProcessingMain.PC_DXC",
+				"ShaderBin_Debug\\GDR_BuildIndirectArguments.PC_DXC",
+				"ShaderBin_Debug\\GDR_MeshShader.PC_DXC",
+				"ShaderBin_Debug\\GDR_PixelShader.PC_DXC"
+			},
+			{
+				"ShaderBin_Debug\\GDR_PerInstanceProcessingMain_DEBUG.PC_DXC",
+				"ShaderBin_Debug\\GDR_BuildIndirectArguments_DEBUG.PC_DXC",
+				"ShaderBin_Debug\\GDR_MeshShader_DEBUG.PC_DXC",
+				"ShaderBin_Debug\\GDR_PixelShader_DEBUG.PC_DXC"
+			}
+		};
 
-			desc.compute_shader = sg::create_compute_shader(*device, "ShaderBin_Debug\\GDR_BuildIndirectArguments.PC_DXC");
-			build_indirect_arguments_pipeline = device->create_pipeline(desc, global_binding_desc);
-			seAssert(build_indirect_arguments_pipeline != nullptr, "Failed to create pipeline");
+		for (size_t i = 0; i < Pipelines::Type::Count; i++)
+		{
+			Pipelines& pipeline = pipelines[i];
 
-			mesh_shader_indirect_arguments = device->create_indirect_arguments();
+			if (i == Pipelines::Type::Debug)
+			{
+				global_binding_desc.cbv_binding_count = 3;
+			}
+
+			// Compute
+			{
+				PipelineDesc::Compute desc;
+				desc.compute_shader = sg::create_compute_shader(*device, shaders[i][0]);
+				pipeline.per_instance_compute_pipeline = device->create_pipeline(desc, global_binding_desc);
+				seAssert(pipeline.per_instance_compute_pipeline != nullptr, "Failed to create pipeline");
+
+				desc.compute_shader = sg::create_compute_shader(*device, shaders[i][1]);
+				pipeline.build_indirect_arguments_pipeline = device->create_pipeline(desc, global_binding_desc);
+				seAssert(pipeline.build_indirect_arguments_pipeline != nullptr, "Failed to create pipeline");
+
+				mesh_shader_indirect_arguments = device->create_indirect_arguments();
+			}
+
+			// Mesh Shader
+			{
+				PipelineDesc::Mesh desc;
+
+				desc.mesh_shader = sg::create_mesh_shader(*device, shaders[i][2]);
+				desc.pixel_shader = sg::create_pixel_shader(*device, shaders[i][3]);
+				desc.render_target_count = 1;
+				desc.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM; // TODO - UNDO HARDCODING
+				desc.depth_stencil_format = DXGI_FORMAT_D32_FLOAT; // TODO - UNDO HARDCODING
+
+				desc.depth_stencil_desc.depth_enable = render_options.depth_enable;
+				desc.depth_stencil_desc.depth_write = render_options.depth_write;
+
+				const ComparisonFunction dcf = render_options.depth_comparison != 0 ? (ComparisonFunction)render_options.depth_comparison : ComparisonFunction::Never; // Not actually supported to pass None..
+				desc.depth_stencil_desc.comparison_function = dcf;
+				desc.rasterizer_desc.cull_mode = (Rasterizer::CullMode) render_options.cull_mode;
+				desc.rasterizer_desc.fill_mode = render_options.render_wireframe ? Rasterizer::FillMode::Wireframe : Rasterizer::FillMode::Solid;
+
+				pipeline.mesh_render_pipeline = device->create_pipeline(desc, global_binding_desc);
+				seAssert(pipeline.mesh_render_pipeline != nullptr, "Failed to create pipeline");
+			}
+		}
+	}
+
+	void Scene::imgui()
+	{
+		if (!ImGui::Begin("GDR Scene"))
+		{
+			return;
 		}
 
-		// Mesh Shader
+		if (ImGui::CollapsingHeader("Debug Options", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			PipelineDesc::Mesh desc;
-
-			desc.mesh_shader = sg::create_mesh_shader(*device, "ShaderBin_Debug\\GDR_MeshShader.PC_DXC");
-			desc.pixel_shader = sg::create_pixel_shader(*device, "ShaderBin_Debug\\GDR_PixelShader.PC_DXC");		
-			desc.render_target_count = 1;
-			desc.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-			desc.depth_stencil_format = DXGI_FORMAT_D32_FLOAT; // TODO - UNDO HARDCODING
-			mesh_render_pipeline = device->create_pipeline(desc, global_binding_desc);
-			seAssert(mesh_render_pipeline != nullptr, "Failed to create pipeline");
+			ImGui::Checkbox("Debug Mode", (bool*) &debug_data.debug_mode);
+			ImGui::BeginDisabled(debug_data.debug_mode == 0);
+			ImGui::Indent();
+			ImGui::Checkbox("Cull All Instances", (bool*)&debug_data.cull_all_instances);
+			ImGui::Unindent();
+			ImGui::EndDisabled();
 		}
+
+		if (ImGui::CollapsingHeader("Rendering Options", ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			render_options.recreate_pipelines |= ImGui::Checkbox("Wireframe", &render_options.render_wireframe);
+			render_options.recreate_pipelines |= ImGui::Checkbox("Depth Enable", &render_options.depth_enable);
+			render_options.recreate_pipelines |= ImGui::Checkbox("Depth Write", &render_options.depth_write);
+			render_options.recreate_pipelines |= ImGui::Combo("Cull Mode", &render_options.cull_mode, "None\0Front\0Back\0", 3);
+			render_options.recreate_pipelines |= ImGui::Combo("Depth Comparison", &render_options.depth_comparison, "None\0Never\0Less\0Equal\0LessEqual\0Greater\0NotEqual\0GreaterEqual\0Always", 9);
+		}
+
+		ImGui::End();
 	}
 
 	void Scene::update(Ptr<UploadHeap>& upload_heap)
 	{
+		imgui();
+
 		editor.imgui_scene_overlay(*this);
+
+		if (render_options.recreate_pipelines)
+		{
+			create_pipelines();
+			render_options.recreate_pipelines = false;
+		}
 
 		SceneGraphTraverser scene_graph_traverser;
 		scene_graph_traverser.process_scene_graph(root_scene_node);
@@ -217,6 +294,12 @@ namespace gdr
 		b.uav_binding_count = 3;
 		b.srv_binding_count = 5;
 		b.cbv_binding_count = 2;
+
+		if (debug_data.debug_mode != 0)
+		{
+			b.cbv_binding_count = 3;
+			b.set_cbv(cbuffer.AllocateAndWrite(debug_data), 2);
+		}
 		
 		b.set_uav(model_buffers.gpu_pre_process_instances_output.uav, 0);
 		b.set_uav(model_buffers.atomic_counter.uav, 1);
@@ -231,7 +314,7 @@ namespace gdr
 		
 		b.set_cbv(cbv_camera, 0);
 
-		command_list.set_pipeline(per_instance_compute_pipeline.get());
+		command_list.set_pipeline(pipelines[debug_data.debug_mode].per_instance_compute_pipeline.get());
 
 		for (const PerInstanceRenderInfo& instance_section : per_instance_render_list)
 		{
@@ -249,13 +332,13 @@ namespace gdr
 		}
 
 		// Stage 1.5 - Build indirect arguments
-		command_list.set_pipeline(build_indirect_arguments_pipeline.get());
+		command_list.set_pipeline(pipelines[debug_data.debug_mode].build_indirect_arguments_pipeline.get());
 		command_list.dispatch(1, 1, 1);
 
 		// Stage 2
 		// So at this point we now have a list of final meshlets to be rendered in model_buffers.gpu_pre_process_instances_output
 		
-		command_list.set_pipeline(mesh_render_pipeline.get());
+		command_list.set_pipeline(pipelines[debug_data.debug_mode].mesh_render_pipeline.get());
 		command_list.bind(b, PipelineType::Geometry);
 
 		mesh_shader_indirect_arguments->set_indirect_buffer(model_buffers.indirect_arguments.buffer);

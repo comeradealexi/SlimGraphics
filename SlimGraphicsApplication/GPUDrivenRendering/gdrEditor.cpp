@@ -26,7 +26,7 @@ scene_file_list = se::BasicFileIO::find_files_recursive("..\\SlimGraphicsAssets\
 
 	void Editor::imgui_scene_overlay(Scene& scene)
 	{
-		if (!ImGui::Begin("Scene Overlay"))
+		if (!ImGui::Begin("GDR Scene Editor"))
 		{
 			return;
 		}
