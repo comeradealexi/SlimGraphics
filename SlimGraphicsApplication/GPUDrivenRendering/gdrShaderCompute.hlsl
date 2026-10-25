@@ -42,11 +42,6 @@ cbuffer DebugConstantBufferData : register(b3)
 {
     CameraData culling_camera;
 };
-
-bool CullAllInstances()
-{
-    return debug.cull_all_instances != 0;
-}
 #endif
 
 CameraData GetCameraData()
@@ -54,7 +49,7 @@ CameraData GetCameraData()
     return camera;
 
 }
-CameraData GetCullingCameraData()
+CameraData GetCullingCameraData() // We separate the render camera and the culling camera so we can freeze the culling camera to inspect the scene.
 {
 #ifdef GDR_DEBUG
     return culling_camera;
@@ -78,6 +73,15 @@ bool DoConeCulling()
     return debug.use_cone_culling;
 #else
     return true;
+#endif
+}
+
+bool CullAllInstances()
+{
+#ifdef GDR_DEBUG
+    return debug.cull_all_instances != 0;
+#else
+    return false;
 #endif
 }
 
@@ -110,8 +114,7 @@ bool IsMeshletVisibleNormalCone(MeshletData meshlet, InstanceData instance)
     float3 cone_axis = normalize(mul(meshlet.cone_axis_xyz_cone_cutoff_w.xyz, (float3x3) instance.model_matrix));
     
     if (dot(normalize(cone_apex - GetCullingCameraData().camera_position.xyz), cone_axis) >= meshlet.cone_axis_xyz_cone_cutoff_w.w)
-    {
-        
+    {    
         return false;
     }
     return true;
@@ -130,8 +133,12 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
         InstanceData instance = Instances[instance_index];
         MeshletData meshlet = Meshlets[meshlet_index];
         
-        // TODO: Visibility and culling checks before adding to list
         bool visible = true;
+        
+        if (visible && CullAllInstances())
+        {
+            visible = false;
+        }
         
         if (visible && DoConeCulling())
         {
@@ -141,13 +148,9 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
         if (visible && DoFrustumCulling())
         {            
             visible = IsMeshletSphereInFrustum(meshlet, instance);
-        }       
+        }             
         
-        #ifdef GDR_DEBUG
-        if (CullAllInstances()) visible = false;
-        #endif
-        
-        if (visible)
+        if (visible) // If we're visible, add to the output list of meshests to be rendered
         {
             uint data_output_index;
             InterlockedAdd(AtomicCounter[0], 1, data_output_index);
