@@ -96,6 +96,24 @@ Instanced Mesh Rendering Specifics:
 
 namespace gdr
 {
+	static DirectX::XMFLOAT3 Max(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
+	{
+		DirectX::XMFLOAT3 o;
+		o.x = std::max<float>(a.x, b.x);
+		o.y = std::max<float>(a.y, b.y);
+		o.z = std::max<float>(a.z, b.z);
+		return o;
+	}
+
+	static DirectX::XMFLOAT3 Min(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
+	{
+		DirectX::XMFLOAT3 o;
+		o.x = std::min<float>(a.x, b.x);
+		o.y = std::min<float>(a.y, b.y);
+		o.z = std::min<float>(a.z, b.z);
+		return o;
+	}
+
 	template <typename T_NODE_FUNCTION>
 	static void scene_node_traverse(SceneNode& scene_node, T_NODE_FUNCTION callback)
 	{
@@ -110,6 +128,10 @@ namespace gdr
 	Scene::Scene(sg::SharedPtr<sg::Device>& _device) : device(_device)
 	{
 		create_pipelines();
+
+		// Some defaults for debug
+		debug_data.shader_debug_data.use_frustum_culling = true;
+		debug_data.shader_debug_data.use_cone_culling = true;
 	}
 
 	void Scene::create_pipelines()
@@ -143,7 +165,7 @@ namespace gdr
 
 			if (i == Pipelines::Type::Debug)
 			{
-				global_binding_desc.cbv_binding_count = 3;
+				global_binding_desc.cbv_binding_count = 4;
 			}
 
 			// Compute
@@ -193,10 +215,13 @@ namespace gdr
 
 		if (ImGui::CollapsingHeader("Debug Options", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			ImGui::Checkbox("Debug Mode", (bool*) &debug_data.debug_mode);
-			ImGui::BeginDisabled(debug_data.debug_mode == 0);
+			ImGui::Checkbox("Debug Mode", (bool*) &debug_data.shader_debug_data.debug_mode);
+			ImGui::BeginDisabled(debug_data.shader_debug_data.debug_mode == 0);
 			ImGui::Indent();
-			ImGui::Checkbox("Cull All Instances", (bool*)&debug_data.cull_all_instances);
+			ImGui::Checkbox("Cull All Instances", (bool*)&debug_data.shader_debug_data.cull_all_instances);
+			ImGui::Checkbox("Freeze Culling Camera", (bool*)&debug_data.shader_debug_data.freeze_culling_camera);
+			ImGui::Checkbox("Use Frustum Culling", (bool*)&debug_data.shader_debug_data.use_frustum_culling);
+			ImGui::Checkbox("Use Cone Culling", (bool*)&debug_data.shader_debug_data.use_cone_culling);
 			ImGui::Unindent();
 			ImGui::EndDisabled();
 		}
@@ -299,12 +324,26 @@ namespace gdr
 		b.srv_binding_count = 5;
 		b.cbv_binding_count = 2;
 
-		if (debug_data.debug_mode != 0)
+		// Updated Culling Camera Data
+		if (debug_data.shader_debug_data.debug_mode == 0 || (debug_data.shader_debug_data.debug_mode != 0 && debug_data.shader_debug_data.freeze_culling_camera == 0))
 		{
-			b.cbv_binding_count = 3;
-			b.set_cbv(cbuffer.AllocateAndWrite(debug_data), 2);
+			// Converting non-gdr cameradata to gdr camera data
+			debug_data.culling_camera_data = (const ShaderStructs::CameraData&)camera.GetCameraShaderData();
+			debug_data.culling_camera_frustum = camera.GetCameraBoundingFrustum();
 		}
 		
+		if (debug_data.shader_debug_data.debug_mode != 0 && debug_data.shader_debug_data.freeze_culling_camera != 0)
+		{
+			debug_draw.DrawFrustum(DebugDraw::ColourRGBA(255, 0, 0, 255), debug_data.culling_camera_frustum);
+		}
+
+		if (debug_data.shader_debug_data.debug_mode != 0)
+		{
+			b.cbv_binding_count = 4;
+			b.set_cbv(cbuffer.AllocateAndWrite(debug_data.shader_debug_data), 2);
+			b.set_cbv(cbuffer.AllocateAndWrite(debug_data.culling_camera_data), 3);
+		}
+				
 		b.set_uav(model_buffers.gpu_pre_process_instances_output.uav, 0);
 		b.set_uav(model_buffers.atomic_counter.uav, 1);
 		b.set_uav(model_buffers.indirect_arguments.uav, 2);
@@ -318,7 +357,7 @@ namespace gdr
 		
 		b.set_cbv(cbv_camera, 0);
 
-		command_list.set_pipeline(pipelines[debug_data.debug_mode].per_instance_compute_pipeline.get());
+		command_list.set_pipeline(pipelines[debug_data.shader_debug_data.debug_mode].per_instance_compute_pipeline.get());
 
 		for (const PerInstanceRenderInfo& instance_section : per_instance_render_list)
 		{
@@ -336,13 +375,13 @@ namespace gdr
 		}
 
 		// Stage 1.5 - Build indirect arguments
-		command_list.set_pipeline(pipelines[debug_data.debug_mode].build_indirect_arguments_pipeline.get());
+		command_list.set_pipeline(pipelines[debug_data.shader_debug_data.debug_mode].build_indirect_arguments_pipeline.get());
 		command_list.dispatch(1, 1, 1);
 
 		// Stage 2
 		// So at this point we now have a list of final meshlets to be rendered in model_buffers.gpu_pre_process_instances_output
 		
-		command_list.set_pipeline(pipelines[debug_data.debug_mode].mesh_render_pipeline.get());
+		command_list.set_pipeline(pipelines[debug_data.shader_debug_data.debug_mode].mesh_render_pipeline.get());
 		command_list.bind(b, PipelineType::Geometry);
 
 		mesh_shader_indirect_arguments->set_indirect_buffer(model_buffers.indirect_arguments.buffer);
@@ -428,6 +467,11 @@ namespace gdr
 			std::vector<Vertex> vertices = load_vertex_buffer(assimp_mesh);
 			std::vector<uint32_t> indices = load_index_buffer(assimp_mesh);
 
+			// Process vertices for entire mesh-part
+			{
+				// TODO
+			}
+
 			// Create meshlets
 			{
 				const size_t max_vertices = 64;
@@ -479,7 +523,7 @@ namespace gdr
 						model_buffers.meshlet_primitive_index.cpu_data.push_back(tri);
 					}
 
-					// Culling data
+					// Sphere & Cone Culling data
 					{
 						meshopt_Bounds meshlet_bounds = meshopt_computeMeshletBounds(
 							&tmp_meshlet_vertices[meshlet.vertex_offset],
@@ -498,7 +542,46 @@ namespace gdr
 						cone_axis[0] = meshlet_bounds.cone_axis_s8[0];
 						cone_axis[1] = meshlet_bounds.cone_axis_s8[1];
 						cone_axis[2] = meshlet_bounds.cone_axis_s8[2];
-						cone_axis[3] = meshlet_bounds.cone_cutoff_s8;
+						cone_axis[3] = meshlet_bounds.cone_cutoff_s8;						
+					}
+
+					// AABB & OBB Data
+					{
+						DirectX::XMFLOAT3 bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };
+						DirectX::XMFLOAT3 bounding_box_max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+						DirectX::BoundingBox aabb = {};
+						DirectX::BoundingOrientedBox obb = {};
+
+						for (size_t i = 0; i < meshlet.triangle_count; i++)
+						{
+							const size_t triangle_index = tmp_meshlet_triangles[meshlet.triangle_offset + i];
+							size_t vertex_index = tmp_meshlet_vertices[meshlet.vertex_offset + triangle_index];
+							const Vertex& vertex = vertices[vertex_index];
+
+							bounding_box_max = Max(bounding_box_max, vertex.Position);
+							bounding_box_min = Min(bounding_box_min, vertex.Position);
+						}
+
+						const float dist_x = fabsf(bounding_box_max.x - bounding_box_min.x);
+						const float dist_y = fabsf(bounding_box_max.y - bounding_box_min.y);
+						const float dist_z = fabsf(bounding_box_max.z - bounding_box_min.z);
+						aabb.Center.x = bounding_box_min.x + (dist_x / 2);
+						aabb.Center.y = bounding_box_min.y + (dist_y / 2);
+						aabb.Center.z = bounding_box_min.z + (dist_z / 2);
+						aabb.Extents.x = dist_x / 2;
+						aabb.Extents.y = dist_y / 2;
+						aabb.Extents.z = dist_z / 2;
+
+						// Initial OBB is from AABB
+						DirectX::BoundingOrientedBox::CreateFromBoundingBox(obb, aabb);
+
+						// Now set GPU Data Structure
+						gpu_meshlet.aabb_center = DirectX::XMFLOAT4A(aabb.Center.x, aabb.Center.y, aabb.Center.z, 0.0f);
+						gpu_meshlet.aabb_extents = DirectX::XMFLOAT4A(aabb.Extents.x, aabb.Extents.y, aabb.Extents.z, 0.0f);
+
+						gpu_meshlet.obb_center = DirectX::XMFLOAT4A(obb.Center.x, obb.Center.y, obb.Center.z, 0.0f);
+						gpu_meshlet.obb_extents = DirectX::XMFLOAT4A(obb.Extents.x, obb.Extents.y, obb.Extents.z, 0.0f);
+						gpu_meshlet.obb_orientation = DirectX::XMFLOAT4A(&obb.Orientation.x);
 					}
 				}
 

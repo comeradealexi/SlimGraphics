@@ -35,6 +35,7 @@ public:
 
 	bool IsEnabled() const { return options.enabled; }
 
+	void DrawFrustum(ColourRGBA colour, const DirectX::BoundingFrustum& frustum);
 	void DrawOBB(ColourRGBA colour, const DirectX::BoundingOrientedBox& obb);
 	void DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::XMFLOAT3& min_extent, const DirectX::XMFLOAT3& max_extent);
 	void DrawAABB(ColourRGBA colour, DirectX::XMFLOAT3 centre, const DirectX::BoundingBox aabb);

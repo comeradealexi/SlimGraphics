@@ -129,6 +129,13 @@ namespace gdr
 				sg::u32 meshlet_vertex_index_offset = 0;
 				sg::u32 meshlet_primitive_index_offset = 0;
 				sg::u32 meshlet_count = 0;
+
+				// Culling Data
+				DirectX::XMFLOAT3 bounding_box_min = { FLT_MAX, FLT_MAX, FLT_MAX };
+				DirectX::XMFLOAT3 bounding_box_max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+				DirectX::BoundingSphere sphere = {};
+				DirectX::BoundingBox aabb = {};
+				DirectX::BoundingOrientedBox obb = {};
 			};
 			std::vector<MeshPart> mesh_parts;
 		};
@@ -194,7 +201,12 @@ namespace gdr
 		};
 		Pipelines pipelines[Pipelines::Type::Count];
 
-		ShaderStructs::DebugData debug_data = {};
+		struct DebugData
+		{
+			ShaderStructs::DebugData shader_debug_data = {};
+			ShaderStructs::CameraData culling_camera_data = {};
+			DirectX::BoundingFrustum culling_camera_frustum = {};
+		} debug_data;
 
 		struct RenderOptions
 		{

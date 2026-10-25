@@ -18,6 +18,7 @@ public:
 	void SetPosition(DirectX::XMFLOAT3A pos) { position = pos; }
 	const DirectX::XMFLOAT3A& GetPosition() const { return position; }
 	const ShaderStructs::CameraData& GetCameraShaderData() const { return shader_data; }
+	const DirectX::BoundingFrustum& GetCameraBoundingFrustum() const { return bounding_frustum; }
 
 	float GetNearPlane() const { return min_depth_plane; }
 	float GetFarPlane() const { return max_depth_plane; }

@@ -11,8 +11,13 @@ namespace gdr {
 	{
 		uint debug_mode;
 		uint cull_all_instances;
-		uint pad2;
+		uint freeze_culling_camera;
 		uint pad3;
+
+		uint use_frustum_culling;
+		uint use_cone_culling;
+		uint pad4;
+		uint pad5;
 	};
 
 	struct CameraData

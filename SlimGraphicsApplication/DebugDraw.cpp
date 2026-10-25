@@ -69,6 +69,49 @@ DebugDraw::DebugDraw(sg::Device& device)
 	}
 }
 
+
+void DebugDraw::DrawFrustum(ColourRGBA colour, const DirectX::BoundingFrustum& frustum)
+{
+	if (!IsEnabled()) return;
+
+	DirectX::VertexCollection vc;
+	DirectX::IndexCollection ic;
+
+	// Returns 8 corners position of bounding frustum.
+    //     Near    Far
+    //    0----1  4----5
+    //    |    |  |    |
+    //    |    |  |    |
+    //    3----2  7----6
+	DirectX::XMFLOAT3 corners[8];
+	frustum.GetCorners(corners);
+
+	for (auto& v : corners)
+	{
+		vc.emplace_back().position = v;
+	}
+
+	auto add_face = [&](int16_t a, int16_t b, int16_t c, int16_t d)
+		{
+			ic.push_back(a); ic.push_back(b); ic.push_back(c);
+			ic.push_back(b); ic.push_back(c); ic.push_back(d);
+		};
+
+	// Z
+	add_face(0, 1, 3, 2);
+	add_face(4, 5, 7, 6);
+
+	// X
+	add_face(0, 4, 3, 7);
+	add_face(1, 5, 2, 6);
+
+	// Y
+	add_face(0, 4, 1, 5);
+	add_face(3, 7, 2, 6);
+
+	FinaliseDraw(colour, {}, vc, ic);
+}
+
 void DebugDraw::DrawOBB(ColourRGBA colour, const DirectX::BoundingOrientedBox& obb)
 {
 	if (!IsEnabled()) return;

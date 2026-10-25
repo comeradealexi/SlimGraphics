@@ -38,11 +38,84 @@ cbuffer DebugConstantBufferData : register(b2)
     DebugData debug;
 };
 
+cbuffer DebugConstantBufferData : register(b3)
+{
+    CameraData culling_camera;
+};
+
 bool CullAllInstances()
 {
     return debug.cull_all_instances != 0;
 }
 #endif
+
+CameraData GetCameraData()
+{
+    return camera;
+
+}
+CameraData GetCullingCameraData()
+{
+#ifdef GDR_DEBUG
+    return culling_camera;
+#else
+    return camera;
+#endif
+}
+
+bool DoFrustumCulling()
+{
+#ifdef GDR_DEBUG
+    return debug.use_frustum_culling;
+#else
+    return true;
+#endif
+}
+
+bool DoConeCulling()
+{
+#ifdef GDR_DEBUG
+    return debug.use_cone_culling;
+#else
+    return true;
+#endif
+}
+
+// Computes visiblity of an instance
+// Performs a simple world-space bounding sphere vs. frustum plane check.
+bool IsMeshletSphereInFrustum(MeshletData meshlet, InstanceData instance)
+{
+    float4 sphere_data = mul(float4(meshlet.spherepos_xyz_radius_w.xyz, 1.0), instance.model_matrix);
+    float model_matrix_highest_scale = max(max(instance.model_matrix[0][0], instance.model_matrix[1][1]), instance.model_matrix[2][2]);
+    sphere_data.w = meshlet.spherepos_xyz_radius_w.w * model_matrix_highest_scale;
+    
+    CameraData camera_data = GetCullingCameraData();
+    float4 center = float4(sphere_data.xyz, 1.0);
+    float radius = sphere_data.w;
+
+    for (int i = 0; i < 6; ++i)
+    {
+        if (dot(center, camera_data.Planes[i]) < -radius)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool IsMeshletVisibleNormalCone(MeshletData meshlet, InstanceData instance)
+{
+    float3 cone_apex = mul(float4(meshlet.cone_apex_xyz.xyz, 1.0f), instance.model_matrix).xyz;
+    float3 cone_axis = normalize(mul(meshlet.cone_axis_xyz_cone_cutoff_w.xyz, (float3x3) instance.model_matrix));
+    
+    if (dot(normalize(cone_apex - GetCullingCameraData().camera_position.xyz), cone_axis) >= meshlet.cone_axis_xyz_cone_cutoff_w.w)
+    {
+        
+        return false;
+    }
+    return true;
+}
 
 [numthreads(32, 1, 1)]
 void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
@@ -59,6 +132,16 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
         
         // TODO: Visibility and culling checks before adding to list
         bool visible = true;
+        
+        if (visible && DoConeCulling())
+        {
+            visible = IsMeshletVisibleNormalCone(meshlet, instance);
+        }
+        
+        if (visible && DoFrustumCulling())
+        {            
+            visible = IsMeshletSphereInFrustum(meshlet, instance);
+        }       
         
         #ifdef GDR_DEBUG
         if (CullAllInstances()) visible = false;
@@ -137,7 +220,7 @@ void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, uint3 dtid :
             float4 outpos;
             float3 world_outpos;
             world_outpos = outpos = mul(float4(v.position, 1.0f), instance.model_matrix);
-            outpos = mul(outpos, camera.view_projection_matrix);
+            outpos = mul(outpos, GetCameraData().view_projection_matrix);
                 
             float3 outnormals;
             outnormals = normalize(mul(v.normals, (float3x3) instance.model_matrix));
