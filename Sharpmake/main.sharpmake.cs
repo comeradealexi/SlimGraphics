@@ -18,11 +18,12 @@ namespace SlimEngine
 
         public static bool ImGuiDocking = true;
 
-        [CommandLine.Option("alexblobonly", @"Only generate blob and work blob files: ex: /blobonly")]
-        public static void CommandLineBlobOnly()
+        public static bool Vulkan = false;
+        [CommandLine.Option("vulkan", @"Use Vulkan Rendering Backend With /vulkan")]
+        public static void CommandLineEnableVulkan()
         {
-            System.Console.WriteLine("ALEX !!! BlobOnly!");
-            Debug.WriteLine("ALEX !!! BlobOnly!");
+            Console.WriteLine("/vulkan specified");
+            Vulkan = true;
         }
 
         public static string GetThisFilePath([CallerFilePath] string path = null)
@@ -72,6 +73,7 @@ namespace SlimEngine
                 conf.AddProject<DirectXMeshProject>(target);
                 conf.AddProject<DirectXToolkitProject>(target);
                 conf.AddProject<SlimGraphicsShared>(target);
+                conf.AddProject<SlimGraphicsVulkan>(target);
                 conf.AddProject<SlimGraphicsD3D12>(target);
                 conf.AddProject<SlimGraphicsApplicationProject>(target);
                 conf.SetStartupProject<SlimGraphicsApplicationProject>();

@@ -25,7 +25,14 @@ namespace SlimEngine
             conf.IncludePaths.Add(Path.Join(Globals.SubmodulesPath, @"nlohmannjson\single_include"));
 
             conf.AddPrivateDependency<SlimEngineProject>(target);
-            conf.AddPrivateDependency<SlimGraphicsD3D12>(target);
+            if (Globals.Vulkan)
+            {
+                conf.AddPrivateDependency<SlimGraphicsVulkan>(target);
+            }
+            else
+            {
+                conf.AddPrivateDependency<SlimGraphicsD3D12>(target);
+            }
             conf.AddPrivateDependency<SlimGraphicsShared>(target); ;
             conf.AddPrivateDependency<MeshOptimizerProject>(target);
             conf.AddPrivateDependency<D3D12MAProject>(target);

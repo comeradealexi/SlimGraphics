@@ -23,7 +23,14 @@ namespace SlimEngine
             conf.IncludePaths.Add(Path.Join(Globals.Root, @"SlimGraphicsShared"));
            
             conf.AddPrivateDependency<SlimEngineProject>(target);
-            conf.AddPrivateDependency<SlimGraphicsD3D12>(target);
+            if (Globals.Vulkan)
+            {
+                conf.AddPrivateDependency<SlimGraphicsVulkan>(target);
+            }
+            else
+            {
+                conf.AddPrivateDependency<SlimGraphicsD3D12>(target);
+            }
         }
     }
 }

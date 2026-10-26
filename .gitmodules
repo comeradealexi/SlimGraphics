@@ -52,3 +52,6 @@
 [submodule "SubModules/nlohmannjson"]
 	path = SubModules/nlohmannjson
 	url = https://github.com/nlohmann/json
+[submodule "SubModules/Vulkan-Hpp"]
+	path = SubModules/Vulkan-Hpp
+	url = https://github.com/KhronosGroup/Vulkan-Hpp

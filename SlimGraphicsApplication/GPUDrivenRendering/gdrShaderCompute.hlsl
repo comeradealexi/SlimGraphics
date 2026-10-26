@@ -158,6 +158,8 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
             PerInstanceProcessingData_Output meshlet;
             meshlet.instance_index = instance_index;
             meshlet.meshlet_index = meshlet_index;
+            meshlet.sort_key = 0;
+            meshlet.pad = 0;
 
             PerInstanceDataOutput[data_output_index] = meshlet;
         }
@@ -166,7 +168,7 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
 
 // TODO - We can actually remove this entirely since we can just rebind the UAV as this pass does zero processing. Must ensure values set to 1 though on upload.
 [numthreads(1, 1, 1)]
-void build_indirect_arguments()
+void build_indirect_arguments(uint3 dtid : SV_DispatchThreadID)
 {
     // Align to 32 for indirect dispatch size...
     IndirectArgumentBuffer[0] = AtomicCounter[0];
