@@ -1,10 +1,10 @@
 #pragma once
-#include "sgD3D12Include.h"
+#include "sgVulkanInclude.h"
 #include "sgTypes.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		class Pipeline
 		{

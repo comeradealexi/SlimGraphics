@@ -76,7 +76,7 @@ namespace sg
 
 }
 
-namespace D3D12MA
+namespace VulkanMA
 {
 	class Allocation;
 	class Allocator;

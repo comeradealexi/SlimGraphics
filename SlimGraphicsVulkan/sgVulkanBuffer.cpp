@@ -1,11 +1,11 @@
 #include "pch.h"
-#include "sgD3D12Buffer.h"	
-#include "sgD3D12TypesTranslator.h"
-#include "sgD3D12Memory.h"
+#include "sgVulkanBuffer.h"	
+#include "sgVulkanTypesTranslator.h"
+#include "sgVulkanMemory.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 
 

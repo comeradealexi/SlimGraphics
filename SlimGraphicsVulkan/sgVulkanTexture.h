@@ -1,9 +1,9 @@
 #pragma once
-#include "sgD3D12Buffer.h"
+#include "sgVulkanBuffer.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		class Texture : public Buffer
 		{

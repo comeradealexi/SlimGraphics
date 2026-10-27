@@ -1,15 +1,15 @@
 #include "pch.h"
-#include "sgD3D12CommandList.h"
-#include "sgD3D12Device.h"
-#include "sgD3D12Pipeline.h"
-#include "sgD3D12RenderTargetView.h"
-#include "sgD3D12DepthStencilView.h"
-#include "sgD3D12TypesTranslator.h"
+#include "sgVulkanCommandList.h"
+#include "sgVulkanDevice.h"
+#include "sgVulkanPipeline.h"
+#include "sgVulkanRenderTargetView.h"
+#include "sgVulkanDepthStencilView.h"
+#include "sgVulkanTypesTranslator.h"
 #include "sgUtils.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		CommandList::CommandList(ComPtr<ID3D12GraphicsCommandList6>& in_command_list, ComPtr<ID3D12CommandAllocator>& in_command_allocator) :
 			command_list(in_command_list),

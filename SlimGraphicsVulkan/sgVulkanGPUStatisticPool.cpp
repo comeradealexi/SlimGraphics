@@ -1,10 +1,10 @@
 #include "pch.h"
-#include "sgD3D12GPUStatisticPool.h"
-#include "sgD3D12CommandList.h"
+#include "sgVulkanGPUStatisticPool.h"
+#include "sgVulkanCommandList.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		GPUStatisticPool::GPUStatisticPool(ID3D12Device6* device, ID3D12CommandQueue* queue, u32 _max_count) : max_count(_max_count)
 		{

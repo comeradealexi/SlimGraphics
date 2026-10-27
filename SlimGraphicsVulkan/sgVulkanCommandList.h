@@ -1,14 +1,14 @@
 #pragma once
 #include <sgTypes.h>
-#include "sgD3D12Binding.h"
-#include "sgD3D12RenderTargetView.h"
-#include "sgD3D12DepthStencilView.h"
-#include "sgD3D12VertexBufferView.h"
-#include "sgD3D12IndexBufferView.h"
+#include "sgVulkanBinding.h"
+#include "sgVulkanRenderTargetView.h"
+#include "sgVulkanDepthStencilView.h"
+#include "sgVulkanVertexBufferView.h"
+#include "sgVulkanIndexBufferView.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		class DescriptorHeap;
 

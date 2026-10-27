@@ -2,7 +2,7 @@
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		class Sampler
 		{

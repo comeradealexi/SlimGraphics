@@ -1,9 +1,9 @@
 #pragma once
 #include <sgTypes.h>
-#include "sgD3D12Include.h"
-#include "sgD3D12Memory.h"
-#include "sgD3D12Shader.h"
-#include "sgD3D12DescriptorHeap.h"
+#include "sgVulkanInclude.h"
+#include "sgVulkanMemory.h"
+#include "sgVulkanShader.h"
+#include "sgVulkanDescriptorHeap.h"
 #include "d3dx12_property_format_table.h"
 
 //D3D12 Memory Allocator
@@ -12,7 +12,7 @@
 namespace sg
 {
 	class UploadHeap;
-	namespace D3D12
+	namespace Vulkan
 	{
 		struct MemoryManager
 		{
@@ -133,6 +133,13 @@ namespace sg
 			void create_descriptors();
 			
 		private:
+
+			vk::raii::Context context;
+			vk::raii::Instance instance;
+			vk::raii::PhysicalDevice physicalDevice;
+			vk::raii::Device device;
+
+#if 0
 			ComPtr<ID3D12Device> device;
 			ComPtr<ID3D12Device6> device6;
 			ComPtr<IDXGIFactory4> factory;
@@ -164,6 +171,7 @@ namespace sg
 				sg::SamplerDesc sampler_desc;
 			};
 			std::vector<SamplerInfo> samplers;
+#endif
 		};
 	}
 }

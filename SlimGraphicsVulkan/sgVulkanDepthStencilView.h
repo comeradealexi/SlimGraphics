@@ -1,11 +1,11 @@
 #pragma once
 #include <sgTypes.h>
-#include "sgD3D12Texture.h"
-#include "sgD3D12DescriptorHeap.h"
+#include "sgVulkanTexture.h"
+#include "sgVulkanDescriptorHeap.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		class DepthStencilView
 		{

@@ -1,10 +1,10 @@
 #pragma once
 #include <sgTypes.h>
-#include "sgD3D12Include.h"
+#include "sgVulkanInclude.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		static D3D12_VIEWPORT translate(const Viewport& viewport)
 		{

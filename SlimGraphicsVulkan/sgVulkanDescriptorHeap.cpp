@@ -1,9 +1,9 @@
 #include "pch.h"
-#include "sgD3D12DescriptorHeap.h"
+#include "sgVulkanDescriptorHeap.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		DescriptorHeap::DescriptorHeap(ComPtr<ID3D12DescriptorHeap> d3d12_heap, u32 count, u32 in_heap_increment_size) : heap_increment_size(in_heap_increment_size), heap(d3d12_heap)
 		{

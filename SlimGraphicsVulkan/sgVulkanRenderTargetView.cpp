@@ -1,10 +1,10 @@
 #include "pch.h"
-#include "sgD3D12RenderTargetView.h"
-#include "sgD3D12Device.h"
+#include "sgVulkanRenderTargetView.h"
+#include "sgVulkanDevice.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		RenderTargetView::~RenderTargetView()
 		{

@@ -1,9 +1,9 @@
 #include "pch.h"
-#include "sgD3D12Binding.h"
+#include "sgVulkanBinding.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		void Binding::set_cbv(ConstantBufferView& cbv, u32 index)
 		{

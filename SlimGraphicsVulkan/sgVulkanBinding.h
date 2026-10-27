@@ -1,12 +1,12 @@
 #pragma once
 #include <sgTypes.h>
-#include "sgD3D12UnorderedAccessView.h"
-#include "sgD3D12ConstantBufferView.h"
-#include "sgD3D12ShaderResourceView.h"
+#include "sgVulkanUnorderedAccessView.h"
+#include "sgVulkanConstantBufferView.h"
+#include "sgVulkanShaderResourceView.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		class Binding : public BaseBinding
 		{

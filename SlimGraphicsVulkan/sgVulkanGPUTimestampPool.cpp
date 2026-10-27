@@ -1,10 +1,10 @@
 #include "pch.h"
-#include "sgD3D12GPUTimestampPool.h"
-#include "sgD3D12CommandList.h"
+#include "sgVulkanGPUTimestampPool.h"
+#include "sgVulkanCommandList.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		GPUTimestampPool::GPUTimestampPool(ID3D12Device* device, ID3D12CommandQueue* queue, u32 maximum_timestamps) : max_timestamps(maximum_timestamps)
 		{

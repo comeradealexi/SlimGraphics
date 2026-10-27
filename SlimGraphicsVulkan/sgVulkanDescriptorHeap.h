@@ -1,11 +1,11 @@
 #pragma once
 #include <sgTypes.h>
-#include "sgD3D12Include.h"
+#include "sgVulkanInclude.h"
 #include <mutex>
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		class DescriptorHeap
 		{

@@ -1,15 +1,15 @@
 #include "pch.h"
-#include "sgD3D12Device.h"
-#include "sgD3D12CommandQueue.h"
-#include "sgD3D12CommandList.h"
-#include "sgD3D12RenderTargetView.h"
-#include "sgD3D12ConstantBufferView.h"
-#include "sgD3D12VertexBufferView.h"
-#include "sgD3D12IndexBufferView.h"
-#include "sgD3D12Pipeline.h"
-#include "sgD3D12TypesTranslator.h"
-#include "sgD3D12GPUTimestampPool.h"
-#include "sgD3D12GPUStatisticPool.h"
+#include "sgVulkanDevice.h"
+#include "sgVulkanCommandQueue.h"
+#include "sgVulkanCommandList.h"
+#include "sgVulkanRenderTargetView.h"
+#include "sgVulkanConstantBufferView.h"
+#include "sgVulkanVertexBufferView.h"
+#include "sgVulkanIndexBufferView.h"
+#include "sgVulkanPipeline.h"
+#include "sgVulkanTypesTranslator.h"
+#include "sgVulkanGPUTimestampPool.h"
+#include "sgVulkanGPUStatisticPool.h"
 #include <imgui_impl_dx12.h>
 #include "sgUtils.h"
 #include <DDSTextureLoader.h>
@@ -18,7 +18,7 @@
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
         // Helper function for acquiring the first available hardware adapter that supports Direct3D 12.
         // If no such adapter can be found, *ppAdapter will be set to nullptr.
@@ -134,7 +134,9 @@ namespace sg
 
 		Device::Device()
 		{
-            seWriteLine("Creating D3D12 Device...");
+            seWriteLine("Creating Vulkan Device...");
+
+            context.
 
             const D3D_FEATURE_LEVEL feature_level = D3D_FEATURE_LEVEL_12_0;
             UINT dxgiFactoryFlags = 0;

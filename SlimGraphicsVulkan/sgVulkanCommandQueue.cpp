@@ -1,10 +1,10 @@
 #include "pch.h"
-#include "sgD3D12CommandQueue.h"
-#include "sgD3D12CommandList.h"
+#include "sgVulkanCommandQueue.h"
+#include "sgVulkanCommandList.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		CommandQueue::CommandQueue(ComPtr<ID3D12CommandQueue>& in_queue) : queue(in_queue)
 		{

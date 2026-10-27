@@ -1,11 +1,11 @@
 #pragma once
 #include <sgTypes.h>
-#include "sgD3D12Buffer.h"
-#include "sgD3D12Texture.h"
+#include "sgVulkanBuffer.h"
+#include "sgVulkanTexture.h"
 
 namespace sg
 {
-	namespace D3D12
+	namespace Vulkan
 	{
 		class UnorderedAccessView
 		{
