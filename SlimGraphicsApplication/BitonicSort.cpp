@@ -117,8 +117,6 @@ void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input
 		command_list.bind(b, PipelineType::Compute);
 		command_list.dispatch(sort_count / TILE_SIZE, 1, 1);
 
-		//buffer_ping_pong = true;
-		//goto labelalex;
 		// Merge
 		{
 			buffer_ping_pong = true;
@@ -134,14 +132,6 @@ void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input
 					global_merge_params = { k, j, /*g_Ascending*/ 1, /*padding*/0 };
 					cbv1 = cbuffer.AllocateAndWrite(global_merge_params);
 					b.set_cbv(cbv1, 1);
-
-					// read from 'input', write to 'output'
-					//input_srv = device->create_shader_resource_view(buffer_ping_pong ? buffer_output : buffer_input, sizeof(KeyValue), sort_count);
-					//output_uav = device->create_unordered_access_view(buffer_ping_pong ? buffer_input : buffer_output, sizeof(KeyValue), sort_count);
-					
-					//command_list.copy_buffer_to_buffer(buffer_ping_pong ? buffer_input.get() : buffer_output.get(), buffer_zerod.get());
-
-
 					b.set_srv(input_srv, 0);
 					b.set_uav(output_uav, 0);
 					
@@ -151,18 +141,11 @@ void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input
 					uint32_t groups = (sort_count + TILE_SIZE - 1u) / TILE_SIZE;
 					command_list.dispatch(groups / 2, 1, 1);
 					stats.dispatch_count++;
-
-					// Insert UAV barrier / memory barrier here (DX12: UAVBarrier; DX11: Dispatch then UnorderedAccessView barrier / Flush)
-					//buffer_ping_pong = !buffer_ping_pong;
-					//if (j == 8)
-					//goto labelalex;
-
 				}
-				//goto labelalex;
 			}
 		}
 	}
-	labelalex:
+
 	command_list.copy_buffer_to_buffer(buffer_readback.get(), buffer_output.get());
 }
 

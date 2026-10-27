@@ -57,63 +57,119 @@ inline bool KeyGreaterKV(in KeyValue A, in KeyValue B)
 }
 
 // ---------- Local tile sort: sorts TILE_SIZE elements per group ----------
+// Sorts elements 0->31, 32->63, 64->95, etc...
 [numthreads(THREADS_PER_GROUP, 1, 1)]
 void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
                      uint3 GTid : SV_GroupThreadID,
                      uint3 GId  : SV_GroupID)
 {
-    uint localIdx = GTid.x;                 // within [0, TILE_SIZE)
-    uint groupIdx = GId.x;
-    uint baseIdx  = groupIdx * g_TileSize;
-    uint idx      = baseIdx + localIdx;
+    // group_index: The unique index of the current thread (or data element) in the parallel execution block.
+    uint group_index = GTid.x; // within [0, TILE_SIZE)
     
-    bool ascending = (GId.x % 2) == 0;
+    uint thread_index = GId.x;
+    uint baseIdx  = thread_index * TILE_SIZE;
+    uint idx      = baseIdx + group_index;
+    
+    // Half of threads are ascending and the others descending
+    // Even = Ascending | Odd = Descending
+    bool ascending = (thread_index % 2) == 0;
 
     // Load into shared memory (guard out-of-range)
     KeyValue myKV;
-    if (idx < g_NumElements) {
+    if (idx < g_NumElements) {       
         myKV = g_Input[idx];
     } else {
         // For padded regions, set sentinel keys so they go to the end
         myKV.key = 0xFFFFFFFFu; // largest unsigned value (for ascending)
         myKV.value = 0;
     }
-    s_data[localIdx] = myKV;
+    s_data[group_index] = myKV;
     GroupMemoryBarrierWithGroupSync();
 
     // In-group iterative bitonic network
     // We run full bitonic network up to TILE_SIZE so after this tile is fully sorted.
-    for (uint k = 2u; k <= g_TileSize; k <<= 1u)
+    /*
+        2 -> (1)
+        4 -> (2 -> 1)
+        8 -> (4 -> 2 -> 1)
+        16 -> (8 -> 4 -> 2 -> 1)
+        32 -> (16 -> 8-> 4 -> 2 -> 1)
+    */
+    for (uint k = 2u; k <= TILE_SIZE; k <<= 1u)
     {
+        // Swap our ascending/descending for 50% of threads
+        bool subseq_ascending = ((group_index & k) == 0u) ? (ascending != 0u) : (ascending == 0u);
+        
         for (uint j = k >> 1u; j > 0u; j >>= 1u)
         {
-            uint ixj = localIdx ^ j;
-            if (ixj > localIdx)
+            
+            /* 
+                ixj is the element we are comparing against.
+                We XOR group_index with j.
+                XORing here will always force a specific bit in group_index to be flipped.
+                
+                Example:
+                group_index 0000 and j is 0001: ixj -> 1
+                group_index 0001 and j is 0001: ixj -> 0
+            
+                This guarantees that each thread is comparing a unique value each iteration
+            */
+            uint ixj = group_index ^ j;
+            
+            // We only want to make one comparison e.g. comparing array element 0 with 1 - no point also comparing element 1 with 0.
+            if (ixj > group_index) // TODO: 50% of threads don't enter this so is not using 100% of GPU resources
             {
-                KeyValue A = s_data[localIdx];
+                KeyValue A = s_data[group_index];
                 KeyValue B = s_data[ixj];
 
-                bool subseqAscending = ((localIdx & k) == 0u) ? (ascending != 0u) : (ascending == 0u);
-                bool shouldSwap = (KeyGreaterKV(A, B) == subseqAscending);
-
-                if (shouldSwap)
+                if (KeyGreaterKV(A, B) == subseq_ascending)
                 {
                     // swap values
-                    s_data[localIdx] = B;
+                    s_data[group_index] = B;
                     s_data[ixj] = A;
                 }
             }
+            
+            // Ensure every thread has completed before continuing
             GroupMemoryBarrierWithGroupSync();
         }
     }
+    
+    // After this point, our TILE_SIZE sections should be sorted.
 
     // Write back
-    if (idx < g_NumElements) {
-        g_Output[idx] = s_data[localIdx];
+    if (idx < g_NumElements) 
+    {
+        g_Output[idx] = s_data[group_index];
     }
 }
 
-#if 1
+// Now when running this step, we have our list sorted in chunks of 32.
+// We now need to merge these together until the entire list is sorted.
+
+// K runs from (2*TILE_SIZE) -> array size(always power of 2)
+    // J runs from (k / 2) until 1
+
+/* So to give an example on the first iteration
+    k = 32
+    j = 16
+    
+    We dispatch enough threads for the entire list. 
+
+    Lets focus on the first thread group 0:
+
+    Thread 0:
+    outer_index = 0 / (32/2) = 0
+    outer_index = 0 * 32 = 0;
+    ascending = true;
+    inner_dispatch_id = 0;
+
+    local_index = 0;
+    inner_offset = 0;
+
+    index_a = 0;
+    index_b = 0 ^ 16 = 17;
+*/
 [numthreads(TILE_SIZE, 1, 1)]
 void GlobalMergeCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID /* 0-31 */, uint3 GId : SV_GroupID /* 0 - (DISPATCH_X - 1) */)
 {         
@@ -135,107 +191,11 @@ void GlobalMergeCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThread
         KeyValue A = g_Output[index_a];
         KeyValue B = g_Output[index_b];
         
-        if (A.key > B.key == ascending)
-        {
-            g_Output[index_a] = B;
-            g_Output[index_b] = A;
-        }
-    }
-    
-    #if 0 // WOrking for when tile_Size is less than or equal to j
-        bool ascending = (GId.x % 2) == 0;
-    uint primary_offset = GId.x * TILE_SIZE * 2;
-    uint local_index = (uint) GTid.x % (uint) g_j; // 0 - (g_j - 1)
-    uint i = (uint)GTid.x / (uint)g_j; // 0 - ((TILE_SIZE / g_j) - 1)
-    
-    //[loop]
-    //for (uint i = 0; i < cycles; i++)
-    {
-        uint local_offset = primary_offset + (i * g_j * 2);
-        uint index_a = local_index;
-        uint index_b = index_a ^ g_j;
-        
-        index_a += local_offset;
-        index_b += local_offset;
-        
-        KeyValue A = g_Output[index_a];
-        KeyValue B = g_Output[index_b];
-        
-        if (A.key > B.key == ascending)
-        {
-            g_Output[index_a] = B;
-            g_Output[index_b] = A;
-        }
-    }
-    #endif
-    
-    
-    //uint index_a = GId.x * TILE_SIZE * 2;
-    
-    
-    //uint ixj = i ^ g_j;
-
-    // If partner index is out-of-range then just copy (only possible with non-power-of-two/padding).
-    // For power-of-two sizes and correct padding, ixj < g_NumElements always holds.
-    //if (ixj >= g_NumElements)
-    //{
-    //    g_Output[i] = g_Input[i];
-    //    return;
-    //}
-
-    // Only the thread with the smaller index in the pair performs the compare-and-write.
-    // This avoids write races — a single-writer-per-pair model.
-    //if (ixj > i)
-    {
-
-        
-       //A.value = i;
-       //B.value = ixj;
-
-        //bool ascending = ((i & g_k) == 0u);
-        //bool doSwap = ;
-
-        // write both elements to the output buffer
-
-        //else
-        //{
-        //    g_Output[i] = A;
-        //    g_Output[ixj] = B;
-        //}        
-    }
-    // DO NOT write anything here if ixj < i — partner wrote the pair.
-}
-#else
-// ---------- Global merge pass: handles only j >= TILE_SIZE ----------
-[numthreads(1024, 1, 1)] // you can change to an appropriate group size (e.g., 256, 512)
-void GlobalMergeCS(uint3 DTid : SV_DispatchThreadID)
-{
-    uint i = DTid.x;
-    if (i >= g_NumElements) return;
-
-    uint ixj = i ^ g_j;
-    if (ixj > i)
-    {
-        KeyValue A = g_Input[i];
-        KeyValue B = g_Input[ixj];
-
-        bool ascending = ((i & g_k) == 0u) ? (g_Ascending != 0u) : (g_Ascending == 0u);
-        bool swap = (KeyGreaterKV(A, B) == ascending);
+        bool swap = ascending ? (A.key > B.key) : (A.key < B.key);
         if (swap)
         {
-            g_Output[i] = B;
-            g_Output[ixj] = A;
+            g_Output[index_a] = B;
+            g_Output[index_b] = A;
         }
-        else
-        {            
-            g_Output[i] = A;
-            g_Output[ixj] = B;
-        }
-    }
-    else
-    {
-        // The partner wrote this slot; but for safety copy if partner wasn't executed
-        g_Output[i] = g_Input[i];
     }
 }
-#endif
