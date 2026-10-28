@@ -151,16 +151,16 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
     // J runs from (k / 2) until 1
 
 /* So to give an example on the first iteration
-    k = 32
-    j = 16
+    k = 64
+    j = 32
     
     We dispatch enough threads for the entire list. 
 
     Lets focus on the first thread group 0:
 
     Thread 0:
-    outer_index = 0 / (32/2) = 0
-    outer_index = 0 * 32 = 0;
+    outer_index = 0 / (64/2) = 0
+    outer_index = 0 * 64 = 0;
     ascending = true;
     inner_dispatch_id = 0;
 
@@ -168,11 +168,23 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
     inner_offset = 0;
 
     index_a = 0;
-    index_b = 0 ^ 16 = 17;
+    index_b = 0 ^ 32 = 32;
+
+    Thread 1:
+    outer_index = 1 / (64/2) = 0
+    outer_index = 0 * 64 = 0;
+    ascending = true;
+    inner_dispatch_id = 1;
+
+    local_index = 1;
+    inner_offset = 0;
+
+    index_a = 0;
+    index_b = 0 ^ 32 = 32;
 */
 [numthreads(TILE_SIZE, 1, 1)]
 void GlobalMergeCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID /* 0-31 */, uint3 GId : SV_GroupID /* 0 - (DISPATCH_X - 1) */)
-{         
+{       
     uint outer_index = DTid.x / (g_k / 2);
     uint outer_offset = outer_index * (g_k);
     bool ascending = (outer_index % 2) == 0; // ascending then descending
