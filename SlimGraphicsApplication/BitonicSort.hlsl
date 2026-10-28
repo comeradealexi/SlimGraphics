@@ -13,44 +13,44 @@
 #endif
 
 // ---------- Data types ----------
-struct KeyValue {
+struct KeyValue 
+{
     uint key;
     uint value; // payload, optional
 };
 
 // Replace KeyValue with float & payload if needed and update comparisons accordingly.
 // Structured buffers bound from CPU:
-StructuredBuffer<KeyValue> g_Input  : register(t0);
-RWStructuredBuffer<KeyValue> g_Output : register(u0);
+StructuredBuffer<KeyValue> InputBuffer  : register(t0);
+RWStructuredBuffer<KeyValue> OutputBuffer : register(u0);
 
 // ---------- Constants ----------
 cbuffer SortParams : register(b0)
 {
-    uint g_NumElements;   // array length (power-of-two, padded if necessary)
-    uint g_TileSize;      // should equal TILE_SIZE at runtime
-    uint g_Ascending;     // 1 = ascending, 0 = descending (global direction)
+    uint num_elements; // array length (power-of-two, padded if necessary)
     uint pad0;
-    // For GlobalMergeCS, we will set g_k and g_j via separate params (see below)
+    uint pad1;
+    uint pad2;
 };
 
 // Local tile params (can be same buffer, but we'll read only necessary fields)
 cbuffer GlobalMergeParams : register(b1)
 {
-    uint g_k;   // subsequence size for this pass (2, 4, 8, ... up to N)
-    uint g_j;   // half-subsequence (k >> 1)
-    uint g_dummy0;
-    uint g_dummy1;
+    uint Iter_K;   // subsequence size for this pass (2, 4, 8, ... up to N)
+    uint Iter_J;   // half-subsequence (k >> 1)
+    uint pad3;
+    uint pad4;
 }
 
 // ---------- groupshared memory ----------
 groupshared KeyValue s_data[TILE_SIZE];
 
 // ---------- Helper comparator ----------
-inline bool KeyLess(uint a, uint b) { return a < b; }
-inline bool KeyGreater(uint a, uint b) { return a > b; }
+bool KeyLess(uint a, uint b) { return a < b; }
+bool KeyGreater(uint a, uint b) { return a > b; }
 
 // Compare two KeyValue and return true if A > B (for swap decision in ascending sort)
-inline bool KeyGreaterKV(in KeyValue A, in KeyValue B)
+bool KeyGreaterKV(in KeyValue A, in KeyValue B)
 {
     // Primary compare on key. If equal, you could compare value for stable ordering
     return A.key > B.key;
@@ -75,15 +75,15 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
     bool ascending = (thread_index % 2) == 0;
 
     // Load into shared memory (guard out-of-range)
-    KeyValue myKV;
-    if (idx < g_NumElements) {       
-        myKV = g_Input[idx];
+    KeyValue key_value;
+    if (idx < num_elements) {       
+        key_value = InputBuffer[idx];
     } else {
         // For padded regions, set sentinel keys so they go to the end
-        myKV.key = 0xFFFFFFFFu; // largest unsigned value (for ascending)
-        myKV.value = 0;
+        key_value.key = 0xFFFFFFFFu; // largest unsigned value (for ascending)
+        key_value.value = 0;
     }
-    s_data[group_index] = myKV;
+    s_data[group_index] = key_value;
     GroupMemoryBarrierWithGroupSync();
 
     // In-group iterative bitonic network
@@ -138,9 +138,9 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
     // After this point, our TILE_SIZE sections should be sorted.
 
     // Write back
-    if (idx < g_NumElements) 
+    if (idx < num_elements) 
     {
-        g_Output[idx] = s_data[group_index];
+        OutputBuffer[idx] = s_data[group_index];
     }
 }
 
@@ -185,29 +185,29 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
 [numthreads(TILE_SIZE, 1, 1)]
 void GlobalMergeCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID /* 0-31 */, uint3 GId : SV_GroupID /* 0 - (DISPATCH_X - 1) */)
 {       
-    uint outer_index = DTid.x / (g_k / 2);
-    uint outer_offset = outer_index * (g_k);
+    uint outer_index = DTid.x / (Iter_K / 2);
+    uint outer_offset = outer_index * (Iter_K);
     bool ascending = (outer_index % 2) == 0; // ascending then descending
-    uint inner_dispatch_id = DTid.x % (g_k / 2); // 0 to g_k - 1
+    uint inner_dispatch_id = DTid.x % (Iter_K / 2); // 0 to K - 1
 
-    uint local_index = (uint)inner_dispatch_id % (uint) g_j; // 0 - (g_j - 1)
-    uint inner_offset = (inner_dispatch_id / g_j) * g_j * 2;
+    uint local_index = (uint) inner_dispatch_id % (uint) Iter_J; // 0 - (J - 1)
+    uint inner_offset = (inner_dispatch_id / Iter_J) * Iter_J * 2;
 
     {
         uint index_a = local_index;
-        uint index_b = index_a ^ g_j;
+        uint index_b = index_a ^ Iter_J;
         
         index_a += inner_offset + outer_offset;
         index_b += inner_offset + outer_offset;
         
-        KeyValue A = g_Output[index_a];
-        KeyValue B = g_Output[index_b];
+        KeyValue A = OutputBuffer[index_a];
+        KeyValue B = OutputBuffer[index_b];
         
         bool swap = ascending ? (A.key > B.key) : (A.key < B.key);
         if (swap)
         {
-            g_Output[index_a] = B;
-            g_Output[index_b] = A;
+            OutputBuffer[index_a] = B;
+            OutputBuffer[index_b] = A;
         }
     }
 }
