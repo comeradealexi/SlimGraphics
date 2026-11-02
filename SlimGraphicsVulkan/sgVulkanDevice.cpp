@@ -20,6 +20,7 @@ namespace sg
 {
 	namespace Vulkan
 	{
+#if SG_PLATFORM_D3D12
         // Helper function for acquiring the first available hardware adapter that supports Direct3D 12.
         // If no such adapter can be found, *ppAdapter will be set to nullptr.
         void GetHardwareAdapter(IDXGIFactory1* pFactory, IDXGIAdapter1** ppAdapter, bool requestHighPerformanceAdapter, D3D_FEATURE_LEVEL feature_level)
@@ -131,13 +132,27 @@ namespace sg
             }
 #endif
         }
+#endif // SG_PLATFORM_D3D12
 
 		Device::Device()
 		{
             seWriteLine("Creating Vulkan Device...");
 
-            context.
+            std::vector<vk::LayerProperties> layers = vk::enumerateInstanceLayerProperties();
+			std::vector<vk::ExtensionProperties> extensions = vk::enumerateInstanceExtensionProperties(nullptr);
 
+			// initialize the vk::ApplicationInfo structure
+            vk::ApplicationInfo application_info("SlimGraphics", 1, "SlimGraphics", 1, VK_API_VERSION_1_3);
+
+			// initialize the vk::InstanceCreateInfo
+			vk::InstanceCreateInfo instance_create_info({}, &application_info);
+
+			// create an Instance
+			instance = vk::raii::Instance(context, instance_create_info);
+
+            std::vector<vk::raii::PhysicalDevice> physical_devices = instance.enumeratePhysicalDevices();
+            
+#if SG_PLATFORM_D3D12
             const D3D_FEATURE_LEVEL feature_level = D3D_FEATURE_LEVEL_12_0;
             UINT dxgiFactoryFlags = 0;
 
@@ -184,7 +199,7 @@ namespace sg
                 seWriteLine(" - Budget: %lluMiB", memory_information.Budget / 1024llu / 1024llu); //Specifies the OS-provided video memory budget, in bytes, that the application should target. If CurrentUsage is greater than Budget, the application may incur stuttering or performance penalties due to background activity by the OS to provide other applications with a fair usage of video memory.
 				seWriteLine(" - CurrentUsage: %lluMiB", memory_information.CurrentUsage / 1024llu / 1024llu); //Specifies the application's current video memory usage, in bytes.
 				seWriteLine(" - AvailableForReservation: %lluMiB", memory_information.AvailableForReservation / 1024llu / 1024llu); //The amount of video memory, in bytes, that the application has available for reservation. To reserve this video memory, the application should call IDXGIAdapter3::SetVideoMemoryReservation.
-				seWriteLine(" - CurrentReservation: %lluMiB", memory_information.CurrentReservation / 1024llu / 1024llu); //The amount of video memory, in bytes, that is reserved by the application. The OS uses the reservation as a hint to determine the application’s minimum working set. Applications should attempt to ensure that their video memory usage can be trimmed to meet this requirement.
+				seWriteLine(" - CurrentReservation: %lluMiB", memory_information.CurrentReservation / 1024llu / 1024llu); //The amount of video memory, in bytes, that is reserved by the application. The OS uses the reservation as a hint to determine the applicationï¿½s minimum working set. Applications should attempt to ensure that their video memory usage can be trimmed to meet this requirement.
 			}
 
             CHECKHR(D3D12CreateDevice(hardware_adapter.Get(), feature_level, IID_PPV_ARGS(&device)));
@@ -241,10 +256,12 @@ namespace sg
             {
                 seWriteLine("Created all allocators.");
             }
+#endif
 		}
 
         void Device::imgui_init(u32 num_frames, DXGI_FORMAT format, DXGI_FORMAT depth_format, CommandQueue* command_queue)
         {
+#if SG_PLATFORM_D3D12
             ImGui_ImplDX12_InitInfo init_info = {};
             init_info.Device = device.Get();
             init_info.CommandQueue = command_queue->get().Get();
@@ -280,7 +297,7 @@ namespace sg
                 rcd.height = 1024;
                 rcd.format = DXGI_FORMAT_R8G8B8A8_UNORM;
                 //rcd.usage_flags = ResourceUsageFlags::RenderTarget | ResourceUsageFlags::UnorderedAccess;
-				sg::SizeAndAlignment size_align = calculate_resource_size_alignment(rcd);
+				SizeAndAlignment size_align = calculate_resource_size_alignment(rcd);
                 imgui_texture_viewer.texture_memory = allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, size_align.size, size_align.alignment);
                 imgui_texture_viewer.texture = create_texture(imgui_texture_viewer.texture_memory, size_align.size, rcd);
                 imgui_texture_viewer.texture->get()->SetName(L"ImGui View Texture");
@@ -293,11 +310,13 @@ namespace sg
             {
                 seAssert(false, "Error: ImGui_ImplDX12_Init failed!" );
             }
+#endif // SG_PLATFORM_D3D12
         }
 
 
 		void Device::imgui_update()
 		{
+#if SG_PLATFORM_D3D12
             ImGui::PushID("SGDevice");
 
             if (ImGui::CollapsingHeader("Device"))
@@ -330,7 +349,7 @@ namespace sg
                 ImGui::Text(" - Budget: %llu", memory_information.Budget / 1024llu / 1024llu); //Specifies the OS-provided video memory budget, in bytes, that the application should target. If CurrentUsage is greater than Budget, the application may incur stuttering or performance penalties due to background activity by the OS to provide other applications with a fair usage of video memory.
                 ImGui::Text(" - CurrentUsage: %llu", memory_information.CurrentUsage / 1024llu / 1024llu); //Specifies the application's current video memory usage, in bytes.
                 ImGui::Text(" - AvailableForReservation: %llu", memory_information.AvailableForReservation / 1024llu / 1024llu); //The amount of video memory, in bytes, that the application has available for reservation. To reserve this video memory, the application should call IDXGIAdapter3::SetVideoMemoryReservation.
-                ImGui::Text(" - CurrentReservation: %llu", memory_information.CurrentReservation / 1024llu / 1024llu); //The amount of video memory, in bytes, that is reserved by the application. The OS uses the reservation as a hint to determine the application’s minimum working set. Applications should attempt to ensure that their video memory usage can be trimmed to meet this requirement.
+                ImGui::Text(" - CurrentReservation: %llu", memory_information.CurrentReservation / 1024llu / 1024llu); //The amount of video memory, in bytes, that is reserved by the application. The OS uses the reservation as a hint to determine the applicationï¿½s minimum working set. Applications should attempt to ensure that their video memory usage can be trimmed to meet this requirement.
 
                 ImGui::SeparatorText("D3D12MA Pools:");
                 D3D12MA::Budget local, non_local;
@@ -413,11 +432,13 @@ namespace sg
             }
 
 
-            ImGui::PopID();            
+            ImGui::PopID();       
+#endif
 		}
 
 		void Device::imgui_render(CommandList* command_list)
         {
+#if SG_PLATFORM_D3D12
             ID3D12GraphicsCommandList6* d3d_cmd_list = command_list->get().Get();
 
             ID3D12DescriptorHeap* heap = cbv_srv_uav_descriptor_heap_imgui->get_heap().Get();
@@ -432,16 +453,21 @@ namespace sg
 				ImGui::RenderPlatformWindowsDefault();
 			}
 #endif
+#endif
         }
 
 
 		void Device::set_imgui_viewer_texture(SharedPtr<Texture> texture)
 		{
+#if SG_PLATFORM_D3D12
             imgui_texture_viewer.texture = texture;
-			CD3DX12_SHADER_RESOURCE_VIEW_DESC srvd = CD3DX12_SHADER_RESOURCE_VIEW_DESC::Tex2D(texture->resource_create_desc.format);
-			device->CreateShaderResourceView(imgui_texture_viewer.texture->get().Get(), &srvd, imgui_texture_viewer.cpu_handle);
+            CD3DX12_SHADER_RESOURCE_VIEW_DESC srvd = CD3DX12_SHADER_RESOURCE_VIEW_DESC::Tex2D(texture->resource_create_desc.format);
+            device->CreateShaderResourceView(imgui_texture_viewer.texture->get().Get(), &srvd, imgui_texture_viewer.cpu_handle);
+#endif // SG_PLATFORM_D3D12
+
 		}
 
+#if SG_PLATFORM_D3D12
 		D3D12_RESOURCE_DESC Device::create_dx12_resource_desc(const ResourceCreateDesc& desc)
 		{
 			const ResourceUsageFlags invalid_4kb_flags = ResourceUsageFlags::RenderTarget | ResourceUsageFlags::DepthStencil;
@@ -462,17 +488,22 @@ namespace sg
 
             return d3d12_desc;
 		}
+#endif //SG_PLATFORM_D3D12
 
 		SizeAndAlignment Device::calculate_resource_size_alignment(const ResourceCreateDesc& desc)
 		{
+#if SG_PLATFORM_D3D12
             D3D12_RESOURCE_DESC d3d12_desc = create_dx12_resource_desc(desc);
 
             D3D12_RESOURCE_ALLOCATION_INFO alloc_info = device->GetResourceAllocationInfo(0, 1, &d3d12_desc);
             return { alloc_info.SizeInBytes, alloc_info.Alignment };
+#endif // SG_PLATFORM_D3D12
+
 		}
 
 		SharedPtr<Memory> Device::allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment)
         {
+#if SG_PLATFORM_D3D12
             size = AlignUp(size, alignment);
             if (type == MemoryType::Upload)
             {
@@ -512,13 +543,14 @@ namespace sg
 
 				return SharedPtr<Memory>(new Memory(type, alloc));
             }
+#endif //SG_PLATFORM_D3D12
         }
 
         ComPtr<QueueFence> Device::create_queue_fence()
         {
-            ComPtr<QueueFence> fence;
-            CHECKHR(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf())))
-            return fence;
+			ComPtr<QueueFence> fence;
+			CHECKHR(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf())))
+				return fence;
         }
 
 
@@ -529,7 +561,7 @@ namespace sg
 		}
 
 
-        SharedPtr<sg::D3D12::GPUStatisticPool> Device::create_gpu_statistic_pool(CommandQueue* queue, u32 max_stats)
+        SharedPtr<GPUStatisticPool> Device::create_gpu_statistic_pool(CommandQueue* queue, u32 max_stats)
 		{
 			ID3D12CommandQueue* d3d12_queue = queue->get().Get();
 			return SharedPtr<GPUStatisticPool>(new GPUStatisticPool(device6.Get(), d3d12_queue, max_stats));
@@ -597,25 +629,25 @@ namespace sg
             return SharedPtr<PixelShader>(new PixelShader(shader));
         }
 
-		sg::SharedPtr<sg::ComputeShader> Device::create_compute_shader(const std::vector<uint8_t>& shader)
+		SharedPtr<ComputeShader> Device::create_compute_shader(const std::vector<uint8_t>& shader)
 		{
 			return SharedPtr<ComputeShader>(new ComputeShader(shader));
 		}
 
 
-		sg::SharedPtr<sg::MeshShader> Device::create_mesh_shader(const std::vector<uint8_t>& shader)
+		SharedPtr<MeshShader> Device::create_mesh_shader(const std::vector<uint8_t>& shader)
 		{
 			return SharedPtr<MeshShader>(new MeshShader(shader));
 		}
 
 
-		sg::SharedPtr<sg::AmplificationShader> Device::create_amplification_shader(const std::vector<uint8_t>& shader)
+		SharedPtr<AmplificationShader> Device::create_amplification_shader(const std::vector<uint8_t>& shader)
 		{
 			return SharedPtr<AmplificationShader>(new AmplificationShader(shader));
 		}
 
 
-		sg::SharedPtr<sg::GeometryShader> Device::create_geometry_shader(const std::vector<uint8_t>& shader)
+		SharedPtr<GeometryShader> Device::create_geometry_shader(const std::vector<uint8_t>& shader)
 		{
 			return SharedPtr<GeometryShader>(new GeometryShader(shader));
 		}
@@ -646,17 +678,17 @@ namespace sg
                 psoDesc.SampleDesc.Count = 1;
             }
 
-            D3D12_INPUT_ELEMENT_DESC ied_array[sg::InputLayout::Desc::MAX_ELEMENTS] = {};
+            D3D12_INPUT_ELEMENT_DESC ied_array[InputLayout::Desc::MAX_ELEMENTS] = {};
             D3D12_INPUT_LAYOUT_DESC ild = {};
             if (pipeline_desc.input_layout.num_elements > 0)
             {
-				seAssert(pipeline_desc.input_layout.num_elements <= sg::InputLayout::Desc::MAX_ELEMENTS, "Too many elements");
+				seAssert(pipeline_desc.input_layout.num_elements <= InputLayout::Desc::MAX_ELEMENTS, "Too many elements");
                 ild.pInputElementDescs = ied_array;
                 ild.NumElements = pipeline_desc.input_layout.num_elements;
                 for (size_t i = 0; i < pipeline_desc.input_layout.num_elements; i++)
                 {
                     D3D12_INPUT_ELEMENT_DESC& ied = ied_array[i];
-                    const sg::InputLayout::ElementDesc& ed = pipeline_desc.input_layout.elements[i];
+                    const InputLayout::ElementDesc& ed = pipeline_desc.input_layout.elements[i];
 
                     ied.SemanticName = ed.semantic_name;
                     ied.SemanticIndex = ed.semantic_index;
@@ -745,7 +777,7 @@ namespace sg
 			return out_pipeline;
 		}
 
-		sg::SharedPtr<sg::Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, BufferType type, bool uav_access)
+		SharedPtr<Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, BufferType type, bool uav_access)
 		{
             const D3D12_RESOURCE_FLAGS flags = uav_access ? (D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) : D3D12_RESOURCE_FLAG_NONE;
             const D3D12_RESOURCE_ALLOCATION_INFO rai = { size, DefaultAlignment::BUFFER_ALIGNMENT };
@@ -756,14 +788,14 @@ namespace sg
 			ComPtr<ID3D12Resource> d3d12_buffer;
 			CHECKHR(device6->CreatePlacedResource(d3d12_alloc->GetHeap(), d3d12_alloc->GetOffset(), &ResourceDesc, resource_state, nullptr, IID_PPV_ARGS(d3d12_buffer.GetAddressOf())));
             
-            sg::SharedPtr<sg::Buffer> buffer(new sg::Buffer(type, size, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
+            SharedPtr<Buffer> buffer(new Buffer(type, size, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback));
             buffer->memory = memory;
             buffer->resource = d3d12_buffer;
             return buffer;
 		}
 
 
-		se::SharedPtr<sg::D3D12::Texture> Device::create_texture(SharedPtr<Memory> memory, u32 size, const ResourceCreateDesc& resource_desc)
+		se::SharedPtr<Texture> Device::create_texture(SharedPtr<Memory> memory, u32 size, const ResourceCreateDesc& resource_desc)
 		{
 			D3D12_RESOURCE_DESC d3d12_desc = create_dx12_resource_desc(resource_desc);
 
@@ -780,7 +812,7 @@ namespace sg
 		}
 
 
-		sg::SharedPtr<sg::Texture> Device::create_texture_from_dds(const void* dds_memory, u64 dds_size, sg::UploadHeap& upload_heap)
+		SharedPtr<Texture> Device::create_texture_from_dds(const void* dds_memory, u64 dds_size, UploadHeap& upload_heap)
 		{
             size_t mem_size = 0;
             SharedPtr<Memory> memory;
@@ -821,7 +853,7 @@ namespace sg
                 {
                     // Row pitch must be D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, if not we must modify the data
                     const u64 height = mip.SlicePitch / mip.RowPitch;
-                    u64 new_pitch = sg::AlignUp((u64)mip.RowPitch, (u64)D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+                    u64 new_pitch = AlignUp((u64)mip.RowPitch, (u64)D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
                     u64 new_size = height * new_pitch;
                     char* new_data = (char*)malloc(new_size);
                     char* new_data_iter = new_data;
@@ -851,7 +883,7 @@ namespace sg
 		}
 
 
-		se::SharedPtr<sg::D3D12::IndirectArguments> Device::create_indirect_arguments()
+		se::SharedPtr<IndirectArguments> Device::create_indirect_arguments()
 		{
             // WARNING - Currently ONLY used for mesh shader dispatch
 
@@ -929,7 +961,7 @@ namespace sg
 			rtv_descriptor_heap->free(dsv->heap_index);
 		}
 
-		sg::ConstantBufferView Device::create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size)
+		ConstantBufferView Device::create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size)
 		{
 			seAssert(offset % D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT == 0, "Invalid offset");
             seAssert(size > 0, "Invalid size");
@@ -946,7 +978,7 @@ namespace sg
 		}
 
 
-		sg::D3D12::ShaderResourceView Device::create_shader_resource_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count)
+		ShaderResourceView Device::create_shader_resource_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count)
 		{
             D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
 			{
@@ -977,7 +1009,7 @@ namespace sg
 		}
 
 
-		sg::D3D12::ShaderResourceView Device::create_shader_resource_view(SharedPtr<Texture> texture)
+		ShaderResourceView Device::create_shader_resource_view(SharedPtr<Texture> texture)
 		{
 			ShaderResourceView srv;
             srv.texture_resource = texture;
@@ -993,7 +1025,7 @@ namespace sg
             return srv;
 		}
 
-		sg::D3D12::UnorderedAccessView Device::create_unordered_access_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count)
+		UnorderedAccessView Device::create_unordered_access_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count)
 		{
             D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
 			{
@@ -1026,7 +1058,7 @@ namespace sg
 		}
 
 
-		sg::UnorderedAccessView Device::create_unordered_access_view(SharedPtr<Texture> texture)
+		UnorderedAccessView Device::create_unordered_access_view(SharedPtr<Texture> texture)
 		{
             seAssert(texture->resource_create_desc.dimension == ResourceDimension::Texture2D, "Only supported this path currently");
 			D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
@@ -1078,17 +1110,17 @@ namespace sg
             return features.WaveOps();
 		}
 
-		sg::u32 Device::GetWaveLaneCountMin()
+		u32 Device::GetWaveLaneCountMin()
 		{
             return features.WaveLaneCountMin();
 		}
 
-		sg::u32 Device::GetWaveLaneCountMax()
+		u32 Device::GetWaveLaneCountMax()
 		{
             return features.WaveLaneCountMax();
 		}
 
-		sg::u32 Device::GetTotalLaneCount()
+		u32 Device::GetTotalLaneCount()
 		{
             return features.TotalLaneCount();
 		}
@@ -1109,7 +1141,7 @@ namespace sg
         }
 
 
-		sg::u64 Device::CalculateResourceSize(u32 width, u32 height, u32 depth, u32 mip_levels, DXGI_FORMAT format)
+		u64 Device::CalculateResourceSize(u32 width, u32 height, u32 depth, u32 mip_levels, DXGI_FORMAT format)
 		{
             SIZE_T size;
             if (D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::CalculateResourceSize(width, height, depth, format, mip_levels, 1, size) == S_OK)
@@ -1171,7 +1203,7 @@ namespace sg
         }
 
 
-		void Device::AddSamplers(const char* sampler_name, const sg::SamplerDesc& sampler_desc)
+		void Device::AddSamplers(const char* sampler_name, const SamplerDesc& sampler_desc)
 		{
             SamplerInfo new_sampler;
             new_sampler.name = sampler_name;

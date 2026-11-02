@@ -1,6 +1,8 @@
 #include "Terrain.h"
 #include <lodepng.h>
 #include <imgui.h>
+#include <Utils.h>
+#include <sgUtils.h>
 
 // https://learnopengl.com/Guest-Articles/2021/Tessellation/Height-map
 
@@ -13,8 +15,8 @@ Terrain::Terrain(SharedPtr<Device>& _device) : device(_device)
 	height_textures_list.push_back("..\\SlimGraphicsAssets\\Textures\\snowdon.png");
 	height_textures_list.push_back("..\\SlimGraphicsAssets\\Textures\\louisd.png");
 
-	std::vector<uint8_t> vertex_data = se::BasicFileIO::load_file("ShaderBin_Debug\\Terrain_VertexShader.PC_DXC");
-	std::vector<uint8_t> pixel_data = se::BasicFileIO::load_file("ShaderBin_Debug\\Terrain_PixelShader.PC_DXC");
+	//std::vector<uint8_t> vertex_data =  se::BasicFileIO::load_file(get_shader_path("Terrain_VertexShader"));
+	//std::vector<uint8_t> pixel_data = se::BasicFileIO::load_file(get_shader_path("Terrain_PixelShader"));
 }
 
 void Terrain::Update(float delta_time, float total_time, const Camera& camera, DebugDraw& debug_draw)

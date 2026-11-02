@@ -49,6 +49,10 @@ namespace SlimEngine
                 "System.Xml",
                 "System.Xml.Linq",
                 "System.Memory");
+            
+            string BinariesFolder = Path.Join(Globals.Root, "Binaries");
+            // I've had to use $(TargetDir) and reference the visual studio internals directly. I was unable to add different build events for Debug and Release for this project for some reason!
+            conf.EventPostBuild.Add("xcopy \"$(TargetDir)\" \"" + BinariesFolder + "\" /Y");
         }
     }
 }

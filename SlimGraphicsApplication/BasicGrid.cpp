@@ -3,15 +3,15 @@
 #include <imgui.h>
 #include <seEngineBasicFileIO.h>
 #include "Camera.h"
+#include <Utils.h>
+#include <sgUtils.h>
 
 using namespace sg;
 
 BasicGrid::BasicGrid(sg::SharedPtr<sg::Device>& _device)
 {
-	std::vector<uint8_t> vertex_data = se::BasicFileIO::load_file("ShaderBin_Debug\\BasicGrid_VertexShader.PC_DXC");
-	std::vector<uint8_t> pixel_data = se::BasicFileIO::load_file("ShaderBin_Debug\\BasicGrid_PixelShader.PC_DXC");
-	sg::SharedPtr<sg::VertexShader> vs = _device->create_vertex_shader(vertex_data);
-	sg::SharedPtr<sg::PixelShader> ps = _device->create_pixel_shader(pixel_data);
+	sg::SharedPtr<sg::VertexShader> vs = create_vertex_shader(*_device, get_shader_path("BasicGrid_VertexShader"));
+	sg::SharedPtr<sg::PixelShader> ps = create_pixel_shader(*_device, get_shader_path("BasicGrid_PixelShader"));
 
 	sg::BindingDesc pipeline_binding_desc;
 	pipeline_binding_desc.cbv_binding_count = 1;

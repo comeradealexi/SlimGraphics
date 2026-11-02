@@ -340,6 +340,10 @@ namespace SlimShaderCompiler
                 if (args.platform == Platform.PC_DXC_SPIRV)
                 {
                     sb.Append("-spirv ");
+                    // We don't want to decorate all the HLSL with vulkan binding attributes so each type is offset under spirv
+                    sb.Append("-fvk-b-shift 0 0 -fvk-t-shift 16 0 -fvk-s-shift 32 0 -fvk-u-shift 48 0 ");
+                    // Allow use of wave intrinsics
+                    sb.Append("-fspv-target-env=vulkan1.1 ");
                 }
                 sb.Append("/Zi ");
                 sb.AppendFormat("-T {0} ", shader.profile);

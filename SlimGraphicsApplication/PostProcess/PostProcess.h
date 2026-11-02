@@ -31,11 +31,11 @@ public:
 	struct DispatchModeInfo { sg::u32 x; sg::u32 y; const char* shader; };
 	static constexpr DispatchModeInfo kDispatchModeInfo[(size_t)DispatchMode::Count]
 		= { 
-			{4,4,"ShaderBin_Debug/PostProcessComputeShader_THREAD_COUNT_4_4.PC_DXC"},
-			{8,4,"ShaderBin_Debug/PostProcessComputeShader_THREAD_COUNT_8_4.PC_DXC"},
-			{8,8,"ShaderBin_Debug/PostProcessComputeShader_THREAD_COUNT_8_8.PC_DXC"},
-			{16,8,"ShaderBin_Debug/PostProcessComputeShader_THREAD_COUNT_16_8.PC_DXC"},
-			{16,16,"ShaderBin_Debug/PostProcessComputeShader_THREAD_COUNT_16_16.PC_DXC"},
+			{4,4,"PostProcessComputeShader_THREAD_COUNT_4_4"},
+			{8,4,"PostProcessComputeShader_THREAD_COUNT_8_4"},
+			{8,8,"PostProcessComputeShader_THREAD_COUNT_8_8"},
+			{16,8,"PostProcessComputeShader_THREAD_COUNT_16_8"},
+			{16,16,"PostProcessComputeShader_THREAD_COUNT_16_16"},
 	};
 	const DispatchModeInfo& GetActiveDispatchInfo(DispatchMode mode) const { return kDispatchModeInfo[(size_t)mode]; }
 

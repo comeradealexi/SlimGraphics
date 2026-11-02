@@ -30,6 +30,16 @@ namespace SlimEngine
         {
             return path;
         }
+
+        public static string GetShaderCompilerFolder(Optimization optimization)
+        {
+            return "ShaderBin_" + (optimization);
+        }
+
+        public static string GetShaderCompilerExtension()
+        {
+            return Vulkan ? "PC_DXC_SPIRV" : "PC_DXC";
+        }
     }
 
     [Sharpmake.Generate]

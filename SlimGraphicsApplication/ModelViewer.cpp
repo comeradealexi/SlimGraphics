@@ -5,6 +5,7 @@
 #include "Camera.h"
 #include <algorithm>
 #include "sgUtils.h"
+#include "Utils.h"
 
 using namespace sg;
 
@@ -45,29 +46,29 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 	amplification_mesh_shading.binding_desc.sampler_binding_count = 3;
 
 	{
-		shader_vertex = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShader.PC_DXC");
-		shader_geometry = create_geometry_shader(*device, "ShaderBin_Debug\\ModelViewer_GeometryShader.PC_DXC");
+		shader_vertex = create_vertex_shader(*device, get_shader_path("ModelViewer_VertexShader"));
+		shader_geometry = create_geometry_shader(*device, get_shader_path("ModelViewer_GeometryShader"));
 
-		shader_vertex_simple = create_vertex_shader(*device, "ShaderBin_Debug\\SimplifiedModelViewer_VertexShader.PC_DXC");
+		shader_vertex_simple = create_vertex_shader(*device, get_shader_path("SimplifiedModelViewer_VertexShader"));
 
-		shader_vertex_middle_triangle = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderMiddleTriangle.PC_DXC");
-		shader_vertex_triangle = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderTriangle.PC_DXC");
-		shader_vertex_quad = create_vertex_shader(*device, "ShaderBin_Debug\\ModelViewer_VertexShaderQuad.PC_DXC");
+		shader_vertex_middle_triangle = create_vertex_shader(*device, get_shader_path("ModelViewer_VertexShaderMiddleTriangle"));
+		shader_vertex_triangle = create_vertex_shader(*device, get_shader_path("ModelViewer_VertexShaderTriangle"));
+		shader_vertex_quad = create_vertex_shader(*device, get_shader_path("ModelViewer_VertexShaderQuad"));
 	}
 
 	// Mesh Shader
 	{
-		mesh_shading.shader_mesh = create_mesh_shader(*device, "ShaderBin_Debug\\ModelViewer_MeshShader.PC_DXC");
-		mesh_shading.shader_pixel = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelMeshShader.PC_DXC");
-		mesh_shading.shader_pixel_eds = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_PixelMeshShader_EDS.PC_DXC");
+		mesh_shading.shader_mesh = create_mesh_shader(*device, get_shader_path("ModelViewer_MeshShader"));
+		mesh_shading.shader_pixel = create_pixel_shader(*device, get_shader_path("ModelViewer_PixelMeshShader"));
+		mesh_shading.shader_pixel_eds = create_pixel_shader(*device, get_shader_path("ModelViewer_PixelMeshShader_EDS"));
 	}
 
 	// Amplification + Mesh Shader
 	{
-		amplification_mesh_shading.shader_amplification = create_amplification_shader(*device, "ShaderBin_Debug\\ModelViewer_MeshletAmplificationAS.PC_DXC");
-		amplification_mesh_shading.shader_mesh = create_mesh_shader(*device, "ShaderBin_Debug\\ModelViewer_MeshletAmplificationMS.PC_DXC");
-		amplification_mesh_shading.shader_pixel = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_MeshletAmplificationPS.PC_DXC");
-		amplification_mesh_shading.shader_pixel_eds = create_pixel_shader(*device, "ShaderBin_Debug\\ModelViewer_MeshletAmplificationPS_EDS.PC_DXC");
+		amplification_mesh_shading.shader_amplification = create_amplification_shader(*device, get_shader_path("ModelViewer_MeshletAmplificationAS"));
+		amplification_mesh_shading.shader_mesh = create_mesh_shader(*device, get_shader_path("ModelViewer_MeshletAmplificationMS"));
+		amplification_mesh_shading.shader_pixel = create_pixel_shader(*device, get_shader_path("ModelViewer_MeshletAmplificationPS"));
+		amplification_mesh_shading.shader_pixel_eds = create_pixel_shader(*device, get_shader_path("ModelViewer_MeshletAmplificationPS_EDS"));
 	}
 
 	CreatePipeline();
@@ -877,21 +878,19 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 
 void ModelViewer::CreatePipeline()
 {
-	std::string pixel_shader_file = "ShaderBin_Debug\\";
+	std::string pixel_shader_file;
 	switch (standard_vsps_render_mode)
 	{
-		case StandardPixelPipelineMode::Full: pixel_shader_file += "ModelViewer_PixelShader"; break;
-		case StandardPixelPipelineMode::Simple: pixel_shader_file += "SimplifiedModelViewer_PixelShader"; break;
-		case StandardPixelPipelineMode::SimpleAndDiscard: pixel_shader_file += "SimplifiedModelViewer_PixelShader_DISCARD"; break;
-		case StandardPixelPipelineMode::SimpleAndPixelDepthWrite: pixel_shader_file += "SimplifiedModelViewer_PixelShader_DEPTHWRITE"; break;
+		case StandardPixelPipelineMode::Full: pixel_shader_file = "ModelViewer_PixelShader"; break;
+		case StandardPixelPipelineMode::Simple: pixel_shader_file = "SimplifiedModelViewer_PixelShader"; break;
+		case StandardPixelPipelineMode::SimpleAndDiscard: pixel_shader_file = "SimplifiedModelViewer_PixelShader_DISCARD"; break;
+		case StandardPixelPipelineMode::SimpleAndPixelDepthWrite: pixel_shader_file = "SimplifiedModelViewer_PixelShader_DEPTHWRITE"; break;
 	}
 	
 	if (pixel_shader_variations[PixelShaderVariations::EarlyDepthStencil]) pixel_shader_file += "_EDS";
 	if (pixel_shader_variations[PixelShaderVariations::GeometryShader]) pixel_shader_file += "_GS";
 	
-	pixel_shader_file += ".PC_DXC";
-
-	shader_pixel = create_pixel_shader(*device, pixel_shader_file.c_str());
+	shader_pixel = create_pixel_shader(*device, get_shader_path(pixel_shader_file));
 
 	pipeline_desc.input_layout = Model::Vertex::make_input_layout();
 	pipeline_desc.vertex_shader = standard_vsps_render_mode == StandardPixelPipelineMode::Full ? shader_vertex : shader_vertex_simple;

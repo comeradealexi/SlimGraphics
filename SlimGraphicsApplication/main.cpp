@@ -10,6 +10,7 @@
 #include "AverageTimer.h"
 #include "BasicGrid.h"
 #include <sgUtils.h>
+#include "Utils.h"
 
 //Application headers
 #include "Model.h"
@@ -164,11 +165,11 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	}
 
 	//Load Shaders
-	SharedPtr<VertexShader> vs = sg::create_vertex_shader(*device, "ShaderBin_Debug\\Basic_VertexShader.PC_DXC");
-	SharedPtr<PixelShader> ps = sg::create_pixel_shader(*device, "ShaderBin_Debug\\Basic_PixelShader.PC_DXC");
-	SharedPtr<PixelShader> ps_cb = sg::create_pixel_shader(*device, "ShaderBin_Debug\\Basic_ConstantBuffer_PixelShader.PC_DXC");
-	SharedPtr<PixelShader> ps_b = sg::create_pixel_shader(*device, "ShaderBin_Debug\\Basic_Buffer_PixelShader.PC_DXC");
-	SharedPtr<ComputeShader> cs = sg::create_compute_shader(*device, "ShaderBin_Debug\\Basic_ComputeShader.PC_DXC");
+	SharedPtr<VertexShader> vs = sg::create_vertex_shader(*device, get_shader_path("Basic_VertexShader"));
+	SharedPtr<PixelShader> ps = sg::create_pixel_shader(*device, get_shader_path("Basic_PixelShader"));
+	SharedPtr<PixelShader> ps_cb = sg::create_pixel_shader(*device, get_shader_path("Basic_ConstantBuffer_PixelShader"));
+	SharedPtr<PixelShader> ps_b = sg::create_pixel_shader(*device, get_shader_path("Basic_Buffer_PixelShader"));
+	SharedPtr<ComputeShader> cs = sg::create_compute_shader(*device, get_shader_path("Basic_ComputeShader"));
 
 	SharedPtr<RenderTargetView> backbuffer_rtvs[frame_count];
 	u32 current_frame_idx = device->create_swap_chain(wnd->g_hWnd, queue.get(), frame_count, back_buffer_format, w, h, backbuffer_rtvs);
@@ -282,7 +283,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	Ptr< PostProcess> post_process(new PostProcess(device));
 	device->set_imgui_viewer_texture(magnifying_glass->render_texture);
 	Ptr< Terrain> terrain = Ptr<Terrain>(new Terrain(device));
-	//Ptr< BitonicSort> bitonic_sort = Ptr< BitonicSort>(new BitonicSort(device));
+	Ptr< BitonicSort> bitonic_sort = Ptr< BitonicSort>(new BitonicSort(device));
 	volatile bool run = true;
 
 	// I start this at value of 1 because the D3D12 fence doesn't like waiting on a value of 0...
@@ -478,7 +479,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 			// Bitonic Sort
 			{
-				//bitonic_sort->sort(*command_buffer, *linear_cb);
+				bitonic_sort->sort(*command_buffer, *linear_cb);
 			}
 
 			command_buffer->start_geometry_pass(1, &intermediate_rtv, vp, sc);

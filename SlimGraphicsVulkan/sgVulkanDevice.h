@@ -139,7 +139,7 @@ namespace sg
 			vk::raii::PhysicalDevice physicalDevice;
 			vk::raii::Device device;
 
-#if 0
+#if SG_PLATFORM_D3D12
 			ComPtr<ID3D12Device> device;
 			ComPtr<ID3D12Device6> device6;
 			ComPtr<IDXGIFactory4> factory;
@@ -171,7 +171,7 @@ namespace sg
 				sg::SamplerDesc sampler_desc;
 			};
 			std::vector<SamplerInfo> samplers;
-#endif
+#endif //SG_PLATFORM_D3D12
 		};
 	}
 }

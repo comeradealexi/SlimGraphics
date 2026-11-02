@@ -1,6 +1,7 @@
 #include "PostProcess.h"
 #include "sgUtils.h"
 #include <imgui.h>
+#include <Utils.h>
 
 using namespace sg;
 
@@ -137,6 +138,6 @@ bool PostProcess::Render(sg::CommandList& command_list, sg::ConstantBufferView& 
 
 void PostProcess::LoadPipeline()
 {
-	pipeline_desc.compute_shader = create_compute_shader(*device, GetActiveDispatchInfo(dispatch_mode).shader);
+	pipeline_desc.compute_shader = create_compute_shader(*device, get_shader_path(GetActiveDispatchInfo(dispatch_mode).shader));
 	pipeline = device->create_pipeline(pipeline_desc, pipeline_binding_desc);
 }

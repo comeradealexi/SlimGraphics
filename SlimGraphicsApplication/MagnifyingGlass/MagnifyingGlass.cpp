@@ -2,6 +2,7 @@
 #include "MagnifyingGlass.h"
 #include "sgUtils.h"
 #include <imgui.h>
+#include <Utils.h>
 
 using namespace sg;
 
@@ -18,8 +19,8 @@ MagnifyingGlass::MagnifyingGlass(sg::SharedPtr<sg::Device>& _device) : device(_d
 	bd.srv_binding_count = 1;
 
 	PipelineDesc::Graphics pd;
-	pd.vertex_shader = create_vertex_shader(*device, "ShaderBin_Debug\\MagnifyingGlass_VS.PC_DXC");
-	pd.pixel_shader = create_pixel_shader(*device, "ShaderBin_Debug\\MagnifyingGlass_PS.PC_DXC");
+	pd.vertex_shader = create_vertex_shader(*device, get_shader_path("MagnifyingGlass_VS"));
+	pd.pixel_shader = create_pixel_shader(*device, get_shader_path("MagnifyingGlass_PS"));
 	pd.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 	pd.render_target_count = 1;
 	pd.depth_stencil_desc.depth_enable = false;

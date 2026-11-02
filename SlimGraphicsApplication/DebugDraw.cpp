@@ -1,7 +1,8 @@
 #include "DebugDraw.h"
 #include <seEngineBasicFileIO.h>
 #include <imgui.h>
-
+#include <sgUtils.h>
+#include <Utils.h>
 using namespace sg;
 
 DebugDraw::DebugDraw(sg::Device& device)
@@ -32,10 +33,8 @@ DebugDraw::DebugDraw(sg::Device& device)
 
 	// Shaders
 	{
-		std::vector<uint8_t> vertex_data = se::BasicFileIO::load_file("ShaderBin_Debug\\DebugWireframeShader_VertexShader.PC_DXC");
-		std::vector<uint8_t> pixel_data = se::BasicFileIO::load_file("ShaderBin_Debug\\DebugWireframeShader_PixelShader.PC_DXC");
-		sg::SharedPtr<sg::VertexShader> shader_vertex = device.create_vertex_shader(vertex_data);
-		sg::SharedPtr<sg::PixelShader> shader_pixel = device.create_pixel_shader(pixel_data);
+		sg::SharedPtr<sg::VertexShader> shader_vertex = create_vertex_shader(device, get_shader_path("DebugWireframeShader_VertexShader"));
+		sg::SharedPtr<sg::PixelShader> shader_pixel = create_pixel_shader(device, get_shader_path("DebugWireframeShader_PixelShader"));
 
 		sg::BindingDesc pipeline_binding_desc = {}; 
 		pipeline_binding_desc.cbv_binding_count = 1;

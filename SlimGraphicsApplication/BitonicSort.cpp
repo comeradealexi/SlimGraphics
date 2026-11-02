@@ -2,6 +2,7 @@
 #include "sgUtils.h"
 #include <lodepng.h>
 #include <imgui.h>
+#include <Utils.h>
 using namespace sg;
 
 
@@ -16,10 +17,10 @@ BitonicSort::BitonicSort(sg::SharedPtr<sg::Device>& _device) : device(_device)
 	pipeline_binding_desc.cbv_binding_count = 2;
 	PipelineDesc::Compute pipeline_desc = {};	
 
-	pipeline_desc.compute_shader = create_compute_shader(*_device, "ShaderBin_Debug\\BitonicSort_LocalTileSort.PC_DXC");
+	pipeline_desc.compute_shader = create_compute_shader(*_device, get_shader_path("BitonicSort_LocalTileSort"));
 	pipeline_tile_sort = _device->create_pipeline(pipeline_desc, pipeline_binding_desc);
 
-	pipeline_desc.compute_shader = create_compute_shader(*_device, "ShaderBin_Debug\\BitonicSort_Merge.PC_DXC");
+	pipeline_desc.compute_shader = create_compute_shader(*_device, get_shader_path("BitonicSort_Merge"));
 	pipeline_merge = _device->create_pipeline(pipeline_desc, pipeline_binding_desc);
 
 	buffer_upload = create_buffer(*device, 1024 * 1024, BufferType::Upload, false);

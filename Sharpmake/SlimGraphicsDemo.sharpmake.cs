@@ -42,6 +42,9 @@ namespace SlimEngine
             conf.AddPrivateDependency<ImPlotProject>(target);
             conf.AddPrivateDependency<LodePNGProject>(target);
 
+            conf.Defines.Add("SHADER_COMPILER_FOLDER=\"" + Globals.GetShaderCompilerFolder(target.Optimization) + "\"");
+            conf.Defines.Add("SHADER_COMPILER_EXTENSION=\"" + Globals.GetShaderCompilerExtension() + "\"");
+
             conf.LibraryFiles.Add("GameInput.lib");
             conf.LibraryFiles.Add("assimp-vc143-mt.lib");
             conf.LibraryFiles.Add("d3d12.lib");
@@ -54,7 +57,7 @@ namespace SlimEngine
 
             conf.EventPostBuild.Add("xcopy " + Path.Join(Globals.ExternalsPath, @"assimp-5.3.1\bin\RelWithDebInfo\assimp-vc143-mt.dll") + " " + SourceRootPath + " /y");
 
-            conf.EventPreBuild.Add(Path.Join(Globals.Root, @"Binaries\SlimShaderCompiler.exe") + " " + SourceRootPath + " " + Path.Join(SourceRootPath, "ShaderBin_" + target.Optimization) + " PC_DXC");
+            conf.EventPreBuild.Add(Path.Join(Globals.Root, @"Binaries\SlimShaderCompiler.exe") + " " + SourceRootPath + " " + Path.Join(SourceRootPath, Globals.GetShaderCompilerFolder(target.Optimization)) + " " + Globals.GetShaderCompilerExtension());
 
             conf.VcxprojUserFile = new Configuration.VcxprojUserFileSettings();
             conf.VcxprojUserFile.LocalDebuggerWorkingDirectory = SourceRootPath;

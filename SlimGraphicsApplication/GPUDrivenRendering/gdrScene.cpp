@@ -7,6 +7,7 @@
 #include <assimp\scene.h>
 #include <assimp\postprocess.h>
 #include "sgUtils.h"
+#include <Utils.h>
 
 /*
 
@@ -146,16 +147,16 @@ namespace gdr
 		const char* shaders[Pipelines::Type::Count][4] =
 		{
 			{
-				"ShaderBin_Debug\\GDR_PerInstanceProcessingMain.PC_DXC",
-				"ShaderBin_Debug\\GDR_BuildIndirectArguments.PC_DXC",
-				"ShaderBin_Debug\\GDR_MeshShader.PC_DXC",
-				"ShaderBin_Debug\\GDR_PixelShader.PC_DXC"
+				"GDR_PerInstanceProcessingMain",
+				"GDR_BuildIndirectArguments",
+				"GDR_MeshShader",
+				"GDR_PixelShader"
 			},
 			{
-				"ShaderBin_Debug\\GDR_PerInstanceProcessingMain_DEBUG.PC_DXC",
-				"ShaderBin_Debug\\GDR_BuildIndirectArguments_DEBUG.PC_DXC",
-				"ShaderBin_Debug\\GDR_MeshShader_DEBUG.PC_DXC",
-				"ShaderBin_Debug\\GDR_PixelShader_DEBUG.PC_DXC"
+				"GDR_PerInstanceProcessingMain_DEBUG",
+				"GDR_BuildIndirectArguments_DEBUG",
+				"GDR_MeshShader_DEBUG",
+				"GDR_PixelShader_DEBUG"
 			}
 		};
 
@@ -171,11 +172,11 @@ namespace gdr
 			// Compute
 			{
 				PipelineDesc::Compute desc;
-				desc.compute_shader = sg::create_compute_shader(*device, shaders[i][0]);
+				desc.compute_shader = sg::create_compute_shader(*device, get_shader_path(shaders[i][0]));
 				pipeline.per_instance_compute_pipeline = device->create_pipeline(desc, global_binding_desc);
 				seAssert(pipeline.per_instance_compute_pipeline != nullptr, "Failed to create pipeline");
 
-				desc.compute_shader = sg::create_compute_shader(*device, shaders[i][1]);
+				desc.compute_shader = sg::create_compute_shader(*device, get_shader_path(shaders[i][1]));
 				pipeline.build_indirect_arguments_pipeline = device->create_pipeline(desc, global_binding_desc);
 				seAssert(pipeline.build_indirect_arguments_pipeline != nullptr, "Failed to create pipeline");
 
@@ -186,8 +187,8 @@ namespace gdr
 			{
 				PipelineDesc::Mesh desc;
 
-				desc.mesh_shader = sg::create_mesh_shader(*device, shaders[i][2]);
-				desc.pixel_shader = sg::create_pixel_shader(*device, shaders[i][3]);
+				desc.mesh_shader = sg::create_mesh_shader(*device, get_shader_path(shaders[i][2]));
+				desc.pixel_shader = sg::create_pixel_shader(*device, get_shader_path(shaders[i][3]));
 				desc.render_target_count = 1;
 				desc.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM; // TODO - UNDO HARDCODING
 				desc.depth_stencil_format = DXGI_FORMAT_D32_FLOAT; // TODO - UNDO HARDCODING
@@ -309,7 +310,7 @@ namespace gdr
 		// Stage TODO: Sorting Step
 		// Stage 2: Execute Indirect DispatchMesh
 
-		// TODO - Add a per-instance culling pass, not just per-meshlet initially
+		// TODO - Add a coarse per-instance culling pass, not just per-meshlet initially (or a full BVH test for a large complex scene)
 
 		// Nothing in the scene to render
 		if (per_instance_render_list.size() == 0)
