@@ -15,6 +15,7 @@ namespace sg
 			D3D12_UNORDERED_ACCESS_VIEW_DESC desc;
 			D3D12_UNORDERED_ACCESS_VIEW_DESC desc_uint;
 
+#if SG_PLATFORM_D3D12
 			inline ID3D12Resource* get_d3d12_resource()
 			{
 				if (buffer_resource) return buffer_resource->get().Get();
@@ -29,6 +30,7 @@ namespace sg
 				seAssert(false, "Should have a valid read state");
 				return D3D12_RESOURCE_STATE_COMMON; 
 			}
+#endif
 		};
 	}
 }

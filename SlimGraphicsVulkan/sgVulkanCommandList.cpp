@@ -11,30 +11,37 @@ namespace sg
 {
 	namespace Vulkan
 	{
+#if SG_PLATFORM_D3D12
 		CommandList::CommandList(ComPtr<ID3D12GraphicsCommandList6>& in_command_list, ComPtr<ID3D12CommandAllocator>& in_command_allocator) :
 			command_list(in_command_list),
 			command_allocator(in_command_allocator)
 		{
 
 		}
+#endif
 
 		void CommandList::start_recording()
 		{
+#if SG_PLATFORM_D3D12
 			CHECKHR(command_allocator->Reset());
 			CHECKHR(command_list->Reset(command_allocator.Get(), nullptr));
 			descriptor_heap_index = 0;
 
 			ID3D12DescriptorHeap* heaps[2] = { descriptor_heap.Get(), sg_device->get_sampler_descriptor_heap().Get() };
 			command_list->SetDescriptorHeaps(2, heaps);
+#endif
 		}
 
 		void CommandList::end_recording()
 		{
+#if SG_PLATFORM_D3D12
 			CHECKHR(command_list->Close());
+#endif		
 		}
 
 		void CommandList::set_pipeline(Pipeline* pipeline)
 		{
+#if SG_PLATFORM_D3D12
 			command_list->SetPipelineState(pipeline->pipeline.Get());
 			if (pipeline->compute)
 			{
@@ -45,11 +52,13 @@ namespace sg
 				command_list->SetGraphicsRootSignature(pipeline->root_signature.Get());
 				command_list->IASetPrimitiveTopology(pipeline->topology);
 			}
+#endif
 		}
 
 		void CommandList::bind(Binding& bind, PipelineType type)
 		{
-			//Transition old UAVs back to read state and new UAVs to write state
+			#if SG_PLATFORM_D3D12
+//Transition old UAVs back to read state and new UAVs to write state
 			const u32 highest_bind_count = std::max<u32>(active_binding.uav_binding_count, bind.uav_binding_count);
 			if (highest_bind_count)
 			{
@@ -193,22 +202,28 @@ namespace sg
 
 			bind.set_not_dirty();
 			active_binding = bind;
+#endif
 		}
 
 		void CommandList::draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location)
 		{
+#if SG_PLATFORM_D3D12
 			command_list->DrawInstanced(vertex_count_per_instance, instance_count, start_vertex_location, start_instance_location);
 			flush_bound_uavs();
+#endif
 		}
 
 		void CommandList::draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i32 base_vertex_location, u32 start_instance_location)
 		{
+#if SG_PLATFORM_D3D12
 			command_list->DrawIndexedInstanced(index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location);
 			flush_bound_uavs();
+#endif
 		}
 
 		void CommandList::start_geometry_pass(u32 render_target_count, SharedPtr<RenderTargetView>* render_targets, const Viewport& viewport, const ScissorRect scissor, SharedPtr<DepthStencilView> depth_stencil)
 		{
+#if SG_PLATFORM_D3D12
 			seAssert(render_target_count == 1, "Only 1 supported atm TODO"); //TODO DON'T FORGET VIEWPORTS AND SCISSORS
 
 			const D3D12_VIEWPORT d3d_viewport = translate(viewport);
@@ -232,19 +247,26 @@ namespace sg
 			command_list->OMSetRenderTargets(1, &render_targets[0]->rtv_handle, FALSE, depth_stencil ? &depth_stencil->dsv_handle : nullptr);
 			command_list->RSSetViewports(1, &d3d_viewport);
 			command_list->RSSetScissorRects(1, &d3d_scissor);
+#endif
 		}
 
 
 		void CommandList::bind_vertex_buffer(VertexBufferView view)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			unbind_vertex_buffer();
 			command_list->IASetVertexBuffers(0, 1, &view.vbv);
+			#endif
 		}
 
 		void CommandList::bind_index_buffer(IndexBufferView view)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			unbind_index_buffer();
 			command_list->IASetIndexBuffer(&view.ibv);
+			#endif
 		}
 
 
@@ -260,6 +282,8 @@ namespace sg
 
 		void CommandList::end_geometry_pass()
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			unbind_vertex_buffer();
 			unbind_index_buffer();
 
@@ -280,23 +304,32 @@ namespace sg
 			bind(default_binding, PipelineType::Geometry);
 
 			active_geometry_pass = {};
+			#endif
 		}
 
 		void CommandList::dispatch(u32 x /*= 1*/, u32 y /*= 1*/, u32 z /*= 1*/)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			command_list->Dispatch(x, y, z);
 			flush_bound_uavs();
+			#endif
 		}
 
 
 		void CommandList::dispatch_mesh(u32 x /*= 1*/, u32 y /*= 1*/, u32 z /*= 1*/)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			command_list->DispatchMesh(x, y, z);
 			flush_bound_uavs();
+			#endif
 		}
 
 		void CommandList::execute_indirect(IndirectArguments& indirect_argument)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			{
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_argument.indirect_buffer->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
 				command_list->ResourceBarrier(1, &barrier);
@@ -307,10 +340,13 @@ namespace sg
 				command_list->ResourceBarrier(1, &barrier);
 			}
 			flush_bound_uavs();
+			#endif
 		}
 
 		void CommandList::clear_buffer_float(UnorderedAccessView& uav, ShaderResourceView& srv, float value)
 		{			
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			ID3D12Resource* buffer_dx12 = uav.buffer_resource->get().Get();
 
 			seAssert(descriptor_heap_index + 1 <= descriptor_heap_maximum, "maxium descriptor bindings exceeded");
@@ -334,11 +370,14 @@ namespace sg
 			command_list->ResourceBarrier(1, &barrier);
 			command_list->ClearUnorderedAccessViewFloat(dest_gpu, cpu_handle, buffer_dx12, clear_values, 0, nullptr);
 			command_list->ResourceBarrier(1, &barrier);
+			#endif
 		}
 
 
 		void CommandList::clear_buffer_uint(UnorderedAccessView& uav, ShaderResourceView& srv, sg::u32 value)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			ID3D12Resource* buffer_dx12 = uav.buffer_resource->get().Get();
 
 			seAssert(descriptor_heap_index + 1 <= descriptor_heap_maximum, "maximum descriptor bindings exceeded");
@@ -362,10 +401,13 @@ namespace sg
 			command_list->ResourceBarrier(1, &barrier);
 			command_list->ClearUnorderedAccessViewUint(dest_gpu, cpu_handle, buffer_dx12, clear_values, 0, nullptr);
 			command_list->ResourceBarrier(1, &barrier);
+			#endif
 		}
 
 		void CommandList::copy_buffer_to_buffer(Buffer* dest, Buffer* source)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			seAssert(dest->get_size_bytes() >= source->get_size_bytes(), "Dest too small for source size");
 			seAssert(dest && source, "no valid buffers");
 			
@@ -399,11 +441,14 @@ namespace sg
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(source->get().Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 				command_list->ResourceBarrier(1, &barrier);
 			}
+			#endif
 		}
 
 
 		void CommandList::copy_buffer_to_buffer(u32 size, Buffer* dest, u32 dest_offset, Buffer* source, u32 source_offset)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			seAssert((dest->get_size_bytes() - dest_offset) >= size, "Dest buffer not big enough\n");
 			seAssert((source->get_size_bytes() - source_offset) >= size, "Source buffer not big enough\n");
 			seAssert(dest && source, "no valid buffers");
@@ -423,11 +468,14 @@ namespace sg
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), D3D12_RESOURCE_STATE_COPY_DEST, state_dest);
 				command_list->ResourceBarrier(1, &barrier);
 			}
+			#endif
 		}
 
 
 		void CommandList::copy_texture_to_texture(Texture& dest, Texture& source)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			const D3D12_RESOURCE_STATES state_dest = dest.get_read_resource_state();
 			const D3D12_RESOURCE_STATES state_source = source.get_read_resource_state();
 
@@ -442,10 +490,13 @@ namespace sg
 			barriers[0] = CD3DX12_RESOURCE_BARRIER::Transition(dest.get().Get(), D3D12_RESOURCE_STATE_COPY_DEST, state_dest);
 			barriers[1] = CD3DX12_RESOURCE_BARRIER::Transition(source.get().Get(), D3D12_RESOURCE_STATE_COPY_SOURCE, state_source);
 			command_list->ResourceBarrier(2, barriers);
+			#endif
 		}
 
 		void CommandList::copy_buffer_to_texture(u32 size, Texture* dest, Buffer* source, u32 source_offset, u32 texture_mip_index)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			seAssert((dest->get_size_bytes()) >= size, "Dest buffer not big enough\n");
 			seAssert((source->get_size_bytes() - source_offset) >= size, "Source buffer not big enough\n");
 			seAssert(dest && source, "no valid buffers");
@@ -483,15 +534,21 @@ namespace sg
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dest->get().Get(), D3D12_RESOURCE_STATE_COPY_DEST, state_dest);
 				command_list->ResourceBarrier(1, &barrier);
 			}
+			#endif
 		}
 
 		void CommandList::clear_render_target_view(SharedPtr<RenderTargetView>& rtv, float4 colour)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			command_list->ClearRenderTargetView(rtv->rtv_handle, colour.data(), 0, nullptr);
+			#endif
 		}
 
 		void CommandList::clear_depth_stencil_view(SharedPtr<DepthStencilView>& dsv, bool clear_depth, bool clear_stencil, float depth_value /*= 1.0f*/, u8 stencil_value /*= 0*/ )
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			D3D12_CLEAR_FLAGS clear_flags = {};
 			clear_flags |= clear_depth ? D3D12_CLEAR_FLAG_DEPTH : (D3D12_CLEAR_FLAGS)0;
 			clear_flags |= clear_stencil ? D3D12_CLEAR_FLAG_STENCIL : (D3D12_CLEAR_FLAGS)0;
@@ -511,10 +568,13 @@ namespace sg
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(dsv->texture_resource->get().Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, state_dest);
 				command_list->ResourceBarrier(1, &barrier);
 			}
+			#endif
 		}
 
 		void CommandList::flush_bound_uavs()
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			if (active_binding.uav_binding_count)
 			{
 				D3D12_RESOURCE_BARRIER barriers[Binding::MAX_UAVS];
@@ -529,6 +589,7 @@ namespace sg
 
 				command_list->ResourceBarrier(active_binding.uav_binding_count, barriers);
 			}
+			#endif
 		}
 	}
 }

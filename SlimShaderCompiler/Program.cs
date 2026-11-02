@@ -345,7 +345,7 @@ namespace SlimShaderCompiler
                     // Allow use of wave intrinsics
                     sb.Append("-fspv-target-env=vulkan1.1 ");
                 }
-                sb.Append("/Zi ");
+                sb.Append("-Zi -Qembed_debug "); // TODO - Strip this out when compiling in release
                 sb.AppendFormat("-T {0} ", shader.profile);
                 sb.AppendFormat("-E {0} ", shader.entrypoint);
                 sb.AppendFormat("-Fo \"{0}\\{1}.{2}\" ", args.output_directory, shader.name, args.platform.ToString());

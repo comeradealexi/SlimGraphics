@@ -28,7 +28,7 @@ namespace sg
 			sg::SharedPtr<sg::CommandQueue> queue_ref;
 			sg::SharedPtr<sg::CommandList> command_list;
 			sg::SharedPtr<sg::Buffer> buffer;
-			ComPtr<sg::QueueFence> fence;
+			sg::SharedPtr<sg::QueueFence> fence;
 			sg::u32 upload_heap_size = 0;
 			sg::u32 fence_wait_value = 0;
 			bool fence_signalled = false;

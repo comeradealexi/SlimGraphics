@@ -20,9 +20,11 @@ namespace sg
 			const PipelineDesc::Graphics graphics_pipeline_desc;
 			const PipelineDesc::Mesh mesh_pipeline_desc;
 			const bool compute;
+			#if SG_PLATFORM_D3D12
 			D3D_PRIMITIVE_TOPOLOGY topology = D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
 			ComPtr<ID3D12RootSignature> root_signature;
 			ComPtr<ID3D12PipelineState> pipeline;
+			#endif
 		};
 	}
 }

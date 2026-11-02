@@ -579,9 +579,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		
 		queue->submit_command_list(command_buffer.get());
 		current_frame_idx = device->present_swap_chain(queue.get());
-		queue->fence_signal(fence.Get(), total_frame_idx);
-		queue->fence_wait_gpu(fence.Get(), total_frame_idx);
-		queue->fence_wait_cpu(fence.Get(), total_frame_idx);
+		queue->fence_signal(*fence, total_frame_idx);
+		queue->fence_wait_gpu(*fence, total_frame_idx);
+		queue->fence_wait_cpu(*fence, total_frame_idx);
 
 		//Timestamps
 		timestamp_pool->resolve();

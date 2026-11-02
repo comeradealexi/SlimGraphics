@@ -24,15 +24,18 @@ namespace sg
 
 		private:
 			SharedPtr<Buffer> indirect_buffer;
-			ComPtr<ID3D12CommandSignature> command_signature;
+			#if SG_PLATFORM_D3D12
+ComPtr<ID3D12CommandSignature> command_signature;
+#endif
 		};
 
 		class CommandList
 		{
 			friend class Device;
 		public:
+#if SG_PLATFORM_D3D12
 			CommandList(ComPtr<ID3D12GraphicsCommandList6>& in_command_list, ComPtr<ID3D12CommandAllocator>& in_command_allocator);
-			
+#endif			
 			void start_recording();
 			void end_recording();
 			void set_pipeline(Pipeline* pipeline);
@@ -64,11 +67,14 @@ namespace sg
 			void clear_render_target_view(SharedPtr<RenderTargetView>& rtv, float4 colour);
 
 			void clear_depth_stencil_view(SharedPtr<DepthStencilView>& dsv, bool clear_depth, bool clear_stencil, float depth_value = 1.0f, u8 stencil_value = 0);
-			ComPtr<ID3D12GraphicsCommandList6> get() { return command_list; };
+			#if SG_PLATFORM_D3D12
+ComPtr<ID3D12GraphicsCommandList6> get() { return command_list; };
+#endif
 
 		private:
 			void flush_bound_uavs();
 
+#if SG_PLATFORM_D3D12
 			ComPtr<ID3D12GraphicsCommandList6> command_list;
 			ComPtr<ID3D12CommandAllocator> command_allocator;
 
@@ -80,6 +86,7 @@ namespace sg
 			ComPtr<ID3D12DescriptorHeap> non_shader_descriptor_heap;
 
 			ComPtr<ID3D12Device> device;
+#endif
 			Device* sg_device = nullptr;
 			u32 descriptor_increment_size_cbv_srv_uav = 0;
 			u32 descriptor_increment_size_rtv = 0;

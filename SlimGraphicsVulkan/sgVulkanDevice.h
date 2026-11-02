@@ -46,15 +46,19 @@ namespace sg
 			void imgui_init(u32 num_frames, DXGI_FORMAT format, DXGI_FORMAT depth_format, CommandQueue* command_queue);
 			void imgui_update();
 			void imgui_render(CommandList* command_list);
+#if SG_PLATFORM_D3D12
 			CD3DX12_GPU_DESCRIPTOR_HANDLE imgui_texture_viewer_handle() const { return imgui_texture_viewer.gpu_handle; }
 			ImGuiTextureViewer& imgui_texture_viewer_data() { return imgui_texture_viewer; }
+#endif
 			void set_imgui_viewer_texture(SharedPtr<Texture> texture);
 
 			D3D12_RESOURCE_DESC create_dx12_resource_desc(const ResourceCreateDesc& desc);
 			SizeAndAlignment calculate_resource_size_alignment(const ResourceCreateDesc& desc);
 
 			SharedPtr<Memory> allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment = DefaultAlignment::BUFFER_ALIGNMENT);
-			ComPtr<QueueFence> create_queue_fence();
+			#if SG_PLATFORM_D3D12
+ComPtr<QueueFence> create_queue_fence();
+#endif
 
 			SharedPtr<GPUTimestampPool> create_gpu_timestamp_pool(CommandQueue* queue, u32 max_timestamps);
 			SharedPtr<GPUStatisticPool> create_gpu_statistic_pool(CommandQueue* queue, u32 max_stats);
@@ -114,30 +118,36 @@ namespace sg
 
 			u32 GetFormatBitsPerUnit(DXGI_FORMAT format);
 			u32 GetFormatWidthAlignment(DXGI_FORMAT format);
+
+			#if SG_PLATFORM_D3D12
 			LPCSTR GetFormatName(DXGI_FORMAT format);
+			#endif			
 			u64 CalculateResourceSize(u32 width, u32 height, u32 depth, u32 mip_levels, DXGI_FORMAT format);
 
 			//D3D12 Specific
 		public:
+#if SG_PLATFORM_D3D12
 			ComPtr<ID3D12DescriptorHeap> get_rtv_descriptor_heap();
 			ComPtr<ID3D12DescriptorHeap> get_sampler_descriptor_heap();
 			u32 get_rtv_descriptor_heap_increment_size();
 
 			ComPtr<ID3D12Device> get_device() { return device; }
+#endif
 
 			void AddSamplers(const char* sampler_name, const sg::SamplerDesc& sampler_desc);
 			void RecreateSamplers();
 
 		private:
+#if SG_PLATFORM_D3D12
 			ComPtr<ID3D12RootSignature> create_root_signature(const BindingDesc& binding_desc, bool compute);
-			void create_descriptors();
+#endif			void create_descriptors();
 			
 		private:
 
 			vk::raii::Context context;
-			vk::raii::Instance instance;
-			vk::raii::PhysicalDevice physicalDevice;
-			vk::raii::Device device;
+			vk::raii::Instance instance = nullptr;
+			vk::raii::PhysicalDevice physicalDevice = nullptr;
+			vk::raii::Device device = nullptr;
 
 #if SG_PLATFORM_D3D12
 			ComPtr<ID3D12Device> device;

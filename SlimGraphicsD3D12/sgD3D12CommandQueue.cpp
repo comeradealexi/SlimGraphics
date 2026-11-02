@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "sgD3D12CommandQueue.h"
 #include "sgD3D12CommandList.h"
+#include "sgD3D12QueueFence.h"
 
 namespace sg
 {
@@ -17,20 +18,20 @@ namespace sg
 			queue->ExecuteCommandLists(1, &p_command_list);
 		}
 
-		void CommandQueue::fence_signal(QueueFence* fence, u64 value)
+		void CommandQueue::fence_signal(QueueFence& fence, u64 value)
 		{
-			CHECKHR(queue->Signal(fence, value));
+			CHECKHR(queue->Signal(fence.d3d12_fence.Get(), value));
 		}
 		
-		void CommandQueue::fence_wait_gpu(QueueFence* fence, u64 value)
+		void CommandQueue::fence_wait_gpu(QueueFence& fence, u64 value)
 		{
-			CHECKHR(queue->Wait(fence, value));
+			CHECKHR(queue->Wait(fence.d3d12_fence.Get(), value));
 		}
-		void CommandQueue::fence_wait_cpu(QueueFence* fence, u64 value)
+		void CommandQueue::fence_wait_cpu(QueueFence& fence, u64 value)
 		{
-			if (fence->GetCompletedValue() < value)
+			if (fence.d3d12_fence->GetCompletedValue() < value)
 			{
-				CHECKHR(fence->SetEventOnCompletion(value, cpu_fence));
+				CHECKHR(fence.d3d12_fence->SetEventOnCompletion(value, cpu_fence));
 				DWORD res = WaitForSingleObjectEx(cpu_fence, INFINITE, FALSE);
 				seAssert(res == WAIT_OBJECT_0, "Irregular WaitForSingleObjectEx Return: %x", HRESULT_FROM_WIN32(GetLastError()));
 			}

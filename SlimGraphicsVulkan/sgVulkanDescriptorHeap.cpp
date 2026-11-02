@@ -5,10 +5,12 @@ namespace sg
 {
 	namespace Vulkan
 	{
+		#if SG_PLATFORM_D3D12
 		DescriptorHeap::DescriptorHeap(ComPtr<ID3D12DescriptorHeap> d3d12_heap, u32 count, u32 in_heap_increment_size) : heap_increment_size(in_heap_increment_size), heap(d3d12_heap)
 		{
 			free_list.resize(count);
 		}
+		#endif
 
 		u32 DescriptorHeap::allocate()
 		{
@@ -37,6 +39,7 @@ namespace sg
 			}
 		}
 
+		#if SG_PLATFORM_D3D12
 		CD3DX12_CPU_DESCRIPTOR_HANDLE DescriptorHeap::get_cpu_handle_at_offset(u32 index_offset)
 		{
 			return CD3DX12_CPU_DESCRIPTOR_HANDLE(heap->GetCPUDescriptorHandleForHeapStart(), index_offset, heap_increment_size);
@@ -46,6 +49,7 @@ namespace sg
 		{
 			return CD3DX12_GPU_DESCRIPTOR_HANDLE(heap->GetGPUDescriptorHandleForHeapStart(), index_offset, heap_increment_size);
 		}
+		#endif
 
 	}
 }

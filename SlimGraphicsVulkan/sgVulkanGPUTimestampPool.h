@@ -9,7 +9,10 @@ namespace sg
 		class GPUTimestampPool
 		{
 		public:
+
+#if SG_PLATFORM_D3D12
 			GPUTimestampPool(ID3D12Device* device, ID3D12CommandQueue* queue, u32 maximum_timestamps);
+			#endif			
 			using Index = u32;
 
 			void resolve();
@@ -27,8 +30,11 @@ namespace sg
 			bool recording = false;
 			const u32 max_timestamps;
 			double gpu_tick_delta = 0.0;
+
+#if SG_PLATFORM_D3D12
 			ComPtr<ID3D12QueryHeap> query_heap = nullptr;
 			ComPtr<ID3D12Resource> readback_buffer = nullptr;
+			#endif
 			std::atomic_uint32_t current_index;
 			std::vector<u64> timestamps_copy;
 		};

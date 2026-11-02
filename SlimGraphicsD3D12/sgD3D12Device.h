@@ -54,7 +54,7 @@ namespace sg
 			SizeAndAlignment calculate_resource_size_alignment(const ResourceCreateDesc& desc);
 
 			SharedPtr<Memory> allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment = DefaultAlignment::BUFFER_ALIGNMENT);
-			ComPtr<QueueFence> create_queue_fence();
+			SharedPtr<QueueFence> create_queue_fence();
 
 			SharedPtr<GPUTimestampPool> create_gpu_timestamp_pool(CommandQueue* queue, u32 max_timestamps);
 			SharedPtr<GPUStatisticPool> create_gpu_statistic_pool(CommandQueue* queue, u32 max_stats);

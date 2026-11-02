@@ -32,6 +32,7 @@ namespace sg
 		class MeshShader;
 		class Pipeline;
 		class PixelShader;
+		class QueueFence;
 		class RenderTargetView;
 		class Sampler;
 		class ShaderResourceView;
@@ -64,7 +65,7 @@ namespace sg
 	using MeshShader = D3D12::MeshShader;
 	using Pipeline = D3D12::Pipeline;
 	using PixelShader = D3D12::PixelShader;
-	using QueueFence = ::ID3D12Fence;
+	using QueueFence = D3D12::QueueFence;
 	using RenderTargetView = D3D12::RenderTargetView;
 	using Sampler = D3D12::Sampler;
 	using ShaderResourceView = D3D12::ShaderResourceView;

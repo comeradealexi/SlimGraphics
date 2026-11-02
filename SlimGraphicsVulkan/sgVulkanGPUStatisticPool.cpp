@@ -6,6 +6,8 @@ namespace sg
 {
 	namespace Vulkan
 	{
+
+#if SG_PLATFORM_D3D12
 		GPUStatisticPool::GPUStatisticPool(ID3D12Device6* device, ID3D12CommandQueue* queue, u32 _max_count) : max_count(_max_count)
 		{
 			stats_copy.resize(max_count);
@@ -41,9 +43,12 @@ namespace sg
 			CHECKHR(device->CreateQueryHeap(&QueryHeapDesc, IID_PPV_ARGS(query_heap.GetAddressOf())));
 			query_heap->SetName(L"GPU Statistic QueryHeap");
 		}
+		#endif
 
 		void GPUStatisticPool::resolve()
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			seAssert(recording == false, "Recording should be false");
 			D3D12_RANGE Range;
 			Range.Begin = 0;
@@ -55,21 +60,28 @@ namespace sg
 			}
 			D3D12_RANGE EmptyRange = {};
 			readback_buffer->Unmap(0, &EmptyRange);
+			#endif
 		}
 
 		void GPUStatisticPool::begin_frame()
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			seAssert(recording == false, "Recording should be false");
 			recording = true;
 			current_index = 0;
+			#endif
 		}
 
 		void GPUStatisticPool::end_frame(CommandList* command_list)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			seAssert(recording, "Recording should be false");
 			u32 query_count = current_index;
 			command_list->get()->ResolveQueryData(query_heap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, 0, query_count, readback_buffer.Get(), 0);
 			recording = false;
+			#endif
 		}
 
 		GPUStatisticPool::Index GPUStatisticPool::allocate_new_query()
@@ -79,12 +91,18 @@ namespace sg
 
 		void GPUStatisticPool::begin_query(Index index, CommandList* command_list)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			command_list->get()->BeginQuery(query_heap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, index);
+			#endif
 		}
 
 		void GPUStatisticPool::end_query(Index index, CommandList* command_list)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			command_list->get()->EndQuery(query_heap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, index);
+			#endif		
 		}
 
 		const D3D12_QUERY_DATA_PIPELINE_STATISTICS& GPUStatisticPool::collect_query(Index idx)

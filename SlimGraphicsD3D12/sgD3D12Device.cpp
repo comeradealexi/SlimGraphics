@@ -10,6 +10,7 @@
 #include "sgD3D12TypesTranslator.h"
 #include "sgD3D12GPUTimestampPool.h"
 #include "sgD3D12GPUStatisticPool.h"
+#include "sgD3D12QueueFence.h"
 #include <imgui_impl_dx12.h>
 #include "sgUtils.h"
 #include <DDSTextureLoader.h>
@@ -512,10 +513,10 @@ namespace sg
             }
         }
 
-        ComPtr<QueueFence> Device::create_queue_fence()
+        SharedPtr<QueueFence> Device::create_queue_fence()
         {
-            ComPtr<QueueFence> fence;
-            CHECKHR(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf())))
+            SharedPtr<QueueFence> fence = SharedPtr<QueueFence>(new QueueFence());
+            CHECKHR(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence->d3d12_fence.GetAddressOf())))
             return fence;
         }
 

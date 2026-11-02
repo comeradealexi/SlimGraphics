@@ -25,7 +25,7 @@ void UploadHeap::begin_frame(sg::SharedPtr<sg::CommandQueue> queue)
 	
 	if (data.fence_signalled)
 	{
-		queue->fence_wait_cpu(data.fence.Get(), data.fence_wait_value);
+		queue->fence_wait_cpu(*data.fence, data.fence_wait_value);
 	}
 	data.command_list->start_recording();
 	data.mapped_gpu_memory = data.buffer->map_memory();
@@ -98,7 +98,7 @@ void UploadHeap::end_frame()
 
 	data.command_list->end_recording();
 	data.queue_ref->submit_command_list(data.command_list.get());
-	data.queue_ref->fence_signal(data.fence.Get(), counter);
+	data.queue_ref->fence_signal(*data.fence, counter);
 	data.fence_wait_value = counter;
 	data.fence_signalled = true;
 	data.queue_ref = nullptr;

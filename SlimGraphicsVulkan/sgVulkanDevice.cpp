@@ -492,6 +492,8 @@ namespace sg
 
 		SizeAndAlignment Device::calculate_resource_size_alignment(const ResourceCreateDesc& desc)
 		{
+            seAssert(false, "!!");
+            return {};
 #if SG_PLATFORM_D3D12
             D3D12_RESOURCE_DESC d3d12_desc = create_dx12_resource_desc(desc);
 
@@ -503,6 +505,8 @@ namespace sg
 
 		SharedPtr<Memory> Device::allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment)
         {
+            seAssert(false, "!!");
+            return {};
 #if SG_PLATFORM_D3D12
             size = AlignUp(size, alignment);
             if (type == MemoryType::Upload)
@@ -546,39 +550,55 @@ namespace sg
 #endif //SG_PLATFORM_D3D12
         }
 
+#if SG_PLATFORM_D3D12
         ComPtr<QueueFence> Device::create_queue_fence()
         {
 			ComPtr<QueueFence> fence;
 			CHECKHR(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf())))
 				return fence;
         }
+#endif
 
 
         SharedPtr<GPUTimestampPool> Device::create_gpu_timestamp_pool(CommandQueue* queue, u32 max_timestamps)
 		{
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             ID3D12CommandQueue* d3d12_queue = queue->get().Get();
             return SharedPtr<GPUTimestampPool>(new GPUTimestampPool(device.Get(), d3d12_queue, max_timestamps));
+            #endif
 		}
 
 
         SharedPtr<GPUStatisticPool> Device::create_gpu_statistic_pool(CommandQueue* queue, u32 max_stats)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			return {};
+			#if SG_PLATFORM_D3D12
 			ID3D12CommandQueue* d3d12_queue = queue->get().Get();
 			return SharedPtr<GPUStatisticPool>(new GPUStatisticPool(device6.Get(), d3d12_queue, max_stats));
+			#endif
 		}
 
         SharedPtr<CommandQueue> Device::create_command_queue()
         {
+            seAssert(false, "!!");
+            return {};
+#if SG_PLATFORM_D3D12
             ComPtr<ID3D12CommandQueue> queue;
             D3D12_COMMAND_QUEUE_DESC QueueDesc = {};
             QueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
             CHECKHR(device->CreateCommandQueue(&QueueDesc, IID_PPV_ARGS(&queue)));
             CHECKHR(queue->SetName(L"CommandQueue"));
             return Ptr<CommandQueue>(new CommandQueue(queue));
+#endif
         }
 
         SharedPtr<CommandList> Device::create_command_buffer()
         {
+            return {};
+#if SG_PLATFORM_D3D12
             ComPtr<ID3D12GraphicsCommandList6> command_list;
             ComPtr<ID3D12CommandAllocator> command_allocator;
 
@@ -617,6 +637,8 @@ namespace sg
             out_command_list->descriptor_increment_size_sampler = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
 
             return out_command_list;
+#endif
+           
         }
 
         SharedPtr<VertexShader> Device::create_vertex_shader(const std::vector<uint8_t>& shader)
@@ -654,7 +676,10 @@ namespace sg
 
 		SharedPtr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
         {
-            SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc));
+			return {};
+
+           #if SG_PLATFORM_D3D12
+ SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc));
 
             out_pipeline->topology = translate(pipeline_desc.primitive_topology);
 
@@ -709,11 +734,15 @@ namespace sg
 
             CHECKHR(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(out_pipeline->pipeline.GetAddressOf())));
             return out_pipeline;
+#endif
         }
 
 
         SharedPtr<Pipeline> Device::create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc)
 		{
+			return {};
+
+#if SG_PLATFORM_D3D12
             SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc));
 
 			D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
@@ -728,6 +757,7 @@ namespace sg
 			CHECKHR(device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(out_pipeline->pipeline.GetAddressOf())));
             
             return out_pipeline;
+#endif
 		}
 
         SharedPtr<Pipeline> Device::create_pipeline(const PipelineDesc::Mesh& pipeline_desc, const BindingDesc& binding_desc)
@@ -737,6 +767,8 @@ namespace sg
                 return nullptr;
             }
 
+            return {};
+            #if SG_PLATFORM_D3D12
             SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc));
 
 			out_pipeline->topology = translate(pipeline_desc.primitive_topology);
@@ -775,10 +807,13 @@ namespace sg
 
             CHECKHR(device6->CreatePipelineState(&streamDesc, IID_PPV_ARGS(out_pipeline->pipeline.GetAddressOf())));
 			return out_pipeline;
+            #endif
 		}
 
 		SharedPtr<Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, BufferType type, bool uav_access)
 		{
+            return {};
+#if SG_PLATFORM_D3D12
             const D3D12_RESOURCE_FLAGS flags = uav_access ? (D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS) : D3D12_RESOURCE_FLAG_NONE;
             const D3D12_RESOURCE_ALLOCATION_INFO rai = { size, DefaultAlignment::BUFFER_ALIGNMENT };
 			const CD3DX12_RESOURCE_DESC ResourceDesc = CD3DX12_RESOURCE_DESC::Buffer(rai, flags);
@@ -792,11 +827,14 @@ namespace sg
             buffer->memory = memory;
             buffer->resource = d3d12_buffer;
             return buffer;
+#endif
 		}
 
 
 		se::SharedPtr<Texture> Device::create_texture(SharedPtr<Memory> memory, u32 size, const ResourceCreateDesc& resource_desc)
 		{
+			return {};
+			#if SG_PLATFORM_D3D12
 			D3D12_RESOURCE_DESC d3d12_desc = create_dx12_resource_desc(resource_desc);
 
 			D3D12MA::Allocation* d3d12_alloc = memory->alloc;
@@ -809,12 +847,15 @@ namespace sg
 			buffer->memory = memory;
 			buffer->resource = d3d12_texture;
 			return buffer;
+			#endif
 		}
 
 
 		SharedPtr<Texture> Device::create_texture_from_dds(const void* dds_memory, u64 dds_size, UploadHeap& upload_heap)
 		{
-            size_t mem_size = 0;
+            return {};
+ #if SG_PLATFORM_D3D12
+ size_t mem_size = 0;
             SharedPtr<Memory> memory;
 			ComPtr<ID3D12Resource> d3d12_texture;
 
@@ -880,11 +921,14 @@ namespace sg
             }
 
 			return texture;
+ #endif
 		}
 
 
 		se::SharedPtr<IndirectArguments> Device::create_indirect_arguments()
 		{
+            return {};
+            #if SG_PLATFORM_D3D12
             // WARNING - Currently ONLY used for mesh shader dispatch
 
 			D3D12_INDIRECT_ARGUMENT_DESC arg = {};
@@ -904,10 +948,13 @@ namespace sg
             indirect_arguments->indirect_buffer = create_buffer(indirect_memory, 64ull * 1024, BufferType::GeneralDataBuffer, true);
 
             return indirect_arguments;
+            #endif
 		}
 
 		SharedPtr<RenderTargetView> Device::create_render_target_view(SharedPtr<Texture>& texture, DXGI_FORMAT format /*= DXGI_FORMAT_UNKNOWN*/)
 		{
+            return {};
+            #if SG_PLATFORM_D3D12
             seAssert(texture.get(), "Invalid texture pointer");
 
             SharedPtr<RenderTargetView> rtv(new RenderTargetView());
@@ -926,15 +973,20 @@ namespace sg
 
 			device->CreateRenderTargetView(texture->resource.Get(), rtv_desc_ptr, rtv->rtv_handle);
             return rtv;
+            #endif
 		}
 
 		void Device::free_render_target_view(RenderTargetView* rtv)
 		{
+            #if SG_PLATFORM_D3D12
             rtv_descriptor_heap->free(rtv->heap_index);
-		}
+            #endif		
+        }
 
 		SharedPtr<DepthStencilView> Device::create_depth_stencil_view(SharedPtr<Texture>& texture, DXGI_FORMAT format /*= DXGI_FORMAT_UNKNOWN*/)
 		{
+			return {};
+			#if SG_PLATFORM_D3D12
 			seAssert(texture.get(), "Invalid texture pointer");
 
 			SharedPtr<DepthStencilView> dsv(new DepthStencilView());
@@ -953,16 +1005,21 @@ namespace sg
 
 			device->CreateDepthStencilView(texture->resource.Get(), dsv_desc_ptr, dsv->dsv_handle);
 			return dsv;
+			#endif
 
 		}
 
 		void Device::free_depth_stencil_view(DepthStencilView* dsv)
 		{
+#if SG_PLATFORM_D3D12
 			rtv_descriptor_heap->free(dsv->heap_index);
-		}
+#endif		
+        }
 
 		ConstantBufferView Device::create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size)
 		{
+			return {};
+			#if SG_PLATFORM_D3D12
 			seAssert(offset % D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT == 0, "Invalid offset");
             seAssert(size > 0, "Invalid size");
             seAssert(buffer != nullptr, "Invalid buffer");
@@ -975,11 +1032,14 @@ namespace sg
 			desc.SizeInBytes = (UINT)size;
 
 			return cbv;
+			#endif
 		}
 
 
 		ShaderResourceView Device::create_shader_resource_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count)
 		{
+            return {};
+            #if SG_PLATFORM_D3D12
             D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
 			{
 				desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
@@ -1006,11 +1066,15 @@ namespace sg
             srv.desc_uint = desc_uint;
             srv.buffer_resource = buffer;
             return srv;
+            #endif
 		}
 
 
 		ShaderResourceView Device::create_shader_resource_view(SharedPtr<Texture> texture)
 		{
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			return {};
+			#if SG_PLATFORM_D3D12
 			ShaderResourceView srv;
             srv.texture_resource = texture;
             srv.desc = {};
@@ -1023,10 +1087,14 @@ namespace sg
             srv.desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
             srv.desc.Texture2D.MipLevels = texture->resource_create_desc.mip_count;
             return srv;
+			#endif
 		}
 
 		UnorderedAccessView Device::create_unordered_access_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count)
 		{
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
 			{
 				desc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
@@ -1055,11 +1123,15 @@ namespace sg
             uav.desc_uint = desc_uint;
             uav.buffer_resource = buffer;
 			return uav;
+            #endif
 		}
 
 
 		UnorderedAccessView Device::create_unordered_access_view(SharedPtr<Texture> texture)
 		{
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             seAssert(texture->resource_create_desc.dimension == ResourceDimension::Texture2D, "Only supported this path currently");
 			D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
 			{
@@ -1072,10 +1144,14 @@ namespace sg
             uav.desc_uint = {};
 			uav.texture_resource = texture;
 			return uav;
+            #endif
 		}
 
 		VertexBufferView Device::create_vertex_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, u64 stride)
 		{
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             VertexBufferView vbv;
             vbv.buffer_resource = buffer;
 
@@ -1085,11 +1161,15 @@ namespace sg
             d3d12_vbv.StrideInBytes = stride;
 
             return vbv;
+            #endif
 		}
 
 
 		IndexBufferView Device::create_index_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, DXGI_FORMAT format)
 		{
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             IndexBufferView ibv;
 			ibv.buffer_resource = buffer;
 
@@ -1099,60 +1179,105 @@ namespace sg
             d3d12_ibv.Format = format;
             
             return ibv;
+            #endif
 		}
 
 
-		bool Device::SupportsMeshShaders() { return features.MeshShaderTier() >= D3D12_MESH_SHADER_TIER_1; }
+		bool Device::SupportsMeshShaders() 
+        { 
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
+            return features.MeshShaderTier() >= D3D12_MESH_SHADER_TIER_1; 
+            #endif        
+        }
 
 
 		bool Device::SupportsWaveOps()
 		{
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             return features.WaveOps();
-		}
+            #endif		
+        }
 
 		u32 Device::GetWaveLaneCountMin()
 		{
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             return features.WaveLaneCountMin();
-		}
+            #endif		
+        }
 
 		u32 Device::GetWaveLaneCountMax()
 		{
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             return features.WaveLaneCountMax();
-		}
+            #endif		
+        }
 
 		u32 Device::GetTotalLaneCount()
 		{
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             return features.TotalLaneCount();
-		}
+            #endif		
+        }
 
         u32 Device::GetFormatBitsPerUnit(DXGI_FORMAT format)
         {
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			return {};
+			#if SG_PLATFORM_D3D12
 			return D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::GetBitsPerUnit(format);
+			#endif        
         }
 
         u32 Device::GetFormatWidthAlignment(DXGI_FORMAT format)
         {
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			return {};
+			#if SG_PLATFORM_D3D12
 			return D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::GetWidthAlignment(format);
+			#endif        
         }
 
+        #if SG_PLATFORM_D3D12
         LPCSTR Device::GetFormatName(DXGI_FORMAT format)
         {
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			return {};
+			#if SG_PLATFORM_D3D12
 			return D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::GetName(format);
+			#endif        
         }
+        #endif
 
 
 		u64 Device::CalculateResourceSize(u32 width, u32 height, u32 depth, u32 mip_levels, DXGI_FORMAT format)
 		{
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             SIZE_T size;
             if (D3D12_PROPERTY_LAYOUT_FORMAT_TABLE::CalculateResourceSize(width, height, depth, format, mip_levels, 1, size) == S_OK)
             {
                 return size;
             }
             return 0;
+            #endif
 		}
 
 		u32 Device::create_swap_chain(HWND hwnd, CommandQueue* command_queue, u32 buffer_count, DXGI_FORMAT format, u32 width, u32 height, SharedPtr<RenderTargetView>* rtv_list)
         {
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             swap_chain_buffer_count = buffer_count;
 
             DXGI_SWAP_CHAIN_DESC1 desc = {};
@@ -1175,46 +1300,72 @@ namespace sg
             }
 
             return SUCCEEDED(hr) ? 0 : ~0;
+            #endif
         }
 
         u32 Device::present_swap_chain(CommandQueue* command_queue)
         {
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             CHECKHR(swap_chain->Present(1, 0));
 
             swap_chain_current_index++;
             swap_chain_current_index = swap_chain_current_index % swap_chain_buffer_count;
             return swap_chain_current_index;
+            #endif
         }
 
+        #if SG_PLATFORM_D3D12
         ComPtr<ID3D12DescriptorHeap> Device::get_rtv_descriptor_heap()
         {
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             return rtv_descriptor_heap->get_heap();
+            #endif
         }
 
 
 		ComPtr<ID3D12DescriptorHeap> Device::get_sampler_descriptor_heap()
 		{
-            return sampler_descriptor_heap->get_heap();
+           seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+return {};
+#if SG_PLATFORM_D3D12
+ return sampler_descriptor_heap->get_heap();
+#endif
 		}
 
 		u32 Device::get_rtv_descriptor_heap_increment_size()
         {
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            return {};
+            #if SG_PLATFORM_D3D12
             return rtv_descriptor_heap->get_increment_size();
+            #endif
         }
+#endif
 
 
 		void Device::AddSamplers(const char* sampler_name, const SamplerDesc& sampler_desc)
 		{
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+
+            #if SG_PLATFORM_D3D12
             SamplerInfo new_sampler;
             new_sampler.name = sampler_name;
             new_sampler.sampler_desc = sampler_desc;
             samplers.push_back(new_sampler);
             RecreateSamplers();
+            #endif
 		}
 
 
 		void Device::RecreateSamplers()
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			
+			#if SG_PLATFORM_D3D12
 			const u32 increment_size = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
             
             for (size_t i = 0; i < samplers.size(); i++)
@@ -1224,11 +1375,16 @@ namespace sg
                 D3D12_SAMPLER_DESC d3d12_sampler = translate(sampler_info.sampler_desc);
                 device->CreateSampler(&d3d12_sampler, dest_cpu);
             }
+			#endif
 		}
 
+		#if SG_PLATFORM_D3D12
 		ComPtr<ID3D12RootSignature> Device::create_root_signature(const BindingDesc& binding_desc, bool compute)
 		{
-            //https://learn.microsoft.com/en-us/windows/win32/direct3d12/root-signature-version-1-1#static-and-volatile-flags
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+     return {};
+     #if SG_PLATFORM_D3D12
+     //https://learn.microsoft.com/en-us/windows/win32/direct3d12/root-signature-version-1-1#static-and-volatile-flags
             CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
 			ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, binding_desc.cbv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 			ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, binding_desc.srv_binding_count, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
@@ -1271,11 +1427,17 @@ namespace sg
             ComPtr<ID3D12RootSignature> rs;
 			CHECKHR(device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(rs.GetAddressOf())));
             return rs;
+     #endif
         }
+		#endif
 
+		#if SG_PLATFORM_D3D12
 		void Device::create_descriptors()
         {
-            //cbv srv uav
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+
+#if SG_PLATFORM_D3D12
+  //cbv srv uav
             {
 				D3D12_DESCRIPTOR_HEAP_DESC cbvSrvHeapDesc = {};
 				cbvSrvHeapDesc.NumDescriptors = DESCRIPTOR_COUNT;
@@ -1327,6 +1489,8 @@ namespace sg
                 u32 increment_size = device->GetDescriptorHandleIncrementSize(splrDesc.Type);
                 sampler_descriptor_heap = SharedPtr<DescriptorHeap>(new DescriptorHeap(heap, splrDesc.NumDescriptors, increment_size));
             }
+  #endif
         }
+		#endif
 	}
 }

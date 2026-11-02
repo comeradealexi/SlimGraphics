@@ -10,10 +10,14 @@ namespace sg
 			friend class Device;
 		public:
 			Buffer(BufferType type_, size_t size_bytes_, bool uav_access_, bool cpu_write, bool cpu_read) : type(type_), size_bytes(size_bytes_), uav_access(uav_access_), cpu_writeable(cpu_write), cpu_readable(cpu_read) {}
+#if SG_PLATFORM_D3D12
 			ComPtr<ID3D12Resource> get() { return resource; }
-			BufferType get_type() const { return type; }
+#endif			BufferType get_type() const { return type; }
 			MemoryType get_memory_type() const;
+
+#if SG_PLATFORM_D3D12
 			virtual D3D12_RESOURCE_STATES get_read_resource_state() const;
+#endif
 			size_t get_size_bytes() const { return size_bytes;  }
 
 			void* map_memory();
@@ -29,7 +33,9 @@ namespace sg
 			const bool cpu_writeable;
 			const bool cpu_readable;
 			SharedPtr<Memory> memory;
+#if SG_PLATFORM_D3D12
 			ComPtr<ID3D12Resource> resource;
+#endif		
 		};
 	}
 }

@@ -32,6 +32,7 @@ namespace sg
 		class MeshShader;
 		class Pipeline;
 		class PixelShader;
+		class QueueFence;
 		class RenderTargetView;
 		class Sampler;
 		class ShaderResourceView;
@@ -64,7 +65,7 @@ namespace sg
 	using MeshShader = Vulkan::MeshShader;
 	using Pipeline = Vulkan::Pipeline;
 	using PixelShader = Vulkan::PixelShader;
-	using QueueFence = ::ID3D12Fence;
+	using QueueFence = Vulkan::QueueFence;
 	using RenderTargetView = Vulkan::RenderTargetView;
 	using Sampler = Vulkan::Sampler;
 	using ShaderResourceView = Vulkan::ShaderResourceView;

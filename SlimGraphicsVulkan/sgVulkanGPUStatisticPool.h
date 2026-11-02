@@ -27,8 +27,11 @@ namespace sg
 		private:
 			bool recording = false;
 			const u32 max_count;
+
+#if SG_PLATFORM_D3D12
 			ComPtr<ID3D12QueryHeap> query_heap = nullptr;
 			ComPtr<ID3D12Resource> readback_buffer = nullptr;
+			#endif
 			std::atomic_uint32_t current_index;
 			std::vector<D3D12_QUERY_DATA_PIPELINE_STATISTICS> stats_copy;
 		};

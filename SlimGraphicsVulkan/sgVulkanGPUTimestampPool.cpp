@@ -6,8 +6,11 @@ namespace sg
 {
 	namespace Vulkan
 	{
+		#if SG_PLATFORM_D3D12
 		GPUTimestampPool::GPUTimestampPool(ID3D12Device* device, ID3D12CommandQueue* queue, u32 maximum_timestamps) : max_timestamps(maximum_timestamps)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			timestamps_copy.resize(max_timestamps);
 
 			//GPUFreq
@@ -47,10 +50,14 @@ namespace sg
 			QueryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
 			CHECKHR(device->CreateQueryHeap(&QueryHeapDesc, IID_PPV_ARGS(query_heap.GetAddressOf())));
 			query_heap->SetName(L"GPU Timestamp QueryHeap");
+			#endif
 		}
+		#endif
 
 		void GPUTimestampPool::resolve()
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			seAssert(recording == false, "Recording should be false");
 			D3D12_RANGE Range;
 			Range.Begin = 0;
@@ -62,21 +69,28 @@ namespace sg
 			}
 			D3D12_RANGE EmptyRange = {};
 			readback_buffer->Unmap(0, &EmptyRange);
+			#endif
 		}
 
 		void GPUTimestampPool::begin_frame()
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			seAssert(recording == false, "Recording should be false");
 			recording = true;
 			current_index = 0;
+			#endif
 		}
 
 		void GPUTimestampPool::end_frame(CommandList* command_list)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			seAssert(recording, "Recording should be false");
 			u32 query_count = current_index * 2;
 			command_list->get()->ResolveQueryData(query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0, query_count, readback_buffer.Get(), 0);
 			recording = false;
+			#endif
 		}
 
 		GPUTimestampPool::Index GPUTimestampPool::allocate_new_timestamp()
@@ -86,18 +100,28 @@ namespace sg
 
 		void GPUTimestampPool::begin_timestamp(Index index, CommandList* command_list)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			command_list->get()->EndQuery(query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, (index * 2) + 0);
+			#endif		
 		}
 
 		void GPUTimestampPool::end_timestamp(Index index, CommandList* command_list)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			#if SG_PLATFORM_D3D12
 			command_list->get()->EndQuery(query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, (index * 2) + 1);
+			#endif
 		}
 
 		double GPUTimestampPool::collect_timestamp_us(Index idx)
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			return {};
+			#if SG_PLATFORM_D3D12
 			u32 offset = idx * 2;
 			return static_cast<float>(1000000.0 * (gpu_tick_delta * (timestamps_copy[offset + 1] - timestamps_copy[offset + 0])));
+			#endif //SG_PLATFORM_D3D12
 		}
 	}
 }
