@@ -19,6 +19,7 @@
 #include <lodepng.h>
 #include "stb_image.h"
 #include "sgUtils.h"
+#include <utility>
 
 using namespace DirectX;
 using namespace sg;

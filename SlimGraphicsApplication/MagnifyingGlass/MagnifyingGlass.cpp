@@ -33,7 +33,11 @@ void MagnifyingGlass::Update(HWND hwnd, const se::GameInput& input, float delta_
 	if (active)
 	{
 		ImGui::SliderFloat("Zoom", &constant_data.scale.x, 0.0f, 1.0f);
+#if SG_PLATFORM_D3D12
 		ImGui::Image((ImTextureID)device->imgui_texture_viewer_handle().ptr, ImVec2(device->imgui_texture_viewer_data().texture->resource_create_desc.width, device->imgui_texture_viewer_data().texture->resource_create_desc.height));
+#else
+		seAssert(false, "Vulkan TODO");
+#endif
 
 		constant_data.coordinates.z = target_size;
 		constant_data.coordinates.w = target_size;

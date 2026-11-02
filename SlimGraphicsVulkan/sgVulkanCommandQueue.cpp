@@ -22,7 +22,7 @@ namespace sg
 			#endif
 		}
 
-		void CommandQueue::fence_signal(QueueFence* fence, u64 value)
+		void CommandQueue::fence_signal(QueueFence& fence, u64 value)
 		{
 			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
 			#if SG_PLATFORM_D3D12
@@ -30,14 +30,14 @@ namespace sg
 			#endif
 		}
 		
-		void CommandQueue::fence_wait_gpu(QueueFence* fence, u64 value)
+		void CommandQueue::fence_wait_gpu(QueueFence& fence, u64 value)
 		{
 			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
 			#if SG_PLATFORM_D3D12
 			CHECKHR(queue->Wait(fence, value));
 			#endif
 		}
-		void CommandQueue::fence_wait_cpu(QueueFence* fence, u64 value)
+		void CommandQueue::fence_wait_cpu(QueueFence& fence, u64 value)
 		{
 			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
 			#if SG_PLATFORM_D3D12

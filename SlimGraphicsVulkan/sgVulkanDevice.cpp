@@ -152,6 +152,8 @@ namespace sg
 
             std::vector<vk::raii::PhysicalDevice> physical_devices = instance.enumeratePhysicalDevices();
             
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+
 #if SG_PLATFORM_D3D12
             const D3D_FEATURE_LEVEL feature_level = D3D_FEATURE_LEVEL_12_0;
             UINT dxgiFactoryFlags = 0;
@@ -261,6 +263,8 @@ namespace sg
 
         void Device::imgui_init(u32 num_frames, DXGI_FORMAT format, DXGI_FORMAT depth_format, CommandQueue* command_queue)
         {
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+
 #if SG_PLATFORM_D3D12
             ImGui_ImplDX12_InitInfo init_info = {};
             init_info.Device = device.Get();
@@ -316,6 +320,8 @@ namespace sg
 
 		void Device::imgui_update()
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+
 #if SG_PLATFORM_D3D12
             ImGui::PushID("SGDevice");
 
@@ -550,14 +556,16 @@ namespace sg
 #endif //SG_PLATFORM_D3D12
         }
 
-#if SG_PLATFORM_D3D12
-        ComPtr<QueueFence> Device::create_queue_fence()
+        SharedPtr<QueueFence> Device::create_queue_fence()
         {
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			return {};
+#if SG_PLATFORM_D3D12
 			ComPtr<QueueFence> fence;
 			CHECKHR(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf())))
 				return fence;
-        }
 #endif
+        }
 
 
         SharedPtr<GPUTimestampPool> Device::create_gpu_timestamp_pool(CommandQueue* queue, u32 max_timestamps)
@@ -583,7 +591,7 @@ namespace sg
 
         SharedPtr<CommandQueue> Device::create_command_queue()
         {
-            seAssert(false, "!!");
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
             return {};
 #if SG_PLATFORM_D3D12
             ComPtr<ID3D12CommandQueue> queue;

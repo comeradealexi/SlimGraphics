@@ -32,7 +32,15 @@ namespace SlimEngine
 
             if (target.Platform == Platform.win64)
             {
-                conf.SourceFilesBuildExcludeRegex.Add(@"\.*\\backends\\imgui_impl_(?!dx12|win32)");
+                if (Globals.Vulkan)
+                {
+                    conf.IncludePaths.Add(Path.Join(Globals.SubmodulesPath, @"Vulkan-Hpp\Vulkan-Headers\include"));
+                    conf.SourceFilesBuildExcludeRegex.Add(@"\.*\\backends\\imgui_impl_(?!vulkan|win32)");
+                }
+                else
+                {
+                    conf.SourceFilesBuildExcludeRegex.Add(@"\.*\\backends\\imgui_impl_(?!dx12|win32)");
+                }
             }
         }
     }

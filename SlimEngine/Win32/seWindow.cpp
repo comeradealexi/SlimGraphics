@@ -3,7 +3,6 @@
 //#include "Input.h"
 //#include "CrossPlatformGFX\CrossPlatformGFX_Utils.h"
 #include "imgui.h"
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 #include <sstream>
 
 namespace se
@@ -12,13 +11,31 @@ namespace se
 	std::chrono::high_resolution_clock::time_point g_mouseDownTime;
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
+		Window* this_window = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 		PAINTSTRUCT ps;
 		HDC hdc;
 
-		ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam);
+		// Custom window proc callsbacks
+		if (this_window)
+		{
+			for (auto& callbacks : this_window->window_callbacks)
+			{
+				callbacks(hWnd, message, wParam, lParam);
+			}
+		}
 
 		switch (message)
 		{
+		case WM_NCCREATE: // First message sent to the window
+		{
+			// 2. Extract the pointer from the creation payload
+			LPCREATESTRUCT pCreate = reinterpret_cast<LPCREATESTRUCT>(lParam);
+			this_window = reinterpret_cast<Window*>(pCreate->lpCreateParams);
+
+			// 3. Store the pointer directly into the HWND internal memory slot
+			SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this_window));
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		}
 		case WM_PAINT:
 			hdc = BeginPaint(hWnd, &ps);
 			EndPaint(hWnd, &ps);
@@ -152,7 +169,8 @@ namespace se
 		g_hWnd = CreateWindow(L"SimpleWindow", L"Alexander Houghton",
 			WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
 			CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance,
-			nullptr);
+			this);
+
 		if (!g_hWnd)
 			return;
 

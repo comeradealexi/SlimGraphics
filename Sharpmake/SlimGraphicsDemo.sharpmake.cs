@@ -47,9 +47,18 @@ namespace SlimEngine
 
             conf.LibraryFiles.Add("GameInput.lib");
             conf.LibraryFiles.Add("assimp-vc143-mt.lib");
-            conf.LibraryFiles.Add("d3d12.lib");
-            conf.LibraryFiles.Add("dxgi.lib");
-            conf.LibraryFiles.Add("WinPixEventRuntime.lib");
+            if (Globals.Vulkan)
+            {
+                conf.LibraryPaths.Add(@"$(VULKAN_SDK)\Lib");
+                conf.LibraryFiles.Add("vulkan-1.lib");
+            }
+            else
+            {
+                conf.LibraryFiles.Add("d3d12.lib");
+                conf.LibraryFiles.Add("dxgi.lib");
+                conf.LibraryFiles.Add("WinPixEventRuntime.lib");
+            }
+
 
             conf.LibraryPaths.Add(Path.Join(Globals.Root, @"SlimGraphicsD3D12\winpixeventruntime.1.0.231030001\bin\x64"));
             conf.LibraryPaths.Add(Path.Join(Globals.ExternalsPath, @"assimp-5.3.1\lib\RelWithDebInfo"));

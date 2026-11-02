@@ -4,7 +4,6 @@
 #include "sgVulkanMemory.h"
 #include "sgVulkanShader.h"
 #include "sgVulkanDescriptorHeap.h"
-#include "d3dx12_property_format_table.h"
 
 //D3D12 Memory Allocator
 #include <D3D12MemAlloc.h>
@@ -56,9 +55,8 @@ namespace sg
 			SizeAndAlignment calculate_resource_size_alignment(const ResourceCreateDesc& desc);
 
 			SharedPtr<Memory> allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment = DefaultAlignment::BUFFER_ALIGNMENT);
-			#if SG_PLATFORM_D3D12
-ComPtr<QueueFence> create_queue_fence();
-#endif
+			SharedPtr<QueueFence> create_queue_fence();
+
 
 			SharedPtr<GPUTimestampPool> create_gpu_timestamp_pool(CommandQueue* queue, u32 max_timestamps);
 			SharedPtr<GPUStatisticPool> create_gpu_statistic_pool(CommandQueue* queue, u32 max_stats);

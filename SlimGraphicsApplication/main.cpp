@@ -4,8 +4,18 @@
 #include <Win32/seGameInput.h>
 #include <imgui.h>
 #include <implot.h>
-#include <imgui_impl_dx12.h>
+
 #include <imgui_impl_win32.h>
+// Manually externed as per imgui comment in imgui_impl_win32.h
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+#if SG_PLATFORM_D3D12
+#include <imgui_impl_dx12.h>
+#elif SG_PLATFORM_VULKAN
+#include <imgui_impl_vulkan.h>
+#else
+#error TODO
+#endif
 #include <DirectXMath.h>
 #include "AverageTimer.h"
 #include "BasicGrid.h"
@@ -110,6 +120,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	u64 x_off = 0;
 	u64 y_off = 0;
 	se::Ptr<se::Window> wnd(new se::Window(hInstance, nCmdShow, w,h));
+	wnd->window_callbacks.push_back(ImGui_ImplWin32_WndProcHandler);
+
 	{
 		RECT cr;
 		GetClientRect(wnd->g_hWnd, &cr);
@@ -150,6 +162,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImGui::GetIO().ConfigFlags |= (ImGuiConfigFlags_DockingEnable | ImGuiConfigFlags_ViewportsEnable);
 #endif
 		ImGui_ImplWin32_Init(wnd->g_hWnd);
+
 		ShowWindow(wnd->g_hWnd, SW_SHOWNORMAL);
 		device->imgui_init(frame_count, back_buffer_format, DXGI_FORMAT_UNKNOWN, queue.get());
 		OverrideImguiStyle();
@@ -324,8 +337,13 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		
 		input->Update();
 		
+#if SG_PLATFORM_D3D12
 		ImGui_ImplDX12_NewFrame();
+#else
+		seAssert(false, "TODO");
+#endif
 		ImGui_ImplWin32_NewFrame();
+
 		ImGui::NewFrame();
 		//ImPlot::ShowDemoWindow();
 		//ImGui::ShowStyleEditor();

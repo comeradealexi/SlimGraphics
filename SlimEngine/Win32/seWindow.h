@@ -1,5 +1,7 @@
 #pragma once
 #include "se_engine_pch.h"
+#include <functional>
+#include <vector>
 //#include "CrossPlatformGFX\CrossPlatformGFX_Utils.h"
 //#include "Input.h"
 namespace se
@@ -22,7 +24,7 @@ namespace se
 		HINSTANCE               g_hInst = nullptr;
 		HWND                    g_hWnd = nullptr;
 
-
+		std::vector<std::function<void(HWND, UINT, WPARAM, LPARAM)>> window_callbacks;
 	};
 
 }
