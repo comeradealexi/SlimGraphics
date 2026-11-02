@@ -144,8 +144,11 @@ namespace sg
 
 			vk::raii::Context context;
 			vk::raii::Instance instance = nullptr;
-			vk::raii::PhysicalDevice physicalDevice = nullptr;
+			vk::raii::PhysicalDevice physical_device = nullptr;
 			vk::raii::Device device = nullptr;
+#if defined(_DEBUG)
+			vk::raii::DebugUtilsMessengerEXT debug_messenger = nullptr;
+#endif
 
 #if SG_PLATFORM_D3D12
 			ComPtr<ID3D12Device> device;

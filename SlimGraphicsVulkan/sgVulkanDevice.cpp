@@ -14,12 +14,24 @@
 #include "sgUtils.h"
 #include <DDSTextureLoader.h>
 #include "sgUploadHeap.h"
+#include <iostream>
 #include <unordered_set>
 
 namespace sg
 {
 	namespace Vulkan
 	{
+        static vk::Bool32 VKAPI_PTR vulkan_debug_callback(
+            vk::DebugUtilsMessageSeverityFlagBitsEXT        messageSeverity,
+            vk::DebugUtilsMessageTypeFlagsEXT               messageTypes,
+            vk::DebugUtilsMessengerCallbackDataEXT const* pCallbackData,
+            void* pUserData)
+        {
+            std::cerr << "[Vulkan Validation Layer]: " << pCallbackData->pMessage << std::endl;
+
+            return 0;
+        }
+
 #if SG_PLATFORM_D3D12
         // Helper function for acquiring the first available hardware adapter that supports Direct3D 12.
         // If no such adapter can be found, *ppAdapter will be set to nullptr.
@@ -136,22 +148,71 @@ namespace sg
 
 		Device::Device()
 		{
-            seWriteLine("Creating Vulkan Device...");
+            seWriteLine("Creating Vulkan sg::Device...");
 
             std::vector<vk::LayerProperties> layers = vk::enumerateInstanceLayerProperties();
 			std::vector<vk::ExtensionProperties> extensions = vk::enumerateInstanceExtensionProperties(nullptr);
 
+            const char* instance_extensions[] = {
+#if defined(_DEBUG)
+                VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+#endif
+                VK_KHR_SURFACE_EXTENSION_NAME,
+                "VK_KHR_win32_surface"
+            };
+
+            const char* instance_layers[] = {
+#if defined(_DEBUG)
+                "VK_LAYER_KHRONOS_validation" 
+#endif
+            };
+
+            vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+            debugCreateInfo.setMessageSeverity(
+                vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+                vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+                vk::DebugUtilsMessageSeverityFlagBitsEXT::eError
+            );
+            debugCreateInfo.setMessageType(
+                vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+                vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+                vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance
+            );
+            debugCreateInfo.setPfnUserCallback(vulkan_debug_callback);
+
 			// initialize the vk::ApplicationInfo structure
-            vk::ApplicationInfo application_info("SlimGraphics", 1, "SlimGraphics", 1, VK_API_VERSION_1_3);
+            vk::ApplicationInfo app_info("SlimGraphics", 1, "SlimGraphics", 1, VK_API_VERSION_1_3);
+            vk::InstanceCreateInfo instance_create_info({}, &app_info, instance_layers, instance_extensions);
 
-			// initialize the vk::InstanceCreateInfo
-			vk::InstanceCreateInfo instance_create_info({}, &application_info);
+            std::cout << "Vulkan: Creating instance...\n";
+            instance = vk::raii::Instance(context, instance_create_info);
 
-			// create an Instance
-			instance = vk::raii::Instance(context, instance_create_info);
+#if defined(_DEBUG)
+            debug_messenger = vk::raii::DebugUtilsMessengerEXT(instance, debugCreateInfo);
+#endif
 
-            std::vector<vk::raii::PhysicalDevice> physical_devices = instance.enumeratePhysicalDevices();
+            vk::raii::PhysicalDevices physical_devices(instance);
+            for (vk::raii::PhysicalDevice& pd : physical_devices)
+            {
+                std::cout << "Found Physical Device: " << pd.getProperties().deviceName << "\n";
+            }
+            seAssert(physical_devices.size() > 0, "No physical devices found");
             
+            // Use first physical device returned
+            physical_device = physical_devices[0];
+
+            auto memprops1 = physical_device.getMemoryProperties();
+            auto memprops2 = physical_device.getMemoryProperties2();
+
+            auto device_extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, "VK_EXT_descriptor_heap", "VK_KHR_dynamic_rendering", "VK_EXT_shader_object", "VK_KHR_synchronization2", "VK_EXT_descriptor_indexing"};
+            
+            float queue_priority = 1.0f;
+            vk::DeviceQueueCreateInfo queue_create_info({}, 0, 1, &queue_priority);
+
+            std::cout << "Vulkan: Creating device...\n";
+            vk::DeviceCreateInfo device_create_info({}, queue_create_info, {}, device_extensions);
+            device = physical_device.createDevice(device_create_info);
+
 			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
 
 #if SG_PLATFORM_D3D12
