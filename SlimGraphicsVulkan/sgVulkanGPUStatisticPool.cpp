@@ -86,7 +86,11 @@ namespace sg
 
 		GPUStatisticPool::Index GPUStatisticPool::allocate_new_query()
 		{
+			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+			return {};
+#if SG_PLATFORM_D3D12
 			return current_index++;
+#endif
 		}
 
 		void GPUStatisticPool::begin_query(Index index, CommandList* command_list)
@@ -105,10 +109,12 @@ namespace sg
 			#endif		
 		}
 
+#if SG_PLATFORM_D3D12
 		const D3D12_QUERY_DATA_PIPELINE_STATISTICS& GPUStatisticPool::collect_query(Index idx)
 		{
 			return stats_copy[idx];
 		}
+#endif
 
 	}
 }

@@ -32,10 +32,10 @@ namespace SlimEngine
             else
             {
                 conf.AddPrivateDependency<SlimGraphicsD3D12>(target);
+                conf.AddPrivateDependency<D3D12MAProject>(target);
             }
             conf.AddPrivateDependency<SlimGraphicsShared>(target); ;
             conf.AddPrivateDependency<MeshOptimizerProject>(target);
-            conf.AddPrivateDependency<D3D12MAProject>(target);
             conf.AddPrivateDependency<DirectXMeshProject>(target);
             conf.AddPrivateDependency<DirectXToolkitProject>(target);
             conf.AddPrivateDependency<ImGuiProject>(target);

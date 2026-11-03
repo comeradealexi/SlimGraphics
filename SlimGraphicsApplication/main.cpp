@@ -606,7 +606,11 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		gpu_timer.add_time(timestamp_pool->collect_timestamp_us(gpu_timestamp_idx));
 
 		stats_pool->resolve();
+#if SG_PLATFORM_D3D12
 		query_data = stats_pool->collect_query(stat_query_idx);
+#else
+		seAssert(false, "VULKAN TODO");
+#endif
 
 		total_frame_idx++;
 		wnd->Poll();

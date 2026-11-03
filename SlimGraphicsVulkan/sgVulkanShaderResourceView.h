@@ -10,8 +10,10 @@ namespace sg
 		public:
 			SharedPtr<Texture> texture_resource;
 			SharedPtr<Buffer> buffer_resource;
+#if SG_PLATFORM_D3D12
 			D3D12_SHADER_RESOURCE_VIEW_DESC desc;
 			D3D12_SHADER_RESOURCE_VIEW_DESC desc_uint;
+#endif
 		};
 	}
 }

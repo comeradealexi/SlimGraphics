@@ -19,7 +19,7 @@ namespace SlimEngine
             conf.SolutionFolder = "SlimEngine";
 
             conf.IncludePaths.Add(SourceRootPath);
-            conf.IncludePaths.Add(Path.Join(Globals.SubmodulesPath, @"D3D12MemoryAllocator\include"));
+            conf.IncludePaths.Add(Path.Join(Globals.SubmodulesPath, @"VulkanMemoryAllocator\include"));
             conf.IncludePaths.Add(Path.Join(Globals.SubmodulesPath, @"Vulkan-Hpp"));
             conf.IncludePaths.Add(Path.Join(Globals.SubmodulesPath, @"Vulkan-Hpp\Vulkan-Headers\include"));
             conf.IncludePaths.Add(Path.Join(Globals.Root, @"SlimEngine"));
@@ -27,8 +27,6 @@ namespace SlimEngine
 
             conf.AddPrivateDependency<SlimEngineProject>(target);
             conf.AddPrivateDependency<ImGuiProject>(target);
-            conf.AddPrivateDependency<D3D12Headers>(target);
-            conf.AddPrivateDependency<DirectXToolkitProject>(target);
         }
     }
 }

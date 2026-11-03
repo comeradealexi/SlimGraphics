@@ -12,8 +12,10 @@ namespace sg
 		public:
 			SharedPtr<Buffer> buffer_resource;
 			SharedPtr<Texture> texture_resource;
+#if SG_PLATFORM_D3D12
 			D3D12_UNORDERED_ACCESS_VIEW_DESC desc;
 			D3D12_UNORDERED_ACCESS_VIEW_DESC desc_uint;
+#endif
 
 #if SG_PLATFORM_D3D12
 			inline ID3D12Resource* get_d3d12_resource()

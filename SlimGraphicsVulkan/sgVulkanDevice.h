@@ -6,7 +6,7 @@
 #include "sgVulkanDescriptorHeap.h"
 
 //D3D12 Memory Allocator
-#include <D3D12MemAlloc.h>
+#include <vk_mem_alloc.h>
 
 namespace sg
 {
@@ -27,11 +27,13 @@ namespace sg
 			};
 			static constexpr char* PoolTypeNames[(u32)PoolTypes::Max] = { "Textures", "Targets", "Buffers", "Upload", "Readback" };
 
+#if SG_PLATFORM_D3D12
 			D3D12MA::Pool* GetPool(PoolTypes type) { return pools[(u32)type]; }
 
 			D3D12MA::ALLOCATOR_DESC desc;
 			D3D12MA::Allocator* allocator;
 			D3D12MA::Pool* pools[(u32)PoolTypes::Max];
+#endif
 		};
 
 		class Device
@@ -51,7 +53,9 @@ namespace sg
 #endif
 			void set_imgui_viewer_texture(SharedPtr<Texture> texture);
 
+#if SG_PLATFORM_D3D12
 			D3D12_RESOURCE_DESC create_dx12_resource_desc(const ResourceCreateDesc& desc);
+#endif
 			SizeAndAlignment calculate_resource_size_alignment(const ResourceCreateDesc& desc);
 
 			SharedPtr<Memory> allocate_memory(MemoryType type, MemorySubType sub_type, u64 size, u64 alignment = DefaultAlignment::BUFFER_ALIGNMENT);

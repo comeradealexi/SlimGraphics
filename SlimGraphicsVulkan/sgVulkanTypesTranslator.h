@@ -6,6 +6,7 @@ namespace sg
 {
 	namespace Vulkan
 	{
+#if SG_PLATFORM_D3D12
 		static D3D12_VIEWPORT translate(const Viewport& viewport)
 		{
 			return CD3DX12_VIEWPORT(viewport.top_left_x, viewport.top_left_y, viewport.width, viewport.height, viewport.min_depth, viewport.max_depth);
@@ -485,5 +486,6 @@ namespace sg
 
 			return sd;
 		}
+#endif
 	}
 }

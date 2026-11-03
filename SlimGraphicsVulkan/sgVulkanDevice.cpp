@@ -12,7 +12,7 @@
 #include "sgVulkanGPUStatisticPool.h"
 #include <imgui_impl_dx12.h>
 #include "sgUtils.h"
-#include <DDSTextureLoader.h>
+//#include <DDSTextureLoader.h>
 #include "sgUploadHeap.h"
 #include <iostream>
 #include <unordered_set>

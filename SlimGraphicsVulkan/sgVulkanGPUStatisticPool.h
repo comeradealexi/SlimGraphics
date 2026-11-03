@@ -9,7 +9,9 @@ namespace sg
 		class GPUStatisticPool
 		{
 		public:
+#if SG_PLATFORM_D3D12
 			GPUStatisticPool(ID3D12Device6* device, ID3D12CommandQueue* queue, u32 _max_count);
+#endif
 			using Index = u32;
 
 			void resolve();
@@ -21,7 +23,9 @@ namespace sg
 			void begin_query(Index index, CommandList* command_list);
 			void end_query(Index index, CommandList* command_list);
 
+#if SG_PLATFORM_D3D12
 			const D3D12_QUERY_DATA_PIPELINE_STATISTICS& collect_query(Index idx);
+#endif
 
 
 		private:
@@ -31,9 +35,9 @@ namespace sg
 #if SG_PLATFORM_D3D12
 			ComPtr<ID3D12QueryHeap> query_heap = nullptr;
 			ComPtr<ID3D12Resource> readback_buffer = nullptr;
-			#endif
 			std::atomic_uint32_t current_index;
 			std::vector<D3D12_QUERY_DATA_PIPELINE_STATISTICS> stats_copy;
+#endif
 		};
 	}
 }
