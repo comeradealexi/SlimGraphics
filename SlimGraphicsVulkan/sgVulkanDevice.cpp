@@ -10,6 +10,7 @@
 #include "sgVulkanTypesTranslator.h"
 #include "sgVulkanGPUTimestampPool.h"
 #include "sgVulkanGPUStatisticPool.h"
+#include "sgVulkanQueueFence.h"
 #include <imgui_impl_dx12.h>
 #include "sgUtils.h"
 //#include <DDSTextureLoader.h>
@@ -212,8 +213,11 @@ namespace sg
             std::cout << "Vulkan: Creating device...\n";
             vk::DeviceCreateInfo device_create_info({}, queue_create_info, {}, device_extensions);
             device = physical_device.createDevice(device_create_info);
-
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
+            
+			// Unlike D3D12 where you create the queue at whenever you like. Vulkan requires you to create the queue at device creation time. So we have to get the queue here.
+            queue = device.getQueue(0, 0);
+			
+            seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
 
 #if SG_PLATFORM_D3D12
             const D3D_FEATURE_LEVEL feature_level = D3D_FEATURE_LEVEL_12_0;
@@ -619,8 +623,8 @@ namespace sg
 
         SharedPtr<QueueFence> Device::create_queue_fence()
         {
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			return {};
+            return SharedPtr<QueueFence>(new QueueFence({ device.createFence({})}));
+
 #if SG_PLATFORM_D3D12
 			ComPtr<QueueFence> fence;
 			CHECKHR(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf())))
@@ -652,16 +656,8 @@ namespace sg
 
         SharedPtr<CommandQueue> Device::create_command_queue()
         {
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-            return {};
-#if SG_PLATFORM_D3D12
-            ComPtr<ID3D12CommandQueue> queue;
-            D3D12_COMMAND_QUEUE_DESC QueueDesc = {};
-            QueueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-            CHECKHR(device->CreateCommandQueue(&QueueDesc, IID_PPV_ARGS(&queue)));
-            CHECKHR(queue->SetName(L"CommandQueue"));
-            return Ptr<CommandQueue>(new CommandQueue(queue));
-#endif
+			// Use the queue we created at device creation time. Vulkan requires you to create the queue at device creation time.
+            return SharedPtr<CommandQueue>(new CommandQueue(*this, queue));
         }
 
         SharedPtr<CommandList> Device::create_command_buffer()

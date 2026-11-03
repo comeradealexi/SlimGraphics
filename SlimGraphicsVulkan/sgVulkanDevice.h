@@ -136,6 +136,8 @@ namespace sg
 			ComPtr<ID3D12Device> get_device() { return device; }
 #endif
 
+			vk::raii::Device& get_device() { return device; }
+
 			void AddSamplers(const char* sampler_name, const sg::SamplerDesc& sampler_desc);
 			void RecreateSamplers();
 
@@ -150,6 +152,7 @@ namespace sg
 			vk::raii::Instance instance = nullptr;
 			vk::raii::PhysicalDevice physical_device = nullptr;
 			vk::raii::Device device = nullptr;
+			vk::raii::Queue queue = nullptr;
 #if defined(_DEBUG)
 			vk::raii::DebugUtilsMessengerEXT debug_messenger = nullptr;
 #endif

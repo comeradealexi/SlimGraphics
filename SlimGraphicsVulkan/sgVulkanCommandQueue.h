@@ -9,10 +9,8 @@ namespace sg
 		class CommandQueue
 		{
 		public:
-#if SG_PLATFORM_D3D12
-			CommandQueue(ComPtr<ID3D12CommandQueue>& in_queue);
-			ComPtr<ID3D12CommandQueue> get() { return queue; }
-#endif
+			CommandQueue(Device& device, vk::raii::Queue& in_queue);
+			vk::raii::Queue& get() { return queue; }
 
 			void submit_command_list(CommandList* command_list);
 			
@@ -26,10 +24,8 @@ namespace sg
 			void fence_wait_cpu(QueueFence& fence, u64 value);
 
 		private:
-#if SG_PLATFORM_D3D12
-			ComPtr<ID3D12CommandQueue> queue;
-			HANDLE cpu_fence;
-#endif
+			Device& sg_device;
+			vk::raii::Queue queue = nullptr;
 		};
 	}
 }
