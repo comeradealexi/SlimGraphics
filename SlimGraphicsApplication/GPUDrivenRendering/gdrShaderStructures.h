@@ -18,6 +18,11 @@ namespace gdr {
 		uint use_cone_culling;
 		uint pad4;
 		uint pad5;
+
+		uint sort_mode; // 0 = no sorting, 1 = sort distance to camera (front to back), 2 = sort distance to camera (back to front)
+		uint s1;
+		uint s2;
+		uint s3;
 	};
 
 	struct CameraData

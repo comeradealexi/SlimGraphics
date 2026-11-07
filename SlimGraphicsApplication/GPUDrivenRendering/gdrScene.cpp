@@ -133,6 +133,7 @@ namespace gdr
 		// Some defaults for debug
 		debug_data.shader_debug_data.use_frustum_culling = true;
 		debug_data.shader_debug_data.use_cone_culling = true;
+		debug_data.shader_debug_data.sort_mode = 1; // Sort front to back
 	}
 
 	void Scene::create_pipelines()
@@ -225,6 +226,10 @@ namespace gdr
 			ImGui::Checkbox("Use Cone Culling", (bool*)&debug_data.shader_debug_data.use_cone_culling);
 			ImGui::Unindent();
 			ImGui::EndDisabled();
+			ImGui::Text("Sorting Options");
+			ImGui::RadioButton("No Sorting", (int*)&debug_data.shader_debug_data.sort_mode, 0);
+			ImGui::RadioButton("Sort Front to Back", (int*)&debug_data.shader_debug_data.sort_mode, 1);
+			ImGui::RadioButton("Sort Back to Front", (int*)&debug_data.shader_debug_data.sort_mode, 2);
 		}
 
 		if (ImGui::CollapsingHeader("Rendering Options", ImGuiTreeNodeFlags_DefaultOpen))
@@ -379,14 +384,18 @@ namespace gdr
 		command_list.set_pipeline(pipelines[debug_data.shader_debug_data.debug_mode].build_indirect_arguments_pipeline.get());
 		command_list.dispatch(1, 1, 1);
 
-		// Stage 2
-		// So at this point we now have a list of final meshlets to be rendered in model_buffers.gpu_pre_process_instances_output
-		
-		command_list.set_pipeline(pipelines[debug_data.shader_debug_data.debug_mode].mesh_render_pipeline.get());
-		command_list.bind(b, PipelineType::Geometry);
+		// Stage 2 - Optional sorting stage
 
-		mesh_shader_indirect_arguments->set_indirect_buffer(model_buffers.indirect_arguments.buffer);
-		command_list.execute_indirect(*mesh_shader_indirect_arguments);
+
+		// Stage 3
+		// So at this point we now have a list of final meshlets to be rendered in model_buffers.gpu_pre_process_instances_output
+		{
+			command_list.set_pipeline(pipelines[debug_data.shader_debug_data.debug_mode].mesh_render_pipeline.get());
+			command_list.bind(b, PipelineType::Geometry);
+
+			mesh_shader_indirect_arguments->set_indirect_buffer(model_buffers.indirect_arguments.buffer);
+			command_list.execute_indirect(*mesh_shader_indirect_arguments);
+		}
 	}
 
 	static std::vector<Vertex> load_vertex_buffer(const aiMesh* assimp_mesh)
