@@ -13,7 +13,7 @@ BitonicSort::BitonicSort(sg::SharedPtr<sg::Device>& _device) : device(_device)
 {
 	BindingDesc pipeline_binding_desc = {};
 	pipeline_binding_desc.uav_binding_count = 1;
-	pipeline_binding_desc.srv_binding_count = 1;
+	//pipeline_binding_desc.srv_binding_count = 1;
 	pipeline_binding_desc.cbv_binding_count = 2;
 	PipelineDesc::Compute pipeline_desc = {};	
 
@@ -27,7 +27,7 @@ BitonicSort::BitonicSort(sg::SharedPtr<sg::Device>& _device) : device(_device)
 	buffer_zerod = create_buffer(*device, 1024 * 1024, BufferType::Upload, false);
 	buffer_readback = create_readback_buffer(*device, 1024 * 1024);
 	buffer_input = create_buffer(*device, 1024 * 1024, BufferType::GeneralDataBuffer, true);
-	buffer_output = create_buffer(*device, 1024 * 1024, BufferType::GeneralDataBuffer, true);
+	//buffer_output = create_buffer(*device, 1024 * 1024, BufferType::GeneralDataBuffer, true);
 }
 
 void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input, sg::Buffer* buffer_output, sg::u32 array_size, */SimpleLinearConstantBuffer& cbuffer)
@@ -91,8 +91,8 @@ void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input
 
 	command_list.copy_buffer_to_buffer(buffer_input.get(), buffer_upload.get());
 
-	Binding b;
-	b.srv_binding_count = 1;
+	Binding b = {};
+	//b.srv_binding_count = 1;
 	b.uav_binding_count = 1;
 	b.cbv_binding_count = 2;
 
@@ -101,10 +101,10 @@ void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input
 
 	{
 		command_list.set_pipeline(pipeline_tile_sort.get());
-		sg::ShaderResourceView input_srv = device->create_shader_resource_view(buffer_input, sizeof(KeyValue), sort_count);
-		b.set_srv(input_srv, 0);
+		//sg::ShaderResourceView input_srv = device->create_shader_resource_view(buffer_input, sizeof(KeyValue), sort_count);
+		//b.set_srv(input_srv, 0);
 
-		sg::UnorderedAccessView output_uav = device->create_unordered_access_view(buffer_output, sizeof(KeyValue), sort_count);
+		sg::UnorderedAccessView output_uav = device->create_unordered_access_view(buffer_input, sizeof(KeyValue), sort_count);
 		b.set_uav(output_uav, 0);
 
 		sort_params.g_NumElements = sort_count;
@@ -121,7 +121,7 @@ void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input
 		// Merge
 		{
 			buffer_ping_pong = true;
-			output_uav = device->create_unordered_access_view(buffer_output, sizeof(KeyValue), sort_count);
+			output_uav = device->create_unordered_access_view(buffer_input, sizeof(KeyValue), sort_count);
 
 			command_list.set_pipeline(pipeline_merge.get());
 			// 2) Phase B: Hierarchical global merges
@@ -133,7 +133,7 @@ void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input
 					global_merge_params = { k, j, /*g_Ascending*/ 1, /*padding*/0 };
 					cbv1 = cbuffer.AllocateAndWrite(global_merge_params);
 					b.set_cbv(cbv1, 1);
-					b.set_srv(input_srv, 0);
+					//b.set_srv(input_srv, 0);
 					b.set_uav(output_uav, 0);
 					
 					command_list.bind(b, PipelineType::Compute);
@@ -147,5 +147,5 @@ void BitonicSort::sort(sg::CommandList& command_list, /*sg::Buffer* buffer_input
 		}
 	}
 
-	command_list.copy_buffer_to_buffer(buffer_readback.get(), buffer_output.get());
+	command_list.copy_buffer_to_buffer(buffer_readback.get(), buffer_input.get());
 }

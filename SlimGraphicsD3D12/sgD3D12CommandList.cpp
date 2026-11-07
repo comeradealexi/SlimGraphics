@@ -60,15 +60,15 @@ namespace sg
 
 				for (u32 i = 0; i < highest_bind_count; i++)
 				{
-					if (active_binding.get_uavs(i) != bind.get_uavs(i))
+					if (active_binding.d3d12_uavs[i] != bind.d3d12_uavs[i])
 					{
-						if (active_binding.get_uavs(i) != Binding::INVALID_BINDING)
+						if (active_binding.d3d12_uavs[i])
 						{
 							barriers_out[barrier_count_out] = CD3DX12_RESOURCE_BARRIER::Transition(active_binding.d3d12_uavs[i].get_d3d12_resource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, active_binding.d3d12_uavs[i].get_d3d12_read_resource_state());
 							barrier_count_out++;
 						}
 
-						if (bind.get_uavs(i) != Binding::INVALID_BINDING)
+						if (bind.d3d12_uavs[i])
 						{
 							barriers_in[barrier_count_in] = CD3DX12_RESOURCE_BARRIER::Transition(bind.d3d12_uavs[i].get_d3d12_resource(), bind.d3d12_uavs[i].get_d3d12_read_resource_state(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 							barrier_count_in++;
@@ -191,7 +191,6 @@ namespace sg
 				root_parameter_index++;
 			}
 
-			bind.set_not_dirty();
 			active_binding = bind;
 		}
 
@@ -331,9 +330,20 @@ namespace sg
 			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(non_shader_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), 0, descriptor_heap_increment);
 			device->CreateUnorderedAccessView(buffer_dx12, nullptr, &uav.desc_uint, cpu_handle);
 
+			const D3D12_RESOURCE_STATES uav_read_state = uav.buffer_resource->get_read_resource_state();
+			{
+				CD3DX12_RESOURCE_BARRIER trans_barrier = CD3DX12_RESOURCE_BARRIER::Transition(uav.buffer_resource->get().Get(), uav_read_state, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				command_list->ResourceBarrier(1, &trans_barrier);
+			}
+
 			command_list->ResourceBarrier(1, &barrier);
 			command_list->ClearUnorderedAccessViewFloat(dest_gpu, cpu_handle, buffer_dx12, clear_values, 0, nullptr);
 			command_list->ResourceBarrier(1, &barrier);
+
+			{
+				CD3DX12_RESOURCE_BARRIER trans_barrier = CD3DX12_RESOURCE_BARRIER::Transition(uav.buffer_resource->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav_read_state);
+				command_list->ResourceBarrier(1, &trans_barrier);
+			}
 		}
 
 
@@ -359,9 +369,20 @@ namespace sg
 			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(non_shader_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), 0, descriptor_heap_increment);
 			device->CreateUnorderedAccessView(buffer_dx12,nullptr,&uav.desc_uint, cpu_handle);
 
+			const D3D12_RESOURCE_STATES uav_read_state = uav.buffer_resource->get_read_resource_state();
+			{
+				CD3DX12_RESOURCE_BARRIER trans_barrier = CD3DX12_RESOURCE_BARRIER::Transition(uav.buffer_resource->get().Get(), uav_read_state, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+				command_list->ResourceBarrier(1, &trans_barrier);
+			}
+
 			command_list->ResourceBarrier(1, &barrier);
 			command_list->ClearUnorderedAccessViewUint(dest_gpu, cpu_handle, buffer_dx12, clear_values, 0, nullptr);
 			command_list->ResourceBarrier(1, &barrier);
+
+			{
+				CD3DX12_RESOURCE_BARRIER trans_barrier = CD3DX12_RESOURCE_BARRIER::Transition(uav.buffer_resource->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, uav_read_state);
+				command_list->ResourceBarrier(1, &trans_barrier);
+			}
 		}
 
 		void CommandList::copy_buffer_to_buffer(Buffer* dest, Buffer* source)

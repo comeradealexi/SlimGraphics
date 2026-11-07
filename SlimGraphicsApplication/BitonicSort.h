@@ -29,7 +29,7 @@ private:
 	sg::SharedPtr<sg::Buffer> buffer_upload;
 	sg::SharedPtr<sg::Buffer> buffer_zerod;
 	sg::SharedPtr<sg::Buffer> buffer_input;
-	sg::SharedPtr<sg::Buffer> buffer_output;
+	//sg::SharedPtr<sg::Buffer> buffer_output;
 	sg::SharedPtr<sg::Buffer> buffer_readback;
 
 	struct Stats

@@ -14,6 +14,21 @@ namespace sg
 			SharedPtr<Texture> texture_resource;
 			D3D12_UNORDERED_ACCESS_VIEW_DESC desc;
 			D3D12_UNORDERED_ACCESS_VIEW_DESC desc_uint;
+			
+			operator bool()
+			{
+				return buffer_resource || texture_resource;
+			}
+
+			bool operator==(const UnorderedAccessView& rhs)
+			{
+				return buffer_resource == rhs.buffer_resource && texture_resource == rhs.texture_resource;
+			}
+
+			bool operator!=(const UnorderedAccessView& rhs)
+			{
+				return !(*this == rhs);
+			}
 
 			inline ID3D12Resource* get_d3d12_resource()
 			{

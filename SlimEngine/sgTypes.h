@@ -412,50 +412,50 @@ namespace sg
 
 	struct BaseBinding : public BindingDesc
 	{
-		static constexpr u32 INVALID_BINDING = (u32)~0;
-		BaseBinding()
-		{
-			for (auto& v : cbvs) v = INVALID_BINDING;
-			for (auto& v : srvs) v = INVALID_BINDING;
-			for (auto& v : uavs) v = INVALID_BINDING;
-			for (auto& v : samplers) v = INVALID_BINDING;
-		}
-		void set_cbv(CBVBinding binding, u32 index)
-		{
-			seAssert(index < cbv_binding_count, "exceeded");
-			dirty = true;
-			cbvs[index] = binding;
-		}
-		void set_srv(SRVBinding binding, u32 index)
-		{
-			seAssert(index < srv_binding_count, "exceeded");
-			dirty = true;
-			srvs[index] = binding;
-		}
-		void set_uav(UAVBinding binding, u32 index)
-		{
-			seAssert(index < uav_binding_count, "exceeded");
-			dirty = true;
-			uavs[index] = binding;
-		}
-		void set_sampler(SamplerBinding binding, u32 index)
-		{
-			seAssert(index < sampler_binding_count, "exceeded");
-			dirty = true;
-			samplers[index] = binding;
-		}
-		void set_not_dirty() { dirty = false; }
-
-		const CBVBinding get_cbvs(u32 idx) const { return cbvs[idx]; }
-		const SRVBinding get_srvs(u32 idx) const { return srvs[idx]; }
-		const UAVBinding get_uavs(u32 idx) const { return uavs[idx]; }
-		const SamplerBinding get_samplers(u32 idx) const { return samplers[idx]; }
+		//static constexpr u32 INVALID_BINDING = (u32)~0;
+		//BaseBinding()
+		//{
+		//	for (auto& v : cbvs) v = INVALID_BINDING;
+		//	for (auto& v : srvs) v = INVALID_BINDING;
+		//	for (auto& v : uavs) v = INVALID_BINDING;
+		//	for (auto& v : samplers) v = INVALID_BINDING;
+		//}
+		//void set_cbv(CBVBinding binding, u32 index)
+		//{
+		//	seAssert(index < cbv_binding_count, "exceeded");
+		//	dirty = true;
+		//	cbvs[index] = binding;
+		//}
+		//void set_srv(SRVBinding binding, u32 index)
+		//{
+		//	seAssert(index < srv_binding_count, "exceeded");
+		//	dirty = true;
+		//	srvs[index] = binding;
+		//}
+		//void set_uav(UAVBinding binding, u32 index)
+		//{
+		//	seAssert(index < uav_binding_count, "exceeded");
+		//	dirty = true;
+		//	uavs[index] = binding;
+		//}
+		//void set_sampler(SamplerBinding binding, u32 index)
+		//{
+		//	seAssert(index < sampler_binding_count, "exceeded");
+		//	dirty = true;
+		//	samplers[index] = binding;
+		//}
+		//void set_not_dirty() { dirty = false; }
+		//
+		//const CBVBinding get_cbvs(u32 idx) const { return cbvs[idx]; }
+		//const SRVBinding get_srvs(u32 idx) const { return srvs[idx]; }
+		//const UAVBinding get_uavs(u32 idx) const { return uavs[idx]; }
+		//const SamplerBinding get_samplers(u32 idx) const { return samplers[idx]; }
 
 	private:
-		bool dirty = true;
-		CBVBinding cbvs[MAX_CBVS];
-		SRVBinding srvs[MAX_SRVS];
-		UAVBinding uavs[MAX_UAVS];
-		SamplerBinding samplers[MAX_SAMPLERS];
+		//bool dirty = true;
+		//CBVBinding cbvs[MAX_CBVS];
+		//SRVBinding srvs[MAX_SRVS];
+		//UAVBinding uavs[MAX_UAVS];
+		//SamplerBinding samplers[MAX_SAMPLERS];
 	};
 }

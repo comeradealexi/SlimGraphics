@@ -131,6 +131,9 @@ bool PostProcess::Render(sg::CommandList& command_list, sg::ConstantBufferView& 
 
 
 		command_list.dispatch(dispatch_x, dispatch_y, dispatch_z);
+
+		Binding default_binding; // TODO - Really shouldn't have to do this but otherwise resource dangles bound as a UAV...
+		command_list.bind(default_binding, PipelineType::Compute);
 	}
 
 	return enabled;

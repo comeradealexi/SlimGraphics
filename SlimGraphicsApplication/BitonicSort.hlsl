@@ -21,8 +21,8 @@ struct KeyValue
 
 // Replace KeyValue with float & payload if needed and update comparisons accordingly.
 // Structured buffers bound from CPU:
-StructuredBuffer<KeyValue> InputBuffer  : register(t0);
-RWStructuredBuffer<KeyValue> OutputBuffer : register(u0);
+RWStructuredBuffer<KeyValue> InputBuffer : register(u0);
+//RWStructuredBuffer<KeyValue> OutputBuffer : register(u0);
 
 // ---------- Constants ----------
 cbuffer SortParams : register(b0)
@@ -140,7 +140,7 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
     // Write back
     if (idx < num_elements) 
     {
-        OutputBuffer[idx] = s_data[group_index];
+        InputBuffer[idx] = s_data[group_index];
     }
 }
 
@@ -200,14 +200,14 @@ void GlobalMergeCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThread
         index_a += inner_offset + outer_offset;
         index_b += inner_offset + outer_offset;
         
-        KeyValue A = OutputBuffer[index_a];
-        KeyValue B = OutputBuffer[index_b];
+        KeyValue A = InputBuffer[index_a];
+        KeyValue B = InputBuffer[index_b];
         
         bool swap = ascending ? (A.key > B.key) : (A.key < B.key);
         if (swap)
         {
-            OutputBuffer[index_a] = B;
-            OutputBuffer[index_b] = A;
+            InputBuffer[index_a] = B;
+            InputBuffer[index_b] = A;
         }
     }
 }
