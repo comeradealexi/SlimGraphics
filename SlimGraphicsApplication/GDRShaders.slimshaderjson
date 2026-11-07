@@ -31,5 +31,28 @@
         "name": "GDR_PixelShader"
       }
     ]
+  },
+  {
+    "input_file": "GPUDrivenRendering/gdrShaderSort.hlsl",
+    "variant_defines": [
+      {
+        "defines": [
+          "GDR_SORT_DESCENDING"
+        ],
+        "id": "DESCENDING"
+      }
+    ],
+    "shaders": [
+      {
+        "profile": "cs_6_5",
+        "entrypoint": "LocalTileSortCS",
+        "name": "GDR_Sort_LocalTileSortCS"
+      },
+      {
+        "profile": "cs_6_5",
+        "entrypoint": "GlobalMergeCS",
+        "name": "GDR_Sort_GlobalMergeCS"
+      }
+    ]
   }
 ]

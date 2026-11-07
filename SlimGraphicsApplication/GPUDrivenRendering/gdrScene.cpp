@@ -8,7 +8,14 @@
 #include <assimp\postprocess.h>
 #include "sgUtils.h"
 #include <Utils.h>
-
+#include <meshoptimizer.h>
+#include <GeometricPrimitive.h>
+#include <DirectXMesh.h>
+#include "ShaderSharedStructures.h"
+#include <lodepng.h>
+#include "stb_image.h"
+#include "sgUtils.h"
+#include <utility>
 /*
 
 GPU Driven Rendering Plan
@@ -126,7 +133,7 @@ namespace gdr
 		callback(scene_node);
 	}
 
-	Scene::Scene(sg::SharedPtr<sg::Device>& _device) : device(_device)
+	Scene::Scene(sg::SharedPtr<sg::Device>& _device) : device(_device), gpu_sort(device)
 	{
 		create_pipelines();
 
@@ -302,7 +309,10 @@ namespace gdr
 				model_index++;
 			}
 			model_buffers.instance_data.create_and_upload_to_gpu(device, upload_heap);
-			model_buffers.gpu_pre_process_instances_output.create(device, total_meshlets); // Output buffer allocated matches input
+
+			// Because gpu_pre_process_instances_output is sorted with bitonic sort we must ensure that the size is a power of two
+			// TODO - don't reallocate this every frame - cache maximum size and only reallocate if we exceed it
+			model_buffers.gpu_pre_process_instances_output.create(device, total_meshlets, true); // Output buffer allocated matches input
 		}
 
 	}
@@ -346,8 +356,11 @@ namespace gdr
 		if (debug_data.shader_debug_data.debug_mode != 0)
 		{
 			b.cbv_binding_count = 4;
-			b.set_cbv(cbuffer.AllocateAndWrite(debug_data.shader_debug_data), 2);
-			b.set_cbv(cbuffer.AllocateAndWrite(debug_data.culling_camera_data), 3);
+			ConstantBufferView shader_debug_data_cbv = cbuffer.AllocateAndWrite(debug_data.shader_debug_data);
+			b.set_cbv(shader_debug_data_cbv, 2);
+
+			ConstantBufferView culling_camera_data_cbv = cbuffer.AllocateAndWrite(debug_data.culling_camera_data);
+			b.set_cbv(culling_camera_data_cbv, 3);
 		}
 				
 		b.set_uav(model_buffers.gpu_pre_process_instances_output.uav, 0);
@@ -385,7 +398,10 @@ namespace gdr
 		command_list.dispatch(1, 1, 1);
 
 		// Stage 2 - Optional sorting stage
-
+		if (debug_data.shader_debug_data.sort_mode != 0)
+		{
+			gpu_sort.sort(command_list, cbuffer, model_buffers.gpu_pre_process_instances_output.uav, model_buffers.atomic_counter.uav, model_buffers.gpu_pre_process_instances_output.get_element_count(), debug_data.shader_debug_data.sort_mode == 1 ? GPUSort::Ascending : GPUSort::Descending);
+		}
 
 		// Stage 3
 		// So at this point we now have a list of final meshlets to be rendered in model_buffers.gpu_pre_process_instances_output

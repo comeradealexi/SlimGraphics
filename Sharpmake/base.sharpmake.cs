@@ -25,7 +25,7 @@ namespace SlimEngine
         {
             conf.IntermediatePath += Path.DirectorySeparatorChar + Name;
             conf.Options.Add(Options.Vc.General.CharacterSet.Unicode);
-            conf.Options.Add(Options.Vc.Compiler.CppLanguageStandard.CPP17);
+            conf.Options.Add(Options.Vc.Compiler.CppLanguageStandard.CPP20);
         }
 
         [Configure]

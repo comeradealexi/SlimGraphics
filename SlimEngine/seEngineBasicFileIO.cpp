@@ -43,13 +43,13 @@ namespace se
 				{
 					if (entry.path().has_extension())
 					{
-						std::string file_extension = entry.path().extension().u8string();
+						std::string file_extension = entry.path().extension().string();
 
 						for (const char* extension : extensions)
 						{
 							if (strcmpi(file_extension.c_str(), extension) == 0)
 							{
-								return_paths.push_back(entry.path().u8string());
+								return_paths.push_back(entry.path().string());
 								continue;
 							}
 						}
@@ -57,7 +57,7 @@ namespace se
 				}
 				else
 				{
-					return_paths.push_back(entry.path().u8string());
+					return_paths.push_back(entry.path().string());
 				}
 			}
 			else if (entry.is_directory())

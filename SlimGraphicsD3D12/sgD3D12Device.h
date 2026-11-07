@@ -26,7 +26,7 @@ namespace sg
 				Readback,
 				Max
 			};
-			static constexpr char* PoolTypeNames[(u32)PoolTypes::Max] = { "Textures", "Targets", "Buffers", "Upload", "Readback" };
+			static constexpr const char* PoolTypeNames[(u32)PoolTypes::Max] = { "Textures", "Targets", "Buffers", "Upload", "Readback" };
 
 			D3D12MA::Pool* GetPool(PoolTypes type) { return pools[(u32)type]; }
 

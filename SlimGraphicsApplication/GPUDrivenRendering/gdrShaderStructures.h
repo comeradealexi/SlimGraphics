@@ -50,7 +50,7 @@ namespace gdr {
 	{
 		uint instance_index;
 		uint meshlet_index;
-		uint sort_key;
+		float sort_key;
 		uint pad;
 	};
 

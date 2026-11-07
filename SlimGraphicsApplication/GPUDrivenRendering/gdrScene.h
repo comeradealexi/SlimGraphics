@@ -12,6 +12,7 @@
 #include "gdrJSON.h"
 #include "gdrEditor.h"
 #include "gdrModel.h"
+#include "gdrSort.h"
 
 namespace gdr
 {
@@ -25,9 +26,16 @@ namespace gdr
 		sg::SharedPtr<sg::Buffer>	buffer;
 		sg::UnorderedAccessView		uav;
 		sg::ShaderResourceView		srv;
+		sg::u32						allocated_memory_size = 0;
 
 		void create_and_upload_to_gpu(sg::SharedPtr<sg::Device>& device, sg::Ptr<sg::UploadHeap>& upload_heap);
-		void create(sg::SharedPtr<sg::Device>& device, sg::u32 element_count);
+		void create(sg::SharedPtr<sg::Device>& device, sg::u32 element_count, bool power_of_two_elements = false);
+
+		sg::u32 get_element_count() const
+		{
+			if (allocated_memory_size == 0) return 0;
+			return allocated_memory_size / sizeof(T);
+		}
 	};
 
 	template <typename T>
@@ -37,6 +45,7 @@ namespace gdr
 			return;
 
 		const size_t memory_size = cpu_data.size() * sizeof(T);
+		allocated_memory_size = memory_size;
 		sg::SharedPtr<sg::Memory> mem = device->allocate_memory(sg::MemoryType::GPUOptimal, sg::MemorySubType::Buffer, memory_size);
 		buffer = device->create_buffer(mem, memory_size, sg::BufferType::GeneralDataBuffer, true);
 
@@ -49,14 +58,16 @@ namespace gdr
 	}
 
 	template <typename T>
-	void gdr::GPUBuffer<T>::create(sg::SharedPtr<sg::Device>& device, sg::u32 element_count)
+	void gdr::GPUBuffer<T>::create(sg::SharedPtr<sg::Device>& device, sg::u32 element_count, bool power_of_two_elements)
 	{
-		const size_t memory_size = element_count * sizeof(T);
+		const size_t scaled_element_count = power_of_two_elements ? std::bit_ceil(element_count) : element_count;
+		const size_t memory_size = scaled_element_count * sizeof(T);
+		allocated_memory_size = memory_size;
 		sg::SharedPtr<sg::Memory> mem = device->allocate_memory(sg::MemoryType::GPUOptimal, sg::MemorySubType::Buffer, memory_size);
 		buffer = device->create_buffer(mem, memory_size, sg::BufferType::GeneralDataBuffer, true);
 
-		uav = device->create_unordered_access_view(buffer, sizeof(T), element_count);
-		srv = device->create_shader_resource_view(buffer, sizeof(T), element_count);
+		uav = device->create_unordered_access_view(buffer, sizeof(T), scaled_element_count);
+		srv = device->create_shader_resource_view(buffer, sizeof(T), scaled_element_count);
 	}
 
 	struct Vertex
@@ -178,6 +189,8 @@ namespace gdr
 		Editor editor;
 
 		sg::SharedPtr<sg::Device> device;
+
+		GPUSort	gpu_sort;
 
 		ModelBuffers model_buffers;
 		struct PerInstanceRenderInfo

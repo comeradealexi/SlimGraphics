@@ -85,6 +85,19 @@ bool CullAllInstances()
 #endif
 }
 
+float CalculateSortKey(MeshletData meshlet, InstanceData instance)
+{
+    float4 sphere_data = mul(float4(meshlet.spherepos_xyz_radius_w.xyz, 1.0), instance.model_matrix);
+    float model_matrix_highest_scale = max(max(instance.model_matrix[0][0], instance.model_matrix[1][1]), instance.model_matrix[2][2]);
+    sphere_data.w = meshlet.spherepos_xyz_radius_w.w * model_matrix_highest_scale;
+    
+    float3 camera_to_sphere_centre = camera.camera_position.xyz - sphere_data.xyz;
+    float distance = length(camera_to_sphere_centre);
+    float distance_to_edge = distance - sphere_data.w;
+    
+    return max(0.0f, distance_to_edge);
+}
+
 // Computes visiblity of an instance
 // Performs a simple world-space bounding sphere vs. frustum plane check.
 bool IsMeshletSphereInFrustum(MeshletData meshlet, InstanceData instance)
@@ -155,13 +168,13 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
             uint data_output_index;
             InterlockedAdd(AtomicCounter[0], 1, data_output_index);
             
-            PerInstanceProcessingData_Output meshlet;
-            meshlet.instance_index = instance_index;
-            meshlet.meshlet_index = meshlet_index;
-            meshlet.sort_key = 0;
-            meshlet.pad = 0;
-
-            PerInstanceDataOutput[data_output_index] = meshlet;
+            PerInstanceProcessingData_Output meshlet_out;
+            meshlet_out.instance_index = instance_index;
+            meshlet_out.meshlet_index = meshlet_index;
+            meshlet_out.sort_key = CalculateSortKey(meshlet, instance);
+            meshlet_out.pad = 0;
+            
+            PerInstanceDataOutput[data_output_index] = meshlet_out;
         }
     }
 }
