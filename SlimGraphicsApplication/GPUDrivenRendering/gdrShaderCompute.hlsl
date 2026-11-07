@@ -91,7 +91,7 @@ float CalculateSortKey(MeshletData meshlet, InstanceData instance)
     float model_matrix_highest_scale = max(max(instance.model_matrix[0][0], instance.model_matrix[1][1]), instance.model_matrix[2][2]);
     sphere_data.w = meshlet.spherepos_xyz_radius_w.w * model_matrix_highest_scale;
     
-    float3 camera_to_sphere_centre = camera.camera_position.xyz - sphere_data.xyz;
+    float3 camera_to_sphere_centre = GetCullingCameraData().camera_position.xyz - sphere_data.xyz;
     float distance = length(camera_to_sphere_centre);
     float distance_to_edge = distance - sphere_data.w;
     
