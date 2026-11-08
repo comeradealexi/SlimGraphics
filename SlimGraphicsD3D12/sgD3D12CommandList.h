@@ -68,6 +68,7 @@ namespace sg
 
 		private:
 			void flush_bound_uavs();
+			void ensure_bindings_valid();
 
 			ComPtr<ID3D12GraphicsCommandList6> command_list;
 			ComPtr<ID3D12CommandAllocator> command_allocator;
@@ -87,6 +88,7 @@ namespace sg
 			u32 descriptor_increment_size_sampler = 0;
 
 			//Binding Info
+			Pipeline* active_pipeline = nullptr;
 			Binding active_binding;
 			struct ActiveGeometryPass
 			{

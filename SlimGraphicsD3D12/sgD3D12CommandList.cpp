@@ -45,6 +45,8 @@ namespace sg
 				command_list->SetGraphicsRootSignature(pipeline->root_signature.Get());
 				command_list->IASetPrimitiveTopology(pipeline->topology);
 			}
+
+			active_pipeline = pipeline;
 		}
 
 		void CommandList::bind(Binding& bind, PipelineType type)
@@ -196,12 +198,14 @@ namespace sg
 
 		void CommandList::draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location)
 		{
+			ensure_bindings_valid();
 			command_list->DrawInstanced(vertex_count_per_instance, instance_count, start_vertex_location, start_instance_location);
 			flush_bound_uavs();
 		}
 
 		void CommandList::draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i32 base_vertex_location, u32 start_instance_location)
 		{
+			ensure_bindings_valid();
 			command_list->DrawIndexedInstanced(index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location);
 			flush_bound_uavs();
 		}
@@ -283,6 +287,7 @@ namespace sg
 
 		void CommandList::dispatch(u32 x /*= 1*/, u32 y /*= 1*/, u32 z /*= 1*/)
 		{
+			ensure_bindings_valid();
 			command_list->Dispatch(x, y, z);
 			flush_bound_uavs();
 		}
@@ -290,12 +295,14 @@ namespace sg
 
 		void CommandList::dispatch_mesh(u32 x /*= 1*/, u32 y /*= 1*/, u32 z /*= 1*/)
 		{
+			ensure_bindings_valid();
 			command_list->DispatchMesh(x, y, z);
 			flush_bound_uavs();
 		}
 
 		void CommandList::execute_indirect(IndirectArguments& indirect_argument)
 		{
+			ensure_bindings_valid();
 			{
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_argument.indirect_buffer->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
 				command_list->ResourceBarrier(1, &barrier);
@@ -550,6 +557,20 @@ namespace sg
 
 				command_list->ResourceBarrier(active_binding.uav_binding_count, barriers);
 			}
+		}
+		void CommandList::ensure_bindings_valid()
+		{
+			seAssert(active_pipeline, "trying to submit gpu work without an active pipeline");
+
+			if (!active_pipeline)
+			{
+				return;
+			}
+
+			const BindingDesc& pipeline_binding = active_pipeline->get_binding_desc();
+			seAssert(active_binding.cbv_binding_count >= pipeline_binding.cbv_binding_count, "Binding mismatch");
+			seAssert(active_binding.srv_binding_count >= pipeline_binding.srv_binding_count, "Binding mismatch");
+			seAssert(active_binding.uav_binding_count >= pipeline_binding.uav_binding_count, "Binding mismatch");
 		}
 	}
 }

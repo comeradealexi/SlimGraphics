@@ -32,29 +32,40 @@ namespace sg
             ComPtr<IDXGIFactory6> factory6;
             if (SUCCEEDED(pFactory->QueryInterface(IID_PPV_ARGS(&factory6))))
             {
-                for (
-                    UINT adapterIndex = 0;
-                    SUCCEEDED(factory6->EnumAdapterByGpuPreference(
-                        adapterIndex,
-                        requestHighPerformanceAdapter == true ? DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE : DXGI_GPU_PREFERENCE_UNSPECIFIED,
-                        IID_PPV_ARGS(&adapter)));
-                        ++adapterIndex)
+#if 0 // Force Warp Device
+                if (SUCCEEDED(factory6->EnumWarpAdapter(IID_PPV_ARGS(&adapter))))
                 {
                     DXGI_ADAPTER_DESC1 desc;
                     adapter->GetDesc1(&desc);
-
-                    if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
+                    desc = {};
+                }
+                else
+#endif
+                {
+                    for (
+                        UINT adapterIndex = 0;
+                        SUCCEEDED(factory6->EnumAdapterByGpuPreference(
+                            adapterIndex,
+                            requestHighPerformanceAdapter == true ? DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE : DXGI_GPU_PREFERENCE_UNSPECIFIED,
+                            IID_PPV_ARGS(&adapter)));
+                            ++adapterIndex)
                     {
-                        // Don't select the Basic Render Driver adapter.
-                        // If you want a software adapter, pass in "/warp" on the command line.
-                        continue;
-                    }
+                        DXGI_ADAPTER_DESC1 desc;
+                        adapter->GetDesc1(&desc);
 
-                    // Check to see whether the adapter supports Direct3D 12, but don't create the
-                    // actual device yet.
-                    if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), feature_level, _uuidof(ID3D12Device), nullptr)))
-                    {
-                        break;
+                        if ((desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0)
+                        {
+                            // Don't select the Basic Render Driver adapter.
+                            // If you want a software adapter, pass in "/warp" on the command line.
+                            continue;
+                        }
+
+                        // Check to see whether the adapter supports Direct3D 12, but don't create the
+                        // actual device yet.
+                        if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), feature_level, _uuidof(ID3D12Device), nullptr)))
+                        {
+                            break;
+                        }
                     }
                 }
             }
@@ -621,7 +632,7 @@ namespace sg
 
 		SharedPtr<Pipeline> Device::create_pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& binding_desc)
         {
-            SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc));
+            SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc, binding_desc));
 
             out_pipeline->topology = translate(pipeline_desc.primitive_topology);
 
@@ -681,7 +692,7 @@ namespace sg
 
         SharedPtr<Pipeline> Device::create_pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& binding_desc)
 		{
-            SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc));
+            SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc, binding_desc));
 
 			D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
             psoDesc.CS = pipeline_desc.compute_shader->shader_code;
@@ -704,7 +715,7 @@ namespace sg
                 return nullptr;
             }
 
-            SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc));
+            SharedPtr<Pipeline> out_pipeline(new Pipeline(pipeline_desc, binding_desc));
 
 			out_pipeline->topology = translate(pipeline_desc.primitive_topology);
 

@@ -11,11 +11,16 @@ namespace sg
 			friend class Device;
 			friend class CommandList;
 		public:
-			Pipeline(const PipelineDesc::Compute& pipeline_desc) : compute_pipeline_desc(pipeline_desc), compute(true) { }
-			Pipeline(const PipelineDesc::Graphics& pipeline_desc) : graphics_pipeline_desc(pipeline_desc), compute(false) {}
-			Pipeline(const PipelineDesc::Mesh& pipeline_desc) : mesh_pipeline_desc(pipeline_desc), compute(false) {}
+			Pipeline(const PipelineDesc::Compute& pipeline_desc, const BindingDesc& pipeline_binding_desc) 
+				: compute_pipeline_desc(pipeline_desc), compute(true), binding_desc(pipeline_binding_desc) { }
+			Pipeline(const PipelineDesc::Graphics& pipeline_desc, const BindingDesc& pipeline_binding_desc) 
+				: graphics_pipeline_desc(pipeline_desc), compute(false), binding_desc(pipeline_binding_desc) {}
+			Pipeline(const PipelineDesc::Mesh& pipeline_desc, const BindingDesc& pipeline_binding_desc) 
+				: mesh_pipeline_desc(pipeline_desc), compute(false), binding_desc(pipeline_binding_desc) {}
 
+			const BindingDesc& get_binding_desc() const { return binding_desc; }
 		private:
+			const BindingDesc binding_desc;
 			const PipelineDesc::Compute compute_pipeline_desc;
 			const PipelineDesc::Graphics graphics_pipeline_desc;
 			const PipelineDesc::Mesh mesh_pipeline_desc;
