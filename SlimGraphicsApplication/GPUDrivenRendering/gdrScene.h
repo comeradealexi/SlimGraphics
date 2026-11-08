@@ -204,6 +204,9 @@ namespace gdr
 
 		sg::SharedPtr<sg::IndirectArguments> mesh_shader_indirect_arguments;
 
+		sg::UnorderedAccessView		debug_feedback_uav;
+		sg::SharedPtr<sg::Buffer>	debug_feedback_buffer;
+		sg::SharedPtr<sg::Buffer>	debug_readback_buffer;
 
 		struct Pipelines
 		{
@@ -230,5 +233,15 @@ namespace gdr
 			int cull_mode = (int) sg::Rasterizer::CullMode::Back;
 			int depth_comparison = (int) sg::ComparisonFunction::LessEqual;
 		} render_options = {};
+
+		struct Statistics
+		{
+			sg::u32 total_instances;
+			sg::u32 total_mesh_parts;
+			sg::u32 total_meshlets;
+
+			ShaderStructs::DebugFeedbackData raw_feedback_data = {};
+		} statistics = {};
+		
 	};
 }

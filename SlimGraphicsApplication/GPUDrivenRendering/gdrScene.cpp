@@ -141,6 +141,13 @@ namespace gdr
 		debug_data.shader_debug_data.use_frustum_culling = true;
 		debug_data.shader_debug_data.use_cone_culling = true;
 		debug_data.shader_debug_data.sort_mode = 1; // Sort front to back
+
+		auto feedback_memory = device->allocate_memory(sg::MemoryType::GPUOptimal, sg::MemorySubType::Buffer, sizeof(gdr::ShaderStructs::DebugFeedbackData));
+		debug_feedback_buffer = device->create_buffer(feedback_memory, sizeof(gdr::ShaderStructs::DebugFeedbackData), sg::BufferType::GeneralDataBuffer, true);
+		debug_feedback_uav = device->create_unordered_access_view(debug_feedback_buffer, sizeof(gdr::ShaderStructs::DebugFeedbackData), 1);
+
+		auto readback_memory = device->allocate_memory(sg::MemoryType::Readback, sg::MemorySubType::Buffer, sizeof(gdr::ShaderStructs::DebugFeedbackData));
+		debug_readback_buffer = device->create_buffer(readback_memory, sizeof(gdr::ShaderStructs::DebugFeedbackData), sg::BufferType::GeneralDataBuffer, false);
 	}
 
 	void Scene::create_pipelines()
@@ -174,6 +181,7 @@ namespace gdr
 
 			if (i == Pipelines::Type::Debug)
 			{
+				global_binding_desc.uav_binding_count = 4;
 				global_binding_desc.cbv_binding_count = 4;
 			}
 
@@ -217,41 +225,70 @@ namespace gdr
 
 	void Scene::imgui()
 	{
-		if (!ImGui::Begin("GDR Scene"))
+		if (ImGui::Begin("GDR Scene"))
 		{
-			return;
+			if (ImGui::CollapsingHeader("Debug Options", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				ImGui::Checkbox("Debug Mode", (bool*)&debug_data.shader_debug_data.debug_mode);
+				ImGui::BeginDisabled(debug_data.shader_debug_data.debug_mode == 0);
+				ImGui::Indent();
+				ImGui::Checkbox("Cull All Instances", (bool*)&debug_data.shader_debug_data.cull_all_instances);
+				ImGui::Checkbox("Freeze Culling Camera", (bool*)&debug_data.shader_debug_data.freeze_culling_camera);
+				ImGui::Checkbox("Use Frustum Culling", (bool*)&debug_data.shader_debug_data.use_frustum_culling);
+				ImGui::Checkbox("Use Cone Culling", (bool*)&debug_data.shader_debug_data.use_cone_culling);
+				ImGui::Text("Render Mode");
+				ImGui::Combo("Depth Comparison", (int*)&debug_data.shader_debug_data.debug_render_mode, "None\0Sort Order\0", 2);
+				ImGui::Unindent();
+				ImGui::EndDisabled();
+			}
+
+			if (ImGui::CollapsingHeader("Sorting Options", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				ImGui::RadioButton("No Sorting", (int*)&debug_data.shader_debug_data.sort_mode, 0);
+				ImGui::RadioButton("Sort Front to Back", (int*)&debug_data.shader_debug_data.sort_mode, 1);
+				ImGui::RadioButton("Sort Back to Front", (int*)&debug_data.shader_debug_data.sort_mode, 2);
+			}
+
+			if (ImGui::CollapsingHeader("Rendering Options", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				ImGui::Text("Pipeline");
+				ImGui::Indent();
+				render_options.recreate_pipelines |= ImGui::Checkbox("Wireframe", &render_options.render_wireframe);
+				render_options.recreate_pipelines |= ImGui::Checkbox("Depth Enable", &render_options.depth_enable);
+				render_options.recreate_pipelines |= ImGui::Checkbox("Depth Write", &render_options.depth_write);
+				render_options.recreate_pipelines |= ImGui::Combo("Cull Mode", &render_options.cull_mode, "None\0Front\0Back\0", 3);
+				render_options.recreate_pipelines |= ImGui::Combo("Depth Comparison", &render_options.depth_comparison, "None\0Never\0Less\0Equal\0LessEqual\0Greater\0NotEqual\0GreaterEqual\0Always", 9);
+				ImGui::Unindent();
+			}
+
+			ImGui::End();
 		}
 
-		if (ImGui::CollapsingHeader("Debug Options", ImGuiTreeNodeFlags_DefaultOpen))
+		if (ImGui::Begin("GDR Statistics"))
 		{
-			ImGui::Checkbox("Debug Mode", (bool*) &debug_data.shader_debug_data.debug_mode);
-			ImGui::BeginDisabled(debug_data.shader_debug_data.debug_mode == 0);
-			ImGui::Indent();
-			ImGui::Checkbox("Cull All Instances", (bool*)&debug_data.shader_debug_data.cull_all_instances);
-			ImGui::Checkbox("Freeze Culling Camera", (bool*)&debug_data.shader_debug_data.freeze_culling_camera);
-			ImGui::Checkbox("Use Frustum Culling", (bool*)&debug_data.shader_debug_data.use_frustum_culling);
-			ImGui::Checkbox("Use Cone Culling", (bool*)&debug_data.shader_debug_data.use_cone_culling);
-			ImGui::Unindent();
-			ImGui::EndDisabled();
-			ImGui::Text("Sorting Options");
-			ImGui::RadioButton("No Sorting", (int*)&debug_data.shader_debug_data.sort_mode, 0);
-			ImGui::RadioButton("Sort Front to Back", (int*)&debug_data.shader_debug_data.sort_mode, 1);
-			ImGui::RadioButton("Sort Back to Front", (int*)&debug_data.shader_debug_data.sort_mode, 2);
+			if (ImGui::CollapsingHeader("Statistics", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				ImGui::Text("Instances:  %u", statistics.total_instances);
+				ImGui::Text("Mesh Parts: %u", statistics.total_mesh_parts);
+				ImGui::Text("Meshlets:   %u", statistics.total_meshlets);
+
+				ImGui::Text("GPU Feedback Data:");
+				if (debug_data.shader_debug_data.debug_mode == 0)
+				{
+					ImGui::SameLine(); ImGui::Text("(Requires Debug Mode Enabled)");
+				}
+				ImGui::BeginDisabled(debug_data.shader_debug_data.debug_mode == 0);
+				ImGui::Indent();
+				ImGui::Text("Meshlets Culled (total):    %u/%u (%0.1f%%)", statistics.raw_feedback_data.meshlets_culled_total, statistics.total_meshlets, (static_cast<float>(statistics.raw_feedback_data.meshlets_culled_total) / static_cast<float>(statistics.total_meshlets)) * 100.0f);
+				ImGui::Text("Meshlets Culled By Frustum: %u", statistics.raw_feedback_data.meshlets_cullled_by_frustum);
+				ImGui::Text("Meshlets Culled By Cone:    %u", statistics.raw_feedback_data.meshlets_culled_by_cone);				
+				ImGui::Unindent();
+				ImGui::EndDisabled();
+			}
+
+			ImGui::End();
 		}
 
-		if (ImGui::CollapsingHeader("Rendering Options", ImGuiTreeNodeFlags_DefaultOpen))
-		{
-			ImGui::Text("Pipeline");
-			ImGui::Indent();
-			render_options.recreate_pipelines |= ImGui::Checkbox("Wireframe", &render_options.render_wireframe);
-			render_options.recreate_pipelines |= ImGui::Checkbox("Depth Enable", &render_options.depth_enable);
-			render_options.recreate_pipelines |= ImGui::Checkbox("Depth Write", &render_options.depth_write);
-			render_options.recreate_pipelines |= ImGui::Combo("Cull Mode", &render_options.cull_mode, "None\0Front\0Back\0", 3);
-			render_options.recreate_pipelines |= ImGui::Combo("Depth Comparison", &render_options.depth_comparison, "None\0Never\0Less\0Equal\0LessEqual\0Greater\0NotEqual\0GreaterEqual\0Always", 9);
-			ImGui::Unindent();
-		}
-
-		ImGui::End();
 	}
 
 	void Scene::update(Ptr<UploadHeap>& upload_heap)
@@ -275,6 +312,8 @@ namespace gdr
 		model_buffers.instance_data.cpu_data = {};
 		per_instance_render_list = {};
 
+		statistics.total_instances = 0;
+		statistics.total_mesh_parts = 0;
 		// Now we iterate over all loaded models and each instance within that model
 		// We then add each instance we want to render to a list to send to the GPU	
 		// Meshes with mutiple parts are sent as if they were separate instances	
@@ -286,6 +325,9 @@ namespace gdr
 			for (const auto& [model_name, model_list] : model_lists)
 			{
 				const ModelBuffers::ModelData& per_model_data = model_buffers.find_model(model_name);
+
+				statistics.total_instances += model_list.size();
+				statistics.total_mesh_parts += model_list.size() * per_model_data.mesh_parts.size();
 
 				// TODO: Not ideal to treat each mesh part as its own instances, wastes space and data
 				for (const auto& mesh_part : per_model_data.mesh_parts)
@@ -314,7 +356,18 @@ namespace gdr
 			// TODO - don't reallocate this every frame - cache maximum size and only reallocate if we exceed it
 			model_buffers.gpu_pre_process_instances_output.create(device, total_meshlets, true); // Output buffer allocated matches input
 		}
+		
+		statistics.total_meshlets = total_meshlets;
 
+		// Statistics
+		if (debug_data.shader_debug_data.debug_mode != 0)
+		{
+			debug_readback_buffer->read_memory(0, &statistics.raw_feedback_data, sizeof(statistics.raw_feedback_data));
+		}
+		else
+		{
+			statistics.raw_feedback_data = {};
+		}
 	}
 
 	void Scene::render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw)
@@ -361,6 +414,13 @@ namespace gdr
 
 			ConstantBufferView culling_camera_data_cbv = cbuffer.AllocateAndWrite(debug_data.culling_camera_data);
 			b.set_cbv(culling_camera_data_cbv, 3);
+
+			b.uav_binding_count = 4;
+			b.set_uav(debug_feedback_uav, 3);
+
+			// Clear our feedback uav to zero
+			sg::ShaderResourceView srv = {};
+			command_list.clear_buffer_uint(debug_feedback_uav, srv, 0);
 		}
 				
 		b.set_uav(model_buffers.gpu_pre_process_instances_output.uav, 0);
@@ -411,6 +471,12 @@ namespace gdr
 
 			mesh_shader_indirect_arguments->set_indirect_buffer(model_buffers.indirect_arguments.buffer);
 			command_list.execute_indirect(*mesh_shader_indirect_arguments);
+		}
+
+		// Copy our feedback buffer to our readback buffer
+		if (debug_data.shader_debug_data.debug_mode != 0)
+		{
+			command_list.copy_buffer_to_buffer(debug_readback_buffer.get(), debug_feedback_buffer.get());
 		}
 	}
 

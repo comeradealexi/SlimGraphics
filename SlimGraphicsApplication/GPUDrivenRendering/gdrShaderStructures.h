@@ -7,6 +7,12 @@ namespace gdr {
 
 #include "../ShaderShaderStructIncludeBegin.h"
 
+	enum class DebugRenderMode : uint
+	{
+		None,
+		SortOrder, // White = first, black = last
+	};
+
 	struct DebugData
 	{
 		uint debug_mode;
@@ -23,6 +29,19 @@ namespace gdr {
 		uint s1;
 		uint s2;
 		uint s3;
+
+		DebugRenderMode debug_render_mode;
+		uint d1;
+		uint d2;
+		uint d3;
+	};
+
+	struct DebugFeedbackData
+	{
+		uint meshlets_culled_total;
+		uint meshlets_cullled_by_frustum;
+		uint meshlets_culled_by_cone;
+		uint pad;
 	};
 
 	struct CameraData

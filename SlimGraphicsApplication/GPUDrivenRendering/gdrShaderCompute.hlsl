@@ -22,6 +22,37 @@ RWStructuredBuffer<PerInstanceProcessingData_Output> PerInstanceDataOutput : reg
 RWStructuredBuffer<uint> AtomicCounter : register(u1);
 RWStructuredBuffer<uint> IndirectArgumentBuffer : register(u2);
 
+// Feedback Support
+#ifdef GDR_DEBUG
+RWStructuredBuffer<DebugFeedbackData> DebugFeedbackBuffer : register(u3);
+#endif
+
+namespace Feedback
+{
+    void IncrementMeshletCullTotal()
+    {       
+        #ifdef GDR_DEBUG
+            uint original;
+            InterlockedAdd(DebugFeedbackBuffer[0].meshlets_culled_total, 1, original);
+        #endif
+    }
+    void IncrementMeshletCullFrustum()
+    {       
+        #ifdef GDR_DEBUG
+            uint original;
+            InterlockedAdd(DebugFeedbackBuffer[0].meshlets_cullled_by_frustum, 1, original);
+        #endif
+    }
+    void IncrementMeshletCullCone()
+    {       
+        #ifdef GDR_DEBUG
+            uint original;
+            InterlockedAdd(DebugFeedbackBuffer[0].meshlets_culled_by_cone, 1, original);
+        #endif
+    }
+}
+
+
 cbuffer ConstantBufferData : register(b0)
 {
     CameraData camera;
@@ -43,6 +74,15 @@ cbuffer DebugConstantBufferData : register(b3)
     CameraData culling_camera;
 };
 #endif
+
+DebugRenderMode GetDebugRenderMode()
+{
+#ifdef GDR_DEBUG
+    return debug.debug_render_mode;
+#else
+    return DebugRenderMode::None;
+#endif
+}
 
 CameraData GetCameraData()
 {
@@ -155,12 +195,14 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
         
         if (visible && DoConeCulling())
         {
-            visible = IsMeshletVisibleNormalCone(meshlet, instance);
+            visible = IsMeshletVisibleNormalCone(meshlet, instance);         
+            if (!visible) Feedback::IncrementMeshletCullCone();
         }
         
         if (visible && DoFrustumCulling())
         {            
             visible = IsMeshletSphereInFrustum(meshlet, instance);
+            if (!visible) Feedback::IncrementMeshletCullFrustum();
         }             
         
         if (visible) // If we're visible, add to the output list of meshests to be rendered
@@ -175,6 +217,10 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
             meshlet_out.pad = 0;
             
             PerInstanceDataOutput[data_output_index] = meshlet_out;
+        }
+        else
+        {
+            Feedback::IncrementMeshletCullTotal();
         }
     }
 }
