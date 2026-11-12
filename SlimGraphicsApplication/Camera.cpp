@@ -42,19 +42,19 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 		XMStoreFloat4(&shader_data.camera_direction, XMVector3Normalize(XMVectorSubtract(Eye, At)));
 
 		//Process input now.
-		if (input.IsKeyDown(L'W'))
+		if (input.is_key_down(L'W'))
 		{
 			position.x += XMVectorGetX(direction) * fTimeDelta * camera_movement_speed;
 			position.y += XMVectorGetY(direction) * fTimeDelta * camera_movement_speed;
 			position.z += XMVectorGetZ(direction) * fTimeDelta * camera_movement_speed;
 		}
-		if (input.IsKeyDown(L'S'))
+		if (input.is_key_down(L'S'))
 		{
 			position.x -= XMVectorGetX(direction) * fTimeDelta * camera_movement_speed;
 			position.y -= XMVectorGetY(direction) * fTimeDelta * camera_movement_speed;
 			position.z -= XMVectorGetZ(direction) * fTimeDelta * camera_movement_speed;
 		}
-		if (input.IsKeyDown(L'A'))
+		if (input.is_key_down(L'A'))
 		{
 			::DirectX::XMVECTOR crossVector = ::DirectX::XMVector3Cross(direction, Up);
 			crossVector = XMVector3Normalize(crossVector);
@@ -62,7 +62,7 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 			position.y += XMVectorGetY(crossVector) * fTimeDelta* camera_movement_speed;
 			position.z += XMVectorGetZ(crossVector) * fTimeDelta* camera_movement_speed;
 		}
-		if (input.IsKeyDown(L'D'))
+		if (input.is_key_down(L'D'))
 		{
 			::DirectX::XMVECTOR crossVector = ::DirectX::XMVector3Cross(direction, Up);
 			crossVector = XMVector3Normalize(crossVector);
@@ -71,29 +71,29 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 			position.z -= XMVectorGetZ(crossVector) * fTimeDelta * camera_movement_speed;
 		}
 
-		if (/*input.IsKeyDown(Input::Keys::NUMPAD_4_LEFT) ||*/ input.IsKeyDown(L'J'))
+		if (/*input.IsKeyDown(Input::Keys::NUMPAD_4_LEFT) ||*/ input.is_key_down(L'J'))
 		{
 			camera_rot_y -= 1.0f * fTimeDelta * camera_rotation_speed;
 		}
-		if (/*input.IsKeyDown(Input::Keys::NUMPAD_6_RIGHT) ||*/ input.IsKeyDown(L'L'))
+		if (/*input.IsKeyDown(Input::Keys::NUMPAD_6_RIGHT) ||*/ input.is_key_down(L'L'))
 		{
 			camera_rot_y += 1.0f * fTimeDelta * camera_rotation_speed;
 		}
-		if (/*input.IsKeyDown(Input::Keys::NUMPAD_8_UP) ||*/ input.IsKeyDown(L'I'))
+		if (/*input.IsKeyDown(Input::Keys::NUMPAD_8_UP) ||*/ input.is_key_down(L'I'))
 		{
 			camera_rot_x -= 1.0f * fTimeDelta * camera_rotation_speed;
 		}
-		if (/*input.IsKeyDown(Input::Keys::NUMPAD_5_MIDDLE) ||*/ input.IsKeyDown(L'K'))
+		if (/*input.IsKeyDown(Input::Keys::NUMPAD_5_MIDDLE) ||*/ input.is_key_down(L'K'))
 		{
 			camera_rot_x += 1.0f * fTimeDelta * camera_rotation_speed;
 		}
 
-		if (input.IsKeyDown(L'Q'))
+		if (input.is_key_down(L'Q'))
 		{
 			position.y += 1.0f * fTimeDelta * camera_movement_speed;
 		}
 
-		if (input.IsKeyDown(L'E'))
+		if (input.is_key_down(L'E'))
 		{
 			position.y -= 1.0f * fTimeDelta * camera_movement_speed;
 		}

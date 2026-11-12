@@ -19,7 +19,14 @@ namespace se
 		const GameInputDeviceInfo* gidi = device->GetDeviceInfo();
 		if ((gidi->supportedInput & GameInputKindKeyboard) != 0)
 		{
-			se_game_input->SetKeyboard(device);
+			if ((currentStatus & GameInputDeviceConnected) != 0)
+			{
+				se_game_input->add_keyboard(device);
+			}
+			else
+			{
+				se_game_input->remove_keyboard(device);
+			}
 		}
 	}
 }
@@ -27,12 +34,12 @@ namespace se
 se::GameInput::GameInput()
 {
 	active_keys.reserve(256);
-	HRESULT hr = GameInputCreate(&igame_input);
+	HRESULT hr = GameInputCreate(&game_input);
 	if (FAILED(hr))
 	{
 		seAssert(false, "GameInputCreate failed");
 	}
-	hr = igame_input->RegisterDeviceCallback(nullptr, GameInputKindKeyboard, GameInputDeviceAnyStatus, GameInputBlockingEnumeration, this, se::GameInputDeviceCallback, 0);
+	hr = game_input->RegisterDeviceCallback(nullptr, GameInputKindKeyboard, GameInputDeviceAnyStatus, GameInputBlockingEnumeration, this, se::GameInputDeviceCallback, nullptr);
 	if (FAILED(hr))
 	{
 		seAssert(false, "GameInputCreate failed");
@@ -44,18 +51,23 @@ se::GameInput::~GameInput()
 
 }
 
-void se::GameInput::Update()
+void se::GameInput::update()
 {
 	frame_counter++;
 
-	if (i_keyboard)
+	for (IGameInputDevice* keyboard : keyboards)
 	{
 		IGameInputReading* gir = nullptr;
-		HRESULT hr = igame_input->GetCurrentReading(GameInputKindKeyboard, nullptr, &gir);
+
+		/* GetCurrentReading(GameInputKindKeyboard, nullptr, ...) returns the latest reading from whichever keyboard-capable device updated most recently, not a merged view. 
+		Many mice, wireless receivers (Logitech/Razer dongles) and gaming keyboards expose a secondary keyboard HID interface. 
+		When you move the mouse, that device can produce a newer keyboard-kind reading with zero keys down, and that’s the one you get back. 
+		Your real keyboard’s reading is still there, you’re just not asking for it. */
+		HRESULT hr = game_input->GetCurrentReading(GameInputKindKeyboard, keyboard, &gir);
 		if (gir && SUCCEEDED(hr))
 		{
-			GameInputKeyState key_states[32];
-			uint32_t states = gir->GetKeyState(32, key_states);
+			GameInputKeyState key_states[8];
+			uint32_t states = gir->GetKeyState(8, key_states);
 			for (uint32_t i = 0; i < states; i++)
 			{
 				auto& keySatus = active_keys[key_states[i].virtualKey];
@@ -67,6 +79,7 @@ void se::GameInput::Update()
 				keySatus.key_pressed = false;
 				keySatus.frame_counter = frame_counter;
 			}
+			gir->Release();
 		}
 	}
 
@@ -90,7 +103,7 @@ void se::GameInput::Update()
 	}
 }
 
-bool se::GameInput::IsKeyDown(wchar_t key) const
+bool se::GameInput::is_key_down(wchar_t key) const
 {
 	auto it = active_keys.find(key);
 	if (it != active_keys.end())
@@ -100,7 +113,7 @@ bool se::GameInput::IsKeyDown(wchar_t key) const
 	return false;
 }
 
-bool se::GameInput::IsKeyUp(wchar_t key) const
+bool se::GameInput::is_key_up(wchar_t key) const
 {
 	auto it = active_keys.find(key);
 	if (it != active_keys.end())

@@ -335,7 +335,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		frame_upload_heap->begin_frame(queue);
 		linear_cb->BeginFrame(frame_upload_heap.get());
 		
-		input->Update();
+		input->update();
 		
 #if SG_PLATFORM_D3D12
 		ImGui_ImplDX12_NewFrame();

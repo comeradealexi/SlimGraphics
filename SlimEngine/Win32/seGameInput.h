@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <unordered_map>
+#include <set>
 class IGameInput;
 class IGameInputDevice;
 
@@ -12,10 +13,11 @@ namespace se
 		GameInput();
 		~GameInput();
 
-		void Update();
-		void SetKeyboard(IGameInputDevice* kb) { i_keyboard = kb; }
-		bool IsKeyDown(wchar_t key) const;
-		bool IsKeyUp(wchar_t key) const;
+		void update();
+		void add_keyboard(IGameInputDevice* kb) { kb->AddRef(); keyboards.insert(kb); }
+		void remove_keyboard(IGameInputDevice* kb) { if (keyboards.erase(kb) != 0) { kb->Release(); } }
+		bool is_key_down(wchar_t key) const;
+		bool is_key_up(wchar_t key) const;
 	private:
 		struct KeyStatus
 		{
@@ -25,7 +27,7 @@ namespace se
 		};
 		std::unordered_map<uint16_t, KeyStatus> active_keys;
 		uint32_t frame_counter = 0;
-		IGameInput* igame_input = nullptr;
-		IGameInputDevice* i_keyboard = nullptr;
+		IGameInput* game_input = nullptr;
+		std::set<IGameInputDevice*> keyboards;
 	};
 }
