@@ -62,12 +62,15 @@ namespace gdr
 	{
 		const size_t scaled_element_count = power_of_two_elements ? std::bit_ceil(element_count) : element_count;
 		const size_t memory_size = scaled_element_count * sizeof(T);
-		allocated_memory_size = memory_size;
-		sg::SharedPtr<sg::Memory> mem = device->allocate_memory(sg::MemoryType::GPUOptimal, sg::MemorySubType::Buffer, memory_size);
-		buffer = device->create_buffer(mem, memory_size, sg::BufferType::GeneralDataBuffer, true);
+		if (allocated_memory_size < memory_size)
+		{
+			allocated_memory_size = memory_size;
+			sg::SharedPtr<sg::Memory> mem = device->allocate_memory(sg::MemoryType::GPUOptimal, sg::MemorySubType::Buffer, memory_size);
+			buffer = device->create_buffer(mem, memory_size, sg::BufferType::GeneralDataBuffer, true);
 
-		uav = device->create_unordered_access_view(buffer, sizeof(T), scaled_element_count);
-		srv = device->create_shader_resource_view(buffer, sizeof(T), scaled_element_count);
+			uav = device->create_unordered_access_view(buffer, sizeof(T), scaled_element_count);
+			srv = device->create_shader_resource_view(buffer, sizeof(T), scaled_element_count);
+		}
 	}
 
 	struct Vertex
