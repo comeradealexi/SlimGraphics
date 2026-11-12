@@ -126,7 +126,7 @@ namespace gdr
 
 		// GPU Write Only Buffers
 		GPUBuffer<ShaderStructs::PerInstanceProcessingData_Output> gpu_pre_process_instances_output;
-		GPUBuffer<std::array<sg::u32,4>> atomic_counter;
+		GPUBuffer<std::array<sg::u32, 4>> atomic_counter;
 		GPUBuffer<std::array<sg::u32, 4>> indirect_arguments;
 
 		// Record of all loaded models

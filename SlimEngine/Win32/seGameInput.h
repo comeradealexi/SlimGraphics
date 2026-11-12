@@ -14,8 +14,8 @@ namespace se
 		~GameInput();
 
 		void update();
-		void add_keyboard(IGameInputDevice* kb) { kb->AddRef(); keyboards.insert(kb); }
-		void remove_keyboard(IGameInputDevice* kb) { if (keyboards.erase(kb) != 0) { kb->Release(); } }
+		void add_keyboard(IGameInputDevice* kb);
+		void remove_keyboard(IGameInputDevice* kb);
 		bool is_key_down(wchar_t key) const;
 		bool is_key_up(wchar_t key) const;
 	private:

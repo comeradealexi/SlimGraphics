@@ -19,8 +19,8 @@ StructuredBuffer<InstanceData> Instances : register(t4);
 
 // Write Buffers
 RWStructuredBuffer<PerInstanceProcessingData_Output> PerInstanceDataOutput : register(u0);
-RWStructuredBuffer<uint> AtomicCounter : register(u1);
-RWStructuredBuffer<uint> IndirectArgumentBuffer : register(u2);
+RWStructuredBuffer<uint4> AtomicCounter : register(u1);
+RWStructuredBuffer<uint4> IndirectArgumentBuffer : register(u2);
 
 // Feedback Support
 #ifdef GDR_DEBUG
@@ -208,7 +208,7 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
         if (visible) // If we're visible, add to the output list of meshests to be rendered
         {
             uint data_output_index;
-            InterlockedAdd(AtomicCounter[0], 1, data_output_index);
+            InterlockedAdd(AtomicCounter[0].x, 1, data_output_index);
             
             PerInstanceProcessingData_Output meshlet_out;
             meshlet_out.instance_index = instance_index;
@@ -230,9 +230,11 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
 void build_indirect_arguments(uint3 dtid : SV_DispatchThreadID)
 {
     // Align to 32 for indirect dispatch size...
-    IndirectArgumentBuffer[0] = AtomicCounter[0];
-    IndirectArgumentBuffer[1] = 1;
-    IndirectArgumentBuffer[2] = 2;
+    IndirectArgumentBuffer[0].x = AtomicCounter[0].x;
+    IndirectArgumentBuffer[0].y = 1;
+    IndirectArgumentBuffer[0].y = 1;
+    IndirectArgumentBuffer[0].z = 1;
+
 }
 
 struct PSInput

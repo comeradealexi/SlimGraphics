@@ -103,6 +103,20 @@ void se::GameInput::update()
 	}
 }
 
+inline void se::GameInput::add_keyboard(IGameInputDevice* kb) 
+{ 
+	kb->AddRef(); 
+	keyboards.insert(kb); 
+}
+
+inline void se::GameInput::remove_keyboard(IGameInputDevice* kb) 
+{ 
+	if (keyboards.erase(kb) != 0) 
+	{ 
+		kb->Release(); 
+	} 
+}
+
 bool se::GameInput::is_key_down(wchar_t key) const
 {
 	auto it = active_keys.find(key);

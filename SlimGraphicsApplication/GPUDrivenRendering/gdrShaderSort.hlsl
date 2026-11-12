@@ -23,7 +23,7 @@ static const float FLT_MIN = 1.175494351e-38;
 #endif
 
 RWStructuredBuffer<PerInstanceProcessingData_Output> InputBuffer : register(u0);
-RWStructuredBuffer<uint> AtomicCounter : register(u1);
+RWStructuredBuffer<uint4> AtomicCounter : register(u1);
 
 // Local tile params (can be same buffer, but we'll read only necessary fields)
 cbuffer GlobalMergeParams : register(b0)
@@ -67,7 +67,7 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
 
     // Load into shared memory (guard out-of-range)
     PerInstanceProcessingData_Output key_value;
-    if (idx < AtomicCounter[0])
+    if (idx < AtomicCounter[0].x)
     {
         key_value = InputBuffer[idx];
     }
