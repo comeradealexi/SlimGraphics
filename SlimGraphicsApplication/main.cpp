@@ -314,7 +314,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	float depth_clear_value = 1.0f;
 
-	gdr::Scene gdr_scene(device);
+	gdr::Scene gdr_scene(device, dsv_tex);
 
 	bool enable_model_viewer = true;
 	bool enable_gdr = true;
@@ -550,7 +550,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				}
 				if (enable_gdr)
 				{
-					gdr_scene.render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
+					gdr_scene.render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw, depth_srv);
 				}				
 				terrain->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
 				stats_pool->end_query(stat_query_idx, command_buffer.get());
@@ -558,6 +558,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				debug_draw->Render(*command_buffer, cbv_cam);
 			}
 			command_buffer->end_geometry_pass();
+
+			gdr_scene.generate_hzb(*command_buffer, depth_srv);
 
 			SharedPtr<Texture> copy_to_swap_chain_target = final_render_target;
 			ShaderResourceView copy_to_swap_chain_target_view = final_srv;

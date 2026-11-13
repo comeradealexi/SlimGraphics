@@ -1036,13 +1036,14 @@ namespace sg
 		}
 
 
-		sg::UnorderedAccessView Device::create_unordered_access_view(SharedPtr<Texture> texture)
+		sg::UnorderedAccessView Device::create_unordered_access_view(SharedPtr<Texture> texture, u32 mip_level /* = 0 */)
 		{
             seAssert(texture->resource_create_desc.dimension == ResourceDimension::Texture2D, "Only supported this path currently");
 			D3D12_UNORDERED_ACCESS_VIEW_DESC desc = {};
 			{
 				desc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 				desc.Format = texture->resource_create_desc.format;
+				desc.Texture2D.MipSlice = mip_level;
 			}
 
 			UnorderedAccessView uav;

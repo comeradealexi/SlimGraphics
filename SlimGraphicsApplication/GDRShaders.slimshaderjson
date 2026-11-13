@@ -54,5 +54,16 @@
         "name": "GDR_Sort_GlobalMergeCS"
       }
     ]
+  },
+  {
+  "input_file": "GPUDrivenRendering/gdrHZB.hlsl",
+    "shaders": [
+      {
+        "profile": "cs_6_5",
+        "entrypoint": "build_hzb",
+        "name": "GDR_BuildHZB"
+      }
+    ]
+
   }
 ]

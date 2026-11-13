@@ -57,8 +57,19 @@ namespace sg
 			{
 				u32 barrier_count_out = 0;
 				u32 barrier_count_in = 0;
+				ID3D12Resource* observed_resources_in[Binding::MAX_UAVS] = {};
+				ID3D12Resource* observed_resources_out[Binding::MAX_UAVS] = {};
 				CD3DX12_RESOURCE_BARRIER barriers_out[Binding::MAX_UAVS];
 				CD3DX12_RESOURCE_BARRIER barriers_in[Binding::MAX_UAVS];
+
+				auto already_transitioned = [highest_bind_count](ID3D12Resource** observed, ID3D12Resource* resource) -> bool
+					{
+						for (size_t i = 0; i < highest_bind_count; i++)
+						{
+							if (observed[i] == resource) return true;
+						}
+						return false;
+					};
 
 				for (u32 i = 0; i < highest_bind_count; i++)
 				{
@@ -66,14 +77,22 @@ namespace sg
 					{
 						if (active_binding.d3d12_uavs[i])
 						{
-							barriers_out[barrier_count_out] = CD3DX12_RESOURCE_BARRIER::Transition(active_binding.d3d12_uavs[i].get_d3d12_resource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, active_binding.d3d12_uavs[i].get_d3d12_read_resource_state());
-							barrier_count_out++;
+							if (!already_transitioned(observed_resources_out, active_binding.d3d12_uavs[i].get_d3d12_resource()))
+							{
+								barriers_out[barrier_count_out] = CD3DX12_RESOURCE_BARRIER::Transition(active_binding.d3d12_uavs[i].get_d3d12_resource(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, active_binding.d3d12_uavs[i].get_d3d12_read_resource_state());
+								observed_resources_out[barrier_count_out] = active_binding.d3d12_uavs[i].get_d3d12_resource();
+								barrier_count_out++;
+							}
 						}
 
 						if (bind.d3d12_uavs[i])
 						{
-							barriers_in[barrier_count_in] = CD3DX12_RESOURCE_BARRIER::Transition(bind.d3d12_uavs[i].get_d3d12_resource(), bind.d3d12_uavs[i].get_d3d12_read_resource_state(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-							barrier_count_in++;
+							if (!already_transitioned(observed_resources_in, bind.d3d12_uavs[i].get_d3d12_resource()))
+							{
+								barriers_in[barrier_count_in] = CD3DX12_RESOURCE_BARRIER::Transition(bind.d3d12_uavs[i].get_d3d12_resource(), bind.d3d12_uavs[i].get_d3d12_read_resource_state(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+								observed_resources_in[barrier_count_out] = bind.d3d12_uavs[i].get_d3d12_resource();
+								barrier_count_in++;
+							}
 						}
 					}
 				}

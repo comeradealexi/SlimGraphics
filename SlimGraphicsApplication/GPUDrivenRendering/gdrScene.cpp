@@ -133,7 +133,7 @@ namespace gdr
 		callback(scene_node);
 	}
 
-	Scene::Scene(sg::SharedPtr<sg::Device>& _device) : device(_device), gpu_sort(device)
+	Scene::Scene(sg::SharedPtr<sg::Device>& _device, sg::SharedPtr<sg::Texture> depth_texture) : device(_device), gpu_sort(device), gpu_hzb(depth_texture, device)
 	{
 		create_pipelines();
 
@@ -370,7 +370,7 @@ namespace gdr
 		}
 	}
 
-	void Scene::render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw)
+	void Scene::render	(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw, sg::ShaderResourceView depth_view)
 	{
 		using namespace sg;
 
@@ -738,6 +738,12 @@ namespace gdr
 
 		// Upload all model data to GPU
 		model_buffers.create_and_upload_to_gpu(device, upload_heap);
+	}
+
+	void Scene::generate_hzb(sg::CommandList& command_list, sg::ShaderResourceView depth_view)
+	{
+		// Generate HZB
+		gpu_hzb.generate_hzb(device, command_list, depth_view);
 	}
 
 	// Scene Graph Traverser

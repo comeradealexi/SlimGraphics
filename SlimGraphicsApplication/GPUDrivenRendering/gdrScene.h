@@ -13,6 +13,7 @@
 #include "gdrEditor.h"
 #include "gdrModel.h"
 #include "gdrSort.h"
+#include "gdrHZB.h"
 
 namespace gdr
 {
@@ -178,14 +179,15 @@ namespace gdr
 	{
 		friend class Editor;
 	public:
-		Scene(sg::SharedPtr<sg::Device>& _device);
+		Scene(sg::SharedPtr<sg::Device>& _device, sg::SharedPtr<sg::Texture> depth_texture);
 		void create_pipelines();
 		void imgui();
 		void update(Ptr<UploadHeap>& upload_heap);
-		void render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw);
+		void render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw, sg::ShaderResourceView depth_view);
 		void load_model(std::string path, ShaderStructs::ModelData& gpu_model_data);
 		void load_gpu_data(SceneGraphTraverser& scene_graph, Ptr<UploadHeap>& upload_heap);
 
+		void generate_hzb(sg::CommandList& command_list, sg::ShaderResourceView depth_view);
 
 	private:
 		SceneNode root_scene_node;
@@ -194,6 +196,7 @@ namespace gdr
 		sg::SharedPtr<sg::Device> device;
 
 		GPUSort	gpu_sort;
+		HZB gpu_hzb;
 
 		ModelBuffers model_buffers;
 		struct PerInstanceRenderInfo
