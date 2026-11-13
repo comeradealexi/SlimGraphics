@@ -31,6 +31,7 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 #include "DebugDraw.h"
 #include "Scene/Terrain.h"
 #include "MagnifyingGlass/MagnifyingGlass.h"
+#include "TextureViewer/TextureViewer.h"	
 #include "PostProcess/PostProcess.h"
 #include "BitonicSort.h"
 
@@ -299,6 +300,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	Ptr< BitonicSort> bitonic_sort = Ptr< BitonicSort>(new BitonicSort(device));
 	volatile bool run = true;
 
+	Ptr<TextureViewer> texture_viewer(new TextureViewer(device));
+
+
 	// I start this at value of 1 because the D3D12 fence doesn't like waiting on a value of 0...
 	u32 total_frame_idx = 1;
 
@@ -315,6 +319,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	float depth_clear_value = 1.0f;
 
 	gdr::Scene gdr_scene(device, dsv_tex);
+
+	texture_viewer->set_texture(gdr_scene.get_hzb_texture());
 
 	bool enable_model_viewer = true;
 	bool enable_gdr = true;
@@ -475,7 +481,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		}
 		ImGui::End();
 
-
+		// Texture Viewer
+		{
+			texture_viewer->imgui_update();
+		}
 	
 		command_buffer->start_recording();
 		timestamp_pool->begin_frame();
@@ -497,7 +506,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 			// Bitonic Sort
 			{
-				bitonic_sort->sort(*command_buffer, *linear_cb);
+				//bitonic_sort->sort(*command_buffer, *linear_cb);
 			}
 
 			command_buffer->start_geometry_pass(1, &intermediate_rtv, vp, sc);
@@ -575,9 +584,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 			command_buffer->copy_texture_to_texture(*(backbuffer_rtvs[current_frame_idx]->texture_resource), *copy_to_swap_chain_target);
 
-			// Magnify
+			// Magnify & Texture Viewer
 			{
 				magnifying_glass->Render(*command_buffer, cbv_cam, copy_to_swap_chain_target_view, *linear_cb);
+				texture_viewer->render(*command_buffer, *linear_cb);
 			}
 
 			command_buffer->start_geometry_pass(1, &backbuffer_rtvs[current_frame_idx], vp, sc);

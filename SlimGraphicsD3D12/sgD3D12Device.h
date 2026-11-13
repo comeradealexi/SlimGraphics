@@ -35,10 +35,17 @@ namespace sg
 			D3D12MA::Pool* pools[(u32)PoolTypes::Max];
 		};
 
+		struct ImGuiTextureViewer
+		{
+			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle;
+			CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle;
+			SharedPtr<Memory> texture_memory;
+			SharedPtr<Texture> texture;
+		};
+
 		class Device
 		{
 		public:
-			class ImGuiTextureViewer;
 			static constexpr u64 DESCRIPTOR_COUNT = 4080; // D3D12 Limit
 
 		public:
@@ -48,6 +55,8 @@ namespace sg
 			void imgui_render(CommandList* command_list);
 			CD3DX12_GPU_DESCRIPTOR_HANDLE imgui_texture_viewer_handle() const { return imgui_texture_viewer.gpu_handle; }
 			ImGuiTextureViewer& imgui_texture_viewer_data() { return imgui_texture_viewer; }
+			ImGuiTextureViewer allocate_imgui_texture_viewer_data();
+			void set_imgui_texture_viewer_data(ImGuiTextureViewer& in_data, SharedPtr<Texture> texture);
 			void set_imgui_viewer_texture(SharedPtr<Texture> texture);
 
 			D3D12_RESOURCE_DESC create_dx12_resource_desc(const ResourceCreateDesc& desc);
@@ -150,13 +159,7 @@ namespace sg
 			SharedPtr<DescriptorHeap> dsv_descriptor_heap;
 			SharedPtr<DescriptorHeap> sampler_descriptor_heap;
 
-			struct ImGuiTextureViewer
-			{
-				CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle;
-				CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle;
-				SharedPtr<Memory> texture_memory;
-				SharedPtr<Texture> texture;
-			} imgui_texture_viewer;
+			ImGuiTextureViewer imgui_texture_viewer;
 
 			struct SamplerInfo
 			{

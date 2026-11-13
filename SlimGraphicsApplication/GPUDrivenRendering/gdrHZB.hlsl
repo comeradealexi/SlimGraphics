@@ -18,43 +18,63 @@ void build_hzb(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThreadID, 
 
     GroupMemoryBarrierWithGroupSync();
 	
+    float max_depth;
+	
 	// Mip 1
     if ((DTid.x & 1) == 0 && (DTid.y & 1) == 0)
 	{
-        float max_depth = max(gs_data[GTid.y][GTid.x], gs_data[GTid.y][GTid.x + 1]);
-        max_depth = max(max_depth, gs_data[GTid.y + 1][GTid.x]);
-		max_depth = max(max_depth, gs_data[GTid.y + 1][GTid.x + 1]);
+        max_depth = min(gs_data[GTid.y][GTid.x], gs_data[GTid.y][GTid.x + 1]);
+        max_depth = min(max_depth, gs_data[GTid.y + 1][GTid.x]);
+		max_depth = min(max_depth, gs_data[GTid.y + 1][GTid.x + 1]);
 		
         uint2 mip1_coordinates = DTid.xy / 2;
 		HZBTexture_mip1[mip1_coordinates] = max_depth;
-        gs_data[GTid.y / 2][GTid.x / 2] = max_depth;
     }
 
 	GroupMemoryBarrierWithGroupSync();
+	
+    if ((DTid.x & 1) == 0 && (DTid.y & 1) == 0)
+    {
+        gs_data[GTid.y / 2][GTid.x / 2] = max_depth;
+    }
+	
+    GroupMemoryBarrierWithGroupSync();
 
 	// Mip 2
     if ((DTid.x & 3) == 0 && (DTid.y & 3) == 0)
 	{
-        float max_depth = max(gs_data[GTid.y][GTid.x], gs_data[GTid.y][GTid.x + 1]);
-        max_depth = max(max_depth, gs_data[GTid.y + 1][GTid.x]);
-        max_depth = max(max_depth, gs_data[GTid.y + 1][GTid.x + 1]);
+        max_depth = min(gs_data[GTid.y][GTid.x], gs_data[GTid.y][GTid.x + 1]);
+        max_depth = min(max_depth, gs_data[GTid.y + 1][GTid.x]);
+        max_depth = min(max_depth, gs_data[GTid.y + 1][GTid.x + 1]);
 		
         uint2 mip2_coordinates = DTid.xy / 4;
 		HZBTexture_mip2[mip2_coordinates] = max_depth;
-		gs_data[GTid.y / 4][GTid.x / 4] = max_depth;
 	}
-
-	GroupMemoryBarrierWithGroupSync();
+    
+    GroupMemoryBarrierWithGroupSync();
+    
+    if ((DTid.x & 3) == 0 && (DTid.y & 3) == 0)
+    {
+        gs_data[GTid.y / 4][GTid.x / 4] = max_depth;
+    }
+    
+    GroupMemoryBarrierWithGroupSync();
 
 	// Mip 3
     if ((DTid.x & 7) == 0 && (DTid.y & 7) == 0)
 	{
-        float max_depth = max(gs_data[GTid.y][GTid.x], gs_data[GTid.y][GTid.x + 1]);
-        max_depth = max(max_depth, gs_data[GTid.y + 1][GTid.x]);
-        max_depth = max(max_depth, gs_data[GTid.y + 1][GTid.x + 1]);
+        max_depth = min(gs_data[GTid.y][GTid.x], gs_data[GTid.y][GTid.x + 1]);
+        max_depth = min(max_depth, gs_data[GTid.y + 1][GTid.x]);
+        max_depth = min(max_depth, gs_data[GTid.y + 1][GTid.x + 1]);
         
 		uint2 mip3_coordinates = DTid.xy / 8;
 		HZBTexture_mip3[mip3_coordinates] = max_depth;
-		gs_data[GTid.y / 8][GTid.x / 8] = max_depth;
 	}
+    
+    GroupMemoryBarrierWithGroupSync();
+    
+    if ((DTid.x & 7) == 0 && (DTid.y & 7) == 0)
+    {
+        gs_data[GTid.y / 8][GTid.x / 8] = max_depth;
+    }
 }

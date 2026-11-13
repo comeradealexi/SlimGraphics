@@ -444,6 +444,22 @@ namespace sg
 #endif
         }
 
+        ImGuiTextureViewer Device::allocate_imgui_texture_viewer_data()
+        {
+			ImGuiTextureViewer new_texture_viewer = {};
+            new_texture_viewer = {};
+            u32 idx = cbv_srv_uav_descriptor_heap_imgui->allocate();
+            new_texture_viewer.cpu_handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(cbv_srv_uav_descriptor_heap_imgui->get_cpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap_imgui->get_increment_size());
+            new_texture_viewer.gpu_handle = CD3DX12_GPU_DESCRIPTOR_HANDLE(cbv_srv_uav_descriptor_heap_imgui->get_gpu_handle_heap_start(), idx, cbv_srv_uav_descriptor_heap_imgui->get_increment_size());
+            return new_texture_viewer;
+        }
+
+        void Device::set_imgui_texture_viewer_data(ImGuiTextureViewer& in_data, SharedPtr<Texture> texture)
+        {
+            in_data.texture = texture;
+            CD3DX12_SHADER_RESOURCE_VIEW_DESC srvd = CD3DX12_SHADER_RESOURCE_VIEW_DESC::Tex2D(texture->resource_create_desc.format);
+            device->CreateShaderResourceView(in_data.texture->get().Get(), &srvd, in_data.cpu_handle);
+        }
 
 		void Device::set_imgui_viewer_texture(SharedPtr<Texture> texture)
 		{

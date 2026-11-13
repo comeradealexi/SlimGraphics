@@ -25,6 +25,8 @@ namespace gdr
 		
 		void generate_hzb(sg::SharedPtr<sg::Device>& device, sg::CommandList& command_list, sg::ShaderResourceView depth_srv);
 
+		sg::SharedPtr<sg::Texture> get_texture() const { return hzb_texture; }
+
 	private:
 		sg::SharedPtr<sg::Pipeline> hzb_pipeline;
 		sg::SharedPtr<sg::Texture> hzb_texture;

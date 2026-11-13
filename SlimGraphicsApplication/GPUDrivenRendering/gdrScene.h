@@ -189,6 +189,8 @@ namespace gdr
 
 		void generate_hzb(sg::CommandList& command_list, sg::ShaderResourceView depth_view);
 
+		sg::SharedPtr<sg::Texture> get_hzb_texture() const { return gpu_hzb.get_texture(); }
+
 	private:
 		SceneNode root_scene_node;
 		Editor editor;

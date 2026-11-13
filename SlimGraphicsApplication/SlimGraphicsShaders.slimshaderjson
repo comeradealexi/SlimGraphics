@@ -232,6 +232,21 @@
     ]
   },
   {
+    "input_file": "TextureViewer/TextureViewerShader.hlsl",
+    "shaders": [
+      {
+        "profile": "vs_6_5",
+        "entrypoint": "VSMain",
+        "name": "TextureViewer_VS"
+      },
+      {
+        "profile": "ps_6_5",
+        "entrypoint": "PSMain",
+        "name": "TextureViewer_PS"
+      }
+    ]
+  },
+  {
     "input_file": "BitonicSort.hlsl",
     "profile": "cs_6_5",
     "shaders": [
