@@ -1,62 +1,36 @@
 #pragma once
+#include <sgTypes.h>
 #include "sgVulkanInclude.h"
+#include "sgVulkanSpirvReflection.h"
 #include <vector>
 
 namespace sg
 {
 	namespace Vulkan
 	{
+		// A SPIR-V module (compiled by DXC, see SlimShaderCompiler) plus its reflection data
 		class Shader
 		{
 		public:
-			Shader(const std::vector<uint8_t>& shader) : shader_binary_data(shader)
-			{ 
-				seAssert(false, "TODO");
-#if SG_PLATFORM_D3D12
-				shader_code = CD3DX12_SHADER_BYTECODE(shader_binary_data.data(), shader_binary_data.size());
-#endif
-			}
-#if SG_PLATFORM_D3D12
-			CD3DX12_SHADER_BYTECODE shader_code;
-#endif
-			std::vector<uint8_t> shader_binary_data;
+			Shader(const vk::raii::Device& device, const std::vector<uint8_t>& spirv);
+
+			vk::ShaderModule get_module() const { return *module; }
+			const SpirvReflection& get_reflection() const { return reflection; }
+			vk::ShaderStageFlagBits get_stage() const { return reflection.stage; }
+			const char* get_entry_point() const { return reflection.entry_point.c_str(); }
+			bool is_valid() const { return valid; }
+
+		private:
+			SpirvReflection reflection;
+			vk::raii::ShaderModule module = nullptr;
+			bool valid = false;
 		};
 
-		class ComputeShader : public Shader
-		{
-		public:
-			ComputeShader(const std::vector<uint8_t>& shader) : Shader(shader) { }
-		};
-
-		class VertexShader : public Shader
-		{
-		public:
-			VertexShader(const std::vector<uint8_t>& shader) : Shader(shader) { }
-
-		};
-
-		class PixelShader : public Shader
-		{
-		public:
-			PixelShader(const std::vector<uint8_t>& shader) : Shader(shader) { }
-		};
-
-		class MeshShader : public Shader
-		{
-		public:
-			MeshShader(const std::vector<uint8_t>& shader) : Shader(shader) { }
-		};
-
-		class AmplificationShader : public Shader
-		{
-		public:
-			AmplificationShader(const std::vector<uint8_t>& shader) : Shader(shader) { }
-		};
-
-		class GeometryShader : public Shader
-		{
-		public:
-			GeometryShader(const std::vector<uint8_t>& shader) : Shader(shader) {}
-		};
+		class ComputeShader : public Shader { public: using Shader::Shader; };
+		class VertexShader : public Shader { public: using Shader::Shader; };
+		class PixelShader : public Shader { public: using Shader::Shader; };
+		class MeshShader : public Shader { public: using Shader::Shader; };
+		class AmplificationShader : public Shader { public: using Shader::Shader; };
+		class GeometryShader : public Shader { public: using Shader::Shader; };
 	}
 }

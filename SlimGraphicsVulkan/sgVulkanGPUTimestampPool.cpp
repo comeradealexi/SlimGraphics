@@ -6,122 +6,77 @@ namespace sg
 {
 	namespace Vulkan
 	{
-		#if SG_PLATFORM_D3D12
-		GPUTimestampPool::GPUTimestampPool(ID3D12Device* device, ID3D12CommandQueue* queue, u32 maximum_timestamps) : max_timestamps(maximum_timestamps)
+		GPUTimestampPool::GPUTimestampPool(const vk::raii::Device& device, double period_ns, u32 valid_bits, u32 maximum_timestamps)
+			: max_timestamps(maximum_timestamps), timestamp_period_ns(period_ns), timestamp_mask(valid_bits >= 64 ? ~0ull : ((1ull << valid_bits) - 1ull))
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			#if SG_PLATFORM_D3D12
-			timestamps_copy.resize(max_timestamps);
-
-			//GPUFreq
-			{
-				uint64_t GpuFrequency;
-				CHECKHR(queue->GetTimestampFrequency(&GpuFrequency));
-				gpu_tick_delta = 1.0 / static_cast<double>(GpuFrequency);
-			}
-
-			D3D12_HEAP_PROPERTIES HeapProps;
-			HeapProps.Type = D3D12_HEAP_TYPE_READBACK;
-			HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-			HeapProps.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-			HeapProps.CreationNodeMask = 1;
-			HeapProps.VisibleNodeMask = 1;
-
-			D3D12_RESOURCE_DESC BufferDesc;
-			BufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-			BufferDesc.Alignment = 0;
-			BufferDesc.Width = sizeof(uint64_t) * max_timestamps * 2;
-			BufferDesc.Height = 1;
-			BufferDesc.DepthOrArraySize = 1;
-			BufferDesc.MipLevels = 1;
-			BufferDesc.Format = DXGI_FORMAT_UNKNOWN;
-			BufferDesc.SampleDesc.Count = 1;
-			BufferDesc.SampleDesc.Quality = 0;
-			BufferDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-			BufferDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-			CHECKHR(device->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &BufferDesc,
-				D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(readback_buffer.GetAddressOf())));
-			readback_buffer->SetName(L"GPU Timestamp Buffer");
-
-			D3D12_QUERY_HEAP_DESC QueryHeapDesc;
-			QueryHeapDesc.Count = max_timestamps * 2;
-			QueryHeapDesc.NodeMask = 1;
-			QueryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_TIMESTAMP;
-			CHECKHR(device->CreateQueryHeap(&QueryHeapDesc, IID_PPV_ARGS(query_heap.GetAddressOf())));
-			query_heap->SetName(L"GPU Timestamp QueryHeap");
-			#endif
+			timestamps_copy.resize(static_cast<size_t>(max_timestamps) * 2);
+			query_pool = vk::raii::QueryPool(device, vk::QueryPoolCreateInfo({}, vk::QueryType::eTimestamp, max_timestamps * 2));
+			query_pool.reset(0, max_timestamps * 2); // Queries must be reset before first use (hostQueryReset)
 		}
-		#endif
 
 		void GPUTimestampPool::resolve()
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			#if SG_PLATFORM_D3D12
 			seAssert(recording == false, "Recording should be false");
-			D3D12_RANGE Range;
-			Range.Begin = 0;
-			Range.End = (current_index * 2) * sizeof(uint64_t);
-			void* ptr;
-			CHECKHR(readback_buffer->Map(0, &Range, reinterpret_cast<void**>(&ptr)));
+			const u32 query_count = current_index * 2;
+			if (query_count == 0)
 			{
-				memcpy(timestamps_copy.data(), ptr, Range.End);
+				return;
 			}
-			D3D12_RANGE EmptyRange = {};
-			readback_buffer->Unmap(0, &EmptyRange);
-			#endif
+			// The CPU has already waited for the frame, so results are available. VK_NOT_READY is tolerated (values keep their previous contents).
+			const VkResult result = query_pool.getDispatcher()->vkGetQueryPoolResults(static_cast<VkDevice>(query_pool.getDevice()), static_cast<VkQueryPool>(*query_pool), 0, query_count,
+				query_count * sizeof(u64), timestamps_copy.data(), sizeof(u64), VK_QUERY_RESULT_64_BIT);
+			seAssert(result == VK_SUCCESS || result == VK_NOT_READY, "vkGetQueryPoolResults failed (%i)", static_cast<int>(result));
+			(void)result;
 		}
 
 		void GPUTimestampPool::begin_frame()
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			#if SG_PLATFORM_D3D12
 			seAssert(recording == false, "Recording should be false");
+			// Reset last frame's queries from the CPU (the previous frame has completed)
+			if (current_index > 0)
+			{
+				query_pool.reset(0, current_index * 2);
+			}
 			recording = true;
 			current_index = 0;
-			#endif
 		}
 
 		void GPUTimestampPool::end_frame(CommandList* command_list)
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			#if SG_PLATFORM_D3D12
-			seAssert(recording, "Recording should be false");
-			u32 query_count = current_index * 2;
-			command_list->get()->ResolveQueryData(query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, 0, query_count, readback_buffer.Get(), 0);
+			seAssert(recording, "Recording should be true");
 			recording = false;
-			#endif
 		}
 
 		GPUTimestampPool::Index GPUTimestampPool::allocate_new_timestamp()
 		{
+			seAssert(current_index < max_timestamps, "GPUTimestampPool exhausted (max %u)", max_timestamps);
+			if (current_index >= max_timestamps)
+			{
+				return max_timestamps - 1;
+			}
 			return current_index++;
 		}
 
 		void GPUTimestampPool::begin_timestamp(Index index, CommandList* command_list)
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			#if SG_PLATFORM_D3D12
-			command_list->get()->EndQuery(query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, (index * 2) + 0);
-			#endif		
+			command_list->write_timestamp(*query_pool, (index * 2) + 0, vk::PipelineStageFlagBits2::eTopOfPipe);
 		}
 
 		void GPUTimestampPool::end_timestamp(Index index, CommandList* command_list)
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			#if SG_PLATFORM_D3D12
-			command_list->get()->EndQuery(query_heap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, (index * 2) + 1);
-			#endif
+			command_list->write_timestamp(*query_pool, (index * 2) + 1, vk::PipelineStageFlagBits2::eBottomOfPipe);
 		}
 
 		double GPUTimestampPool::collect_timestamp_us(Index idx)
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			return {};
-			#if SG_PLATFORM_D3D12
-			u32 offset = idx * 2;
-			return static_cast<float>(1000000.0 * (gpu_tick_delta * (timestamps_copy[offset + 1] - timestamps_copy[offset + 0])));
-			#endif //SG_PLATFORM_D3D12
+			const u32 offset = idx * 2;
+			const u64 begin = timestamps_copy[offset + 0] & timestamp_mask;
+			const u64 end = timestamps_copy[offset + 1] & timestamp_mask;
+			if (end < begin)
+			{
+				return 0.0;
+			}
+			return static_cast<double>(end - begin) * timestamp_period_ns / 1000.0;
 		}
 	}
 }

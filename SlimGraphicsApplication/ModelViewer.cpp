@@ -1006,6 +1006,28 @@ void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap, const Camera& camera
 	}
 }
 
+void ModelViewer::SelectModel(const std::string& path_substring)
+{
+	for (size_t i = 0; i < model_file_list.size(); i++)
+	{
+		if (model_file_list[i].find(path_substring) != std::string::npos)
+		{
+			model_file_list_current = (int)i;
+			model_init_data.file_path = model_file_list[i];
+			recreate_model = true;
+			return;
+		}
+	}
+	seWriteLine("ModelViewer: no model matching '%s'", path_substring.c_str());
+}
+
+void ModelViewer::SetMeshMode(int mode)
+{
+	render_as_mesh_shader = mode > 0 && device->SupportsMeshShaders();
+	amplification_mesh_shader = mode == 2;
+	CreatePipeline();
+}
+
 bool ModelViewer::MeshPartVisible(const Camera& camera, Model::MeshPart& mesh_part)
 {
 	// Use the part's own bounding sphere, moved into world space by the current model matrix (scale + rotation).

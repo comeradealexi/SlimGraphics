@@ -60,7 +60,7 @@ void TextureViewer::imgui_update()
 				device->set_imgui_texture_viewer_data(imgui_texture_viewer, render_texture);
 			}
 
-			ImGui::Image((ImTextureID)imgui_texture_viewer.gpu_handle.ptr, ImVec2((float)imgui_texture_viewer.texture->resource_create_desc.width, (float)imgui_texture_viewer.texture->resource_create_desc.height));
+			ImGui::Image((ImTextureID)imgui_texture_viewer.imgui_id(), ImVec2((float)imgui_texture_viewer.texture->resource_create_desc.width, (float)imgui_texture_viewer.texture->resource_create_desc.height));
 		}
 	}
 	ImGui::End(); // Must be called even when Begin() returns false (collapsed window)

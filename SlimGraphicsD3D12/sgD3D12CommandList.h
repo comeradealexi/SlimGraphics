@@ -60,6 +60,8 @@ namespace sg
 			void copy_texture_to_texture(Texture& dest, Texture& source);
 			void copy_buffer_to_buffer(u32 size, Buffer* dest, u32 dest_offset, Buffer* source, u32 source_offset);
 			void copy_buffer_to_texture(u32 size, Texture* dest, Buffer* source, u32 source_offset, u32 texture_mip_index = 0);
+			// Copies subresource 0 of a texture into a (readback) buffer with rows aligned to 256 bytes. Returns the row pitch in bytes.
+			u32 copy_texture_to_buffer(Buffer* dest, Texture* source);
 
 			void clear_render_target_view(SharedPtr<RenderTargetView>& rtv, float4 colour);
 

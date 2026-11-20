@@ -18,6 +18,11 @@ public:
 	void CreateModel(sg::Ptr<sg::UploadHeap>& upload_heap, const Camera& camera);
 	bool MeshPartVisible(const Camera& camera, Model::MeshPart& mesh_part);
 
+	// Selects the first model file whose path contains 'path_substring' (loaded on the next Render)
+	void SelectModel(const std::string& path_substring);
+	// 0 = vertex shader, 1 = mesh shader, 2 = amplification + mesh shader (mesh modes need mesh shader support)
+	void SetMeshMode(int mode);
+
 private:
 	const DXGI_FORMAT render_target_format;
 	const DXGI_FORMAT depth_stencil_format;

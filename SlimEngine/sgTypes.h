@@ -50,6 +50,25 @@ namespace sg
 		u64 alignment;
 	};
 
+	// API independent pipeline statistics (counters a backend cannot provide are left at 0)
+	struct PipelineStatistics
+	{
+		u64 ia_vertices = 0;
+		u64 ia_primitives = 0;
+		u64 vs_invocations = 0;
+		u64 gs_invocations = 0;
+		u64 gs_primitives = 0;
+		u64 clipping_invocations = 0;
+		u64 clipping_primitives = 0;
+		u64 ps_invocations = 0;
+		u64 hs_invocations = 0;
+		u64 ds_invocations = 0;
+		u64 cs_invocations = 0;
+		u64 as_invocations = 0;
+		u64 ms_invocations = 0;
+		u64 ms_primitives = 0;
+	};
+
 	enum class MemoryType
 	{
 		GPUOptimal, Upload, Readback

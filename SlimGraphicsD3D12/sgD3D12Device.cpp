@@ -434,6 +434,16 @@ namespace sg
             ImGui::PopID();            
 		}
 
+		void Device::imgui_new_frame()
+		{
+			ImGui_ImplDX12_NewFrame();
+		}
+
+		void Device::imgui_shutdown()
+		{
+			ImGui_ImplDX12_Shutdown();
+		}
+
 		void Device::imgui_render(CommandList* command_list)
         {
             ID3D12GraphicsCommandList6* d3d_cmd_list = command_list->get().Get();

@@ -521,6 +521,30 @@ namespace sg
 			}
 		}
 
+		u32 CommandList::copy_texture_to_buffer(Buffer* dest, Texture* source)
+		{
+			seAssert(dest && source, "no valid resources");
+			D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
+			UINT64 total_bytes = 0;
+			D3D12_RESOURCE_DESC source_desc = source->get()->GetDesc();
+			device->GetCopyableFootprints(&source_desc, 0, 1, 0, &footprint, nullptr, nullptr, &total_bytes);
+			seAssert(dest->get_size_bytes() >= total_bytes, "Destination buffer too small for texture copy");
+
+			const D3D12_RESOURCE_STATES state_source = get_current_state(source);
+			transition(source, state_source, D3D12_RESOURCE_STATE_COPY_SOURCE);
+			const bool dest_is_readback = dest->get_memory_type() == MemoryType::Readback;
+			const D3D12_RESOURCE_STATES state_dest = get_current_state(dest);
+			if (!dest_is_readback) transition(dest, state_dest, D3D12_RESOURCE_STATE_COPY_DEST);
+
+			const CD3DX12_TEXTURE_COPY_LOCATION tcl_dest(dest->get().Get(), footprint);
+			const CD3DX12_TEXTURE_COPY_LOCATION tcl_src(source->get().Get(), 0);
+			command_list->CopyTextureRegion(&tcl_dest, 0, 0, 0, &tcl_src, nullptr);
+
+			if (!dest_is_readback) transition(dest, D3D12_RESOURCE_STATE_COPY_DEST, state_dest);
+			transition(source, D3D12_RESOURCE_STATE_COPY_SOURCE, state_source);
+			return footprint.Footprint.RowPitch;
+		}
+
 		void CommandList::clear_render_target_view(SharedPtr<RenderTargetView>& rtv, float4 colour)
 		{
 			command_list->ClearRenderTargetView(rtv->rtv_handle, colour.data(), 0, nullptr);

@@ -204,6 +204,9 @@ namespace gdr
 
 		void generate_hzb(sg::CommandList& command_list, sg::ShaderResourceView depth_view, SimpleLinearConstantBuffer& cbuffer);
 
+		// Replaces the scene graph with the contents of a scene file (models load on the next update)
+		bool load_scene(const char* file_path) { return deserialise(root_scene_node, file_path); }
+
 		sg::SharedPtr<sg::Texture> get_hzb_texture() const { return gpu_hzb.get_texture(); }
 
 	private:

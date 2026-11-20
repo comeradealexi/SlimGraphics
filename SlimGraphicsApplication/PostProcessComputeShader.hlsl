@@ -109,7 +109,11 @@ cbuffer PostProcessBufferData : register(b1)
 // You can prefix RWTexture2D objects with the storage class globallycoherent. 
 // This storage class causes memory barriers and syncs to flush data across the entire GPU such that other groups can see writes. 
 // Without this specifier, a memory barrier or sync will flush only an unordered access view (UAV) within the current group.
-RWTexture2D<float4>  out_tex : register(u0);
+// Vulkan: the target is R8G8B8A8_UNORM; without this DXC infers Rgba32f from float4 and storage writes would be undefined
+#ifdef __spirv__
+[[vk::image_format("rgba8")]]
+#endif
+RWTexture2D<float4> out_tex : register(u0);
 
 // Input textures
 Texture2D in_tex_colour : register(t0);

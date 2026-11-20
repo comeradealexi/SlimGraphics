@@ -8,77 +8,92 @@ namespace sg
 {
 	namespace Vulkan
 	{
-		/*
-		
-		// 1. Create the fence
-// It is highly recommended to start it in the "Signaled" state so your
-// very first frame/wait loop doesn't block infinitely.
-vk::FenceCreateInfo fenceInfo(vk::FenceCreateFlagBits::eSignaled);
-vk::raii::Fence fence(device, fenceInfo);
-
-// 2. Prepare your queue submission
-// Tie your command buffer to the fence during submission
-vk::SubmitInfo submitInfo;
-submitInfo.setCommandBufferCount(1);
-submitInfo.setCommandBuffers(*commandBuffer); // Your vk::raii::CommandBuffer
-
-// 3. Trigger the fence on the Queue
-// The GPU will signal this fence when all work in this submit completes
-queue.submit(submitInfo, *fence);
-
-// 4. Wait on the CPU
-// Pass the raw vk::Fence handle, a boolean to wait for all fences, and a timeout in nanoseconds
-uint64_t timeoutNs = std::numeric_limits<uint64_t>::max(); // Wait indefinitely
-vk::Result waitResult = device.waitForFences(*fence, VK_TRUE, timeoutNs);
-
-// 5. Reset the fence before re-using it
-// A fence must be reset back to the "Unsignaled" state before it can be submitted again
-device.resetFences(*fence);
-		
-		*/
-		CommandQueue::CommandQueue(Device& device, vk::raii::Queue& in_queue) : sg_device(device), queue(in_queue)
+		CommandQueue::CommandQueue(Device& device_, vk::Queue queue_, u32 queue_family_) : device(device_), queue(queue_), queue_family(queue_family_)
 		{
+			const vk::raii::Device& vk_device = device.get_device();
+			vk::SemaphoreTypeCreateInfo timeline_info(vk::SemaphoreType::eTimeline, 0);
+			internal_timeline = vk::raii::Semaphore(vk_device, vk::SemaphoreCreateInfo({}, &timeline_info));
+			initialisation_pool = vk::raii::CommandPool(vk_device, vk::CommandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queue_family));
+		}
 
+		vk::CommandBuffer CommandQueue::record_pending_initialisation()
+		{
+			std::vector<vk::ImageMemoryBarrier2> barriers;
+			device.take_pending_initial_transitions(barriers);
+			if (barriers.empty())
+			{
+				return VK_NULL_HANDLE;
+			}
+
+			// Reuse a command buffer whose previous submission has completed
+			const u64 completed = internal_timeline.getCounterValue();
+			InitialisationCommandBuffer* entry = nullptr;
+			if (!initialisation_command_buffers.empty() && initialisation_command_buffers.front().completion_value <= completed)
+			{
+				initialisation_command_buffers.push_back(std::move(initialisation_command_buffers.front()));
+				initialisation_command_buffers.pop_front();
+				entry = &initialisation_command_buffers.back();
+				entry->command_buffer.reset();
+			}
+			else
+			{
+				vk::raii::CommandBuffers buffers(device.get_device(), vk::CommandBufferAllocateInfo(*initialisation_pool, vk::CommandBufferLevel::ePrimary, 1));
+				initialisation_command_buffers.push_back({ std::move(buffers[0]), 0 });
+				entry = &initialisation_command_buffers.back();
+			}
+
+			entry->completion_value = ++internal_timeline_value;
+			entry->command_buffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+			entry->command_buffer.pipelineBarrier2(vk::DependencyInfo({}, {}, {}, barriers));
+			entry->command_buffer.end();
+			return *entry->command_buffer;
 		}
 
 		void CommandQueue::submit_command_list(CommandList* command_list)
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			#if SG_PLATFORM_D3D12
-			ID3D12CommandList* p_command_list = command_list->get().Get();
-			queue->ExecuteCommandLists(1, &p_command_list);
-			#endif
+			std::array<vk::CommandBufferSubmitInfo, 2> command_buffers;
+			u32 command_buffer_count = 0;
+			vk::SemaphoreSubmitInfo signal_info;
+			u32 signal_count = 0;
+
+			if (vk::CommandBuffer initialisation = record_pending_initialisation())
+			{
+				command_buffers[command_buffer_count++] = vk::CommandBufferSubmitInfo(initialisation);
+				signal_info = vk::SemaphoreSubmitInfo(*internal_timeline, internal_timeline_value, vk::PipelineStageFlagBits2::eAllCommands);
+				signal_count = 1;
+			}
+			command_buffers[command_buffer_count++] = vk::CommandBufferSubmitInfo(command_list->get_command_buffer());
+
+			const vk::SubmitInfo2 submit_info({}, 0, nullptr, command_buffer_count, command_buffers.data(), signal_count, &signal_info);
+			device.get_queue().submit2(submit_info);
 		}
 
 		void CommandQueue::fence_signal(QueueFence& fence, u64 value)
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			#if SG_PLATFORM_D3D12
-			CHECKHR(queue->Signal(fence, value));
-			#endif
+			const vk::SemaphoreSubmitInfo signal_info(*fence.timeline_semaphore, value, vk::PipelineStageFlagBits2::eAllCommands);
+			device.get_queue().submit2(vk::SubmitInfo2({}, {}, {}, signal_info));
 		}
-		
+
 		void CommandQueue::fence_wait_gpu(QueueFence& fence, u64 value)
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			#if SG_PLATFORM_D3D12
-			CHECKHR(queue->Wait(fence, value));
-			#endif
+			const vk::SemaphoreSubmitInfo wait_info(*fence.timeline_semaphore, value, vk::PipelineStageFlagBits2::eAllCommands);
+			device.get_queue().submit2(vk::SubmitInfo2({}, wait_info, {}, {}));
 		}
+
 		void CommandQueue::fence_wait_cpu(QueueFence& fence, u64 value)
 		{
-			vk::Result wait_result = sg_device.get_device().waitForFences(*fence.fence, true, std::numeric_limits<uint64_t>::max());
-			seAssert(wait_result == vk::Result::eSuccess, "fence wait CPU error");
-			sg_device.get_device().resetFences(*fence.fence);
+			const vk::Semaphore semaphore = *fence.timeline_semaphore;
+			const vk::Result result = device.get_device().waitSemaphores(vk::SemaphoreWaitInfo({}, semaphore, value), UINT64_MAX);
+			seAssert(result == vk::Result::eSuccess, "waitSemaphores failed");
+			(void)result;
+		}
 
-#if SG_PLATFORM_D3D12
-			if (fence->GetCompletedValue() < value)
-			{
-				CHECKHR(fence->SetEventOnCompletion(value, cpu_fence));
-				DWORD res = WaitForSingleObjectEx(cpu_fence, INFINITE, FALSE);
-				seAssert(res == WAIT_OBJECT_0, "Irregular WaitForSingleObjectEx Return: %x", HRESULT_FROM_WIN32(GetLastError()));
-			}
-			#endif
+		void CommandQueue::submit_semaphores(vk::Semaphore wait_semaphore, vk::Semaphore signal_semaphore)
+		{
+			vk::SemaphoreSubmitInfo wait_info(wait_semaphore, 0, vk::PipelineStageFlagBits2::eAllCommands);
+			vk::SemaphoreSubmitInfo signal_info(signal_semaphore, 0, vk::PipelineStageFlagBits2::eAllCommands);
+			const vk::SubmitInfo2 submit_info({}, wait_semaphore ? 1u : 0u, &wait_info, 0, nullptr, signal_semaphore ? 1u : 0u, &signal_info);
+			device.get_queue().submit2(submit_info);
 		}
 	}
 }

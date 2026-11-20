@@ -5,15 +5,16 @@ namespace sg
 {
 	namespace Vulkan
 	{
+		// Either a structured/raw buffer range or a texture mip range. Image views are created (and cached) by the texture.
 		class ShaderResourceView
 		{
 		public:
 			SharedPtr<Texture> texture_resource;
 			SharedPtr<Buffer> buffer_resource;
-#if SG_PLATFORM_D3D12
-			D3D12_SHADER_RESOURCE_VIEW_DESC desc;
-			D3D12_SHADER_RESOURCE_VIEW_DESC desc_uint;
-#endif
+			u64 element_size = 0;
+			u64 element_count = 0;
+			u32 top_mip = 0;
+			u32 mip_count = static_cast<u32>(-1);
 		};
 	}
 }

@@ -41,6 +41,9 @@ namespace sg
 			CD3DX12_GPU_DESCRIPTOR_HANDLE gpu_handle;
 			SharedPtr<Memory> texture_memory;
 			SharedPtr<Texture> texture;
+
+			// Value to pass to ImGui::Image (as ImTextureID)
+			u64 imgui_id() const { return gpu_handle.ptr; }
 		};
 
 		class Device
@@ -59,7 +62,9 @@ namespace sg
 			void imgui_init(u32 num_frames, DXGI_FORMAT format, DXGI_FORMAT depth_format, CommandQueue* command_queue);
 			void imgui_update();
 			void imgui_render(CommandList* command_list);
-			CD3DX12_GPU_DESCRIPTOR_HANDLE imgui_texture_viewer_handle() const { return imgui_texture_viewer.gpu_handle; }
+			void imgui_new_frame();
+			void imgui_shutdown();
+			u64 imgui_texture_viewer_id() const { return imgui_texture_viewer.imgui_id(); }
 			ImGuiTextureViewer& imgui_texture_viewer_data() { return imgui_texture_viewer; }
 			ImGuiTextureViewer allocate_imgui_texture_viewer_data();
 			void set_imgui_texture_viewer_data(ImGuiTextureViewer& in_data, SharedPtr<Texture> texture);

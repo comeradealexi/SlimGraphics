@@ -26,6 +26,7 @@ namespace sg
 		class GeometryShader;
 		class GPUTimestampPool;
 		class GPUStatisticPool;
+		struct ImGuiTextureViewer;
 		class IndexBufferView;
 		class IndirectArguments;
 		class Memory;
@@ -59,6 +60,7 @@ namespace sg
 	using GeometryShader = D3D12::GeometryShader;
 	using GPUTimestampPool = D3D12::GPUTimestampPool;
 	using GPUStatisticPool = D3D12::GPUStatisticPool;
+	using ImGuiTextureViewer = D3D12::ImGuiTextureViewer;
 	using IndexBufferView = D3D12::IndexBufferView;
 	using IndirectArguments = D3D12::IndirectArguments;
 	using Memory = D3D12::Memory;

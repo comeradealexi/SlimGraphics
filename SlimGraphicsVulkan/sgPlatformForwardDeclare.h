@@ -1,8 +1,6 @@
 #pragma once
 #define SG_PLATFORM_VULKAN (1)
 
-struct ID3D12Fence;
-
 namespace sg
 {
 	namespace DefaultAlignment
@@ -16,7 +14,6 @@ namespace sg
 		class AmplificationShader;
 		class Binding;
 		class Buffer;
-		class BufferView;
 		class CommandList;
 		class CommandQueue;
 		class ComputeShader;
@@ -26,6 +23,7 @@ namespace sg
 		class GeometryShader;
 		class GPUTimestampPool;
 		class GPUStatisticPool;
+		struct ImGuiTextureViewer;
 		class IndexBufferView;
 		class IndirectArguments;
 		class Memory;
@@ -34,10 +32,8 @@ namespace sg
 		class PixelShader;
 		class QueueFence;
 		class RenderTargetView;
-		class Sampler;
 		class ShaderResourceView;
 		class Texture;
-		class TextureView;
 		class UnorderedAccessView;
 		class VertexBufferView;
 		class VertexShader;
@@ -49,7 +45,6 @@ namespace sg
 	using AmplificationShader = Vulkan::AmplificationShader;
 	using Binding = Vulkan::Binding;
 	using Buffer = Vulkan::Buffer;
-	using BufferView = Vulkan::BufferView;
 	using CommandList = Vulkan::CommandList;
 	using CommandQueue = Vulkan::CommandQueue;
 	using ComputeShader = Vulkan::ComputeShader;
@@ -59,6 +54,7 @@ namespace sg
 	using GeometryShader = Vulkan::GeometryShader;
 	using GPUTimestampPool = Vulkan::GPUTimestampPool;
 	using GPUStatisticPool = Vulkan::GPUStatisticPool;
+	using ImGuiTextureViewer = Vulkan::ImGuiTextureViewer;
 	using IndexBufferView = Vulkan::IndexBufferView;
 	using IndirectArguments = Vulkan::IndirectArguments;
 	using Memory = Vulkan::Memory;
@@ -67,21 +63,9 @@ namespace sg
 	using PixelShader = Vulkan::PixelShader;
 	using QueueFence = Vulkan::QueueFence;
 	using RenderTargetView = Vulkan::RenderTargetView;
-	using Sampler = Vulkan::Sampler;
 	using ShaderResourceView = Vulkan::ShaderResourceView;
 	using Texture = Vulkan::Texture;
-	using TextureView = Vulkan::TextureView;
 	using UnorderedAccessView = Vulkan::UnorderedAccessView;
 	using VertexBufferView = Vulkan::VertexBufferView;
 	using VertexShader = Vulkan::VertexShader;
-
-}
-
-namespace VulkanMA
-{
-	class Allocation;
-	class Allocator;
-	class Pool;
-	class VirtualBlock;
-	struct VirtualAllocation;
 }

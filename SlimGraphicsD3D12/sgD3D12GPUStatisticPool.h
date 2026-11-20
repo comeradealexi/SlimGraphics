@@ -21,7 +21,7 @@ namespace sg
 			void begin_query(Index index, CommandList* command_list);
 			void end_query(Index index, CommandList* command_list);
 
-			const D3D12_QUERY_DATA_PIPELINE_STATISTICS& collect_query(Index idx);
+			sg::PipelineStatistics collect_query(Index idx);
 
 
 		private:

@@ -92,9 +92,22 @@ namespace sg
 			command_list->get()->EndQuery(query_heap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, index);
 		}
 
-		const D3D12_QUERY_DATA_PIPELINE_STATISTICS& GPUStatisticPool::collect_query(Index idx)
+		sg::PipelineStatistics GPUStatisticPool::collect_query(Index idx)
 		{
-			return stats_copy[idx];
+			const D3D12_QUERY_DATA_PIPELINE_STATISTICS& d = stats_copy[idx];
+			sg::PipelineStatistics stats;
+			stats.ia_vertices = d.IAVertices;
+			stats.ia_primitives = d.IAPrimitives;
+			stats.vs_invocations = d.VSInvocations;
+			stats.gs_invocations = d.GSInvocations;
+			stats.gs_primitives = d.GSPrimitives;
+			stats.clipping_invocations = d.CInvocations;
+			stats.clipping_primitives = d.CPrimitives;
+			stats.ps_invocations = d.PSInvocations;
+			stats.hs_invocations = d.HSInvocations;
+			stats.ds_invocations = d.DSInvocations;
+			stats.cs_invocations = d.CSInvocations;
+			return stats;
 		}
 
 	}

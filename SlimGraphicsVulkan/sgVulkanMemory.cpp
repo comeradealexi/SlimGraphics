@@ -5,11 +5,27 @@ namespace sg
 {
 	namespace Vulkan
 	{
-
-#if SG_PLATFORM_D3D12
-		Memory::Memory(MemoryType type_, D3D12MA::Allocation* alloc_) : type(type_), alloc(alloc_)
+		Memory::Memory(MemoryType type_, VmaAllocator allocator_, VmaAllocation allocation_) : type(type_), allocator(allocator_), allocation(allocation_)
 		{
+			VmaAllocationInfo info = {};
+			vmaGetAllocationInfo(allocator, allocation, &info);
+			mapped_data = info.pMappedData;
+			size = info.size;
+			memory_type_index = info.memoryType;
+
+			VkMemoryPropertyFlags flags = 0;
+			vmaGetMemoryTypeProperties(allocator, memory_type_index, &flags);
+			host_coherent = (flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
 		}
-#endif
+
+		Memory::~Memory()
+		{
+			// Resources bound to this memory hold a SharedPtr to it, so they are already destroyed.
+			if (allocation)
+			{
+				vmaFreeMemory(allocator, allocation);
+				allocation = VK_NULL_HANDLE;
+			}
+		}
 	}
 }

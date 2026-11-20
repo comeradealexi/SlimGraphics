@@ -12,27 +12,23 @@ namespace sg
 		public:
 			SharedPtr<Buffer> buffer_resource;
 			SharedPtr<Texture> texture_resource;
-#if SG_PLATFORM_D3D12
-			D3D12_UNORDERED_ACCESS_VIEW_DESC desc;
-			D3D12_UNORDERED_ACCESS_VIEW_DESC desc_uint;
-#endif
+			u64 element_size = 0;
+			u64 element_count = 0;
+			u32 mip_level = 0;
 
-#if SG_PLATFORM_D3D12
-			inline ID3D12Resource* get_d3d12_resource()
+			explicit operator bool() const
 			{
-				if (buffer_resource) return buffer_resource->get().Get();
-				if (texture_resource) return texture_resource->get().Get();
-				return nullptr;
+				return buffer_resource || texture_resource;
 			}
 
-			D3D12_RESOURCE_STATES get_d3d12_read_resource_state()
+			// Identifies the underlying resource (barriers are tracked per resource, not per view)
+			const void* get_resource_identity() const
 			{
-				if (buffer_resource) return buffer_resource->get_read_resource_state();
-				if (texture_resource) return texture_resource->get_read_resource_state();
-				seAssert(false, "Should have a valid read state");
-				return D3D12_RESOURCE_STATE_COMMON; 
+				if (buffer_resource) return buffer_resource.get();
+				return texture_resource.get();
 			}
-#endif
+
+			u64 get_size_bytes() const { return element_size * element_count; }
 		};
 	}
 }

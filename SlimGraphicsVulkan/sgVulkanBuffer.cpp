@@ -1,76 +1,72 @@
 #include "pch.h"
-#include "sgVulkanBuffer.h"	
-#include "sgVulkanTypesTranslator.h"
+#include "sgVulkanBuffer.h"
 #include "sgVulkanMemory.h"
 
 namespace sg
 {
 	namespace Vulkan
 	{
-
-
-		sg::MemoryType Buffer::get_memory_type() const
+		MemoryType Buffer::get_memory_type() const
 		{
 			return memory->get_type();
 		}
 
-		#if SG_PLATFORM_D3D12
-		D3D12_RESOURCE_STATES Buffer::get_read_resource_state() const
+		ResourceState Buffer::get_read_resource_state() const
 		{
-			return get_d3d12_resource_read_state(type, memory->get_type() == MemoryType::Readback);
+			switch (memory->get_type())
+			{
+			case MemoryType::Readback: return ResourceState::HostRead;
+			case MemoryType::Upload: return ResourceState::CopySource; // Only ever a copy source; host writes are visible at submit
+			default: return ResourceState::Read;
+			}
 		}
-		#endif
-
 
 		void* Buffer::map_memory()
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			return {};
-			#if SG_PLATFORM_D3D12
-			seAssert(cpu_writeable || cpu_readable, "Trying to write gpu memory that is not cpu visible");
-			BYTE* pData;
-			CHECKHR(resource->Map(0, nullptr, reinterpret_cast<void**>(&pData)));
-			return (void*)pData;
-			#endif //SG_PLATFORM_D3D12
+			seAssert(cpu_writeable || cpu_readable, "Trying to map gpu memory that is not cpu visible");
+			seAssert(memory->get_mapped_data() != nullptr, "Memory is not mapped");
+			if (cpu_readable && !memory->is_host_coherent())
+			{
+				vmaInvalidateAllocation(memory->get_allocator(), memory->get_allocation(), 0, VK_WHOLE_SIZE);
+			}
+			return memory->get_mapped_data();
 		}
 
 		void Buffer::unmap_memory()
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			#if SG_PLATFORM_D3D12
-			resource->Unmap(0, nullptr);
-			#endif
+			// Memory stays persistently mapped; just make CPU writes visible on non-coherent memory.
+			if (cpu_writeable && !memory->is_host_coherent())
+			{
+				vmaFlushAllocation(memory->get_allocator(), memory->get_allocation(), 0, VK_WHOLE_SIZE);
+			}
 		}
 
 		void Buffer::write_memory(u32 offset, const void* memory_src, u64 size)
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			#if SG_PLATFORM_D3D12
 			seAssert(cpu_writeable, "Trying to write gpu memory that is not cpu visible");
+			seAssert(offset + size <= size_bytes, "Write out of buffer bounds");
 			if (cpu_writeable)
 			{
-				BYTE* pData;
-				CHECKHR(resource->Map(0, nullptr, reinterpret_cast<void**>(&pData)));
-				memcpy(pData + offset, memory_src, size);
-				resource->Unmap(0, nullptr);
+				memcpy(static_cast<uint8_t*>(memory->get_mapped_data()) + offset, memory_src, size);
+				if (!memory->is_host_coherent())
+				{
+					vmaFlushAllocation(memory->get_allocator(), memory->get_allocation(), offset, size);
+				}
 			}
-			#endif
 		}
 
 		void Buffer::read_memory(u32 offset, void* memory_dest, u64 size)
 		{
-			seAssert(false, "VULKAN TODO " __FILE__ __FUNCTION__);
-			#if SG_PLATFORM_D3D12
-			seAssert(cpu_readable, "Trying to write gpu memory that is not cpu visible");
+			seAssert(cpu_readable, "Trying to read gpu memory that is not cpu visible");
+			seAssert(offset + size <= size_bytes, "Read out of buffer bounds");
 			if (cpu_readable)
 			{
-				BYTE* pData;
-				D3D12_RANGE readbackBufferRange{ 0, size };
-				CHECKHR(resource->Map(0, &readbackBufferRange, reinterpret_cast<void**>(&pData)))
-					memcpy(memory_dest, pData + offset, size);
-				resource->Unmap(0, nullptr);
+				if (!memory->is_host_coherent())
+				{
+					vmaInvalidateAllocation(memory->get_allocator(), memory->get_allocation(), offset, size);
+				}
+				memcpy(memory_dest, static_cast<const uint8_t*>(memory->get_mapped_data()) + offset, size);
 			}
-			#endif
 		}
 	}
 }

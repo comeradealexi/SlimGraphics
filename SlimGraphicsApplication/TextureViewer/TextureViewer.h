@@ -17,7 +17,7 @@ public:
 	void imgui_update();
 	void render(sg::CommandList& command_list, SimpleLinearConstantBuffer& cbuffer);
 
-	sg::D3D12::ImGuiTextureViewer imgui_texture_viewer;
+	sg::ImGuiTextureViewer imgui_texture_viewer;
 	sg::SharedPtr<sg::Device> device;
 
 	bool resize_target_to_texture = true;

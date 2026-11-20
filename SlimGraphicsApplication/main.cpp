@@ -9,14 +9,9 @@
 // Manually externed as per imgui comment in imgui_impl_win32.h
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-#if SG_PLATFORM_D3D12
-#include <imgui_impl_dx12.h>
-#elif SG_PLATFORM_VULKAN
-#include <imgui_impl_vulkan.h>
-#else
-#error TODO
-#endif
 #include <DirectXMath.h>
+#include <lodepng.h>
+#include <shellapi.h>
 #include "AverageTimer.h"
 #include "BasicGrid.h"
 #include <sgUtils.h>
@@ -106,6 +101,72 @@ void OverrideImguiStyle()
 
 using namespace sg;
 
+// Optional command line switches, mainly to make automated captures for comparing rendering backends:
+//   -capture_frame=N      Save the final render target and back buffer (after ImGui) as PNGs at frame N
+//   -capture_dir=PATH     Directory to write captures to (default: working directory)
+//   -exit_after_capture   Quit once the capture has been written
+//   -gdr_scene=PATH       Load a GPU driven rendering scene file on startup
+//   -model=TEXT           Model viewer: load the first model whose path contains TEXT
+//   -mesh_mode=N          Model viewer: 0 = vertex shader, 1 = mesh shader, 2 = amplification + mesh shader
+struct CommandLineOptions
+{
+	int capture_frame = -1;
+	std::string capture_dir = ".";
+	bool exit_after_capture = false;
+	std::string gdr_scene;
+	std::string model;
+	int mesh_mode = -1;
+};
+
+static CommandLineOptions ParseCommandLine()
+{
+	CommandLineOptions options;
+	int argc = 0;
+	LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+	for (int i = 1; argv && i < argc; i++)
+	{
+		std::wstring wide_arg(argv[i]);
+		const std::string arg(wide_arg.begin(), wide_arg.end()); // Switches are ASCII
+		auto value_of = [&arg](const char* name) -> const char*
+			{
+				const size_t len = strlen(name);
+				return arg.compare(0, len, name) == 0 ? arg.c_str() + len : nullptr;
+			};
+		if (const char* v = value_of("-capture_frame=")) options.capture_frame = atoi(v);
+		else if (const char* v = value_of("-capture_dir=")) options.capture_dir = v;
+		else if (arg == "-exit_after_capture") options.exit_after_capture = true;
+		else if (const char* v = value_of("-gdr_scene=")) options.gdr_scene = v;
+		else if (const char* v = value_of("-model=")) options.model = v;
+		else if (const char* v = value_of("-mesh_mode=")) options.mesh_mode = atoi(v);
+	}
+	LocalFree(argv);
+	return options;
+}
+
+// Writes a readback buffer holding a copied texture (rows 'row_pitch' bytes apart) to a PNG
+static void SaveReadbackToPNG(Buffer& readback, u32 row_pitch, u32 width, u32 height, DXGI_FORMAT format, const std::string& path)
+{
+	std::vector<uint8_t> pixels((size_t)width * height * 4);
+	const uint8_t* mapped = static_cast<const uint8_t*>(readback.map_memory());
+	const bool bgra = format == DXGI_FORMAT_B8G8R8A8_UNORM || format == DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+	for (u32 y = 0; y < height; y++)
+	{
+		const uint8_t* src_row = mapped + (size_t)y * row_pitch;
+		uint8_t* dst_row = pixels.data() + (size_t)y * width * 4;
+		for (u32 x = 0; x < width; x++)
+		{
+			dst_row[x * 4 + 0] = src_row[x * 4 + (bgra ? 2 : 0)];
+			dst_row[x * 4 + 1] = src_row[x * 4 + 1];
+			dst_row[x * 4 + 2] = src_row[x * 4 + (bgra ? 0 : 2)];
+			dst_row[x * 4 + 3] = 255; // Ignore alpha so captures are easy to compare/view
+		}
+	}
+	readback.unmap_memory();
+	const unsigned error = lodepng::encode(path, pixels, width, height);
+	seAssert(error == 0, "Failed to write capture %s", path.c_str());
+	(void)error;
+}
+
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
 #if false
@@ -120,6 +181,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	u64 h = 1080;
 	u64 x_off = 0;
 	u64 y_off = 0;
+	const CommandLineOptions command_line = ParseCommandLine();
 	se::Ptr<se::Window> wnd(new se::Window(hInstance, nCmdShow, w,h));
 	wnd->window_callbacks.push_back(ImGui_ImplWin32_WndProcHandler);
 
@@ -165,7 +227,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImGui_ImplWin32_Init(wnd->g_hWnd);
 
 		ShowWindow(wnd->g_hWnd, SW_SHOWNORMAL);
-		device->imgui_init(frame_count, back_buffer_format, DXGI_FORMAT_UNKNOWN, queue.get());
 		OverrideImguiStyle();
 	}
 	
@@ -187,6 +248,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	SharedPtr<RenderTargetView> backbuffer_rtvs[frame_count];
 	u32 current_frame_idx = device->create_swap_chain(wnd->g_hWnd, queue.get(), frame_count, back_buffer_format, w, h, backbuffer_rtvs);
+
+	// Initialised after the swap chain so backends that build their ImGui pipeline up front know the real back buffer format.
+	device->imgui_init(frame_count, back_buffer_format, DXGI_FORMAT_UNKNOWN, queue.get());
 
 	// Depth buffer
 	SharedPtr<DepthStencilView> dsv;
@@ -330,7 +394,27 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	float total_time; // seconds
 	auto total_time_start = std::chrono::high_resolution_clock::now();
 	auto last_frame_start = std::chrono::high_resolution_clock::now();
-	D3D12_QUERY_DATA_PIPELINE_STATISTICS query_data = {};
+	sg::PipelineStatistics query_data = {};
+
+	if (!command_line.model.empty())
+	{
+		model_viewer->SelectModel(command_line.model);
+	}
+	if (command_line.mesh_mode >= 0)
+	{
+		model_viewer->SetMeshMode(command_line.mesh_mode);
+	}
+	if (!command_line.gdr_scene.empty())
+	{
+		gdr_scene.load_scene(command_line.gdr_scene.c_str());
+	}
+
+	// Screenshot capture (see CommandLineOptions)
+	SharedPtr<Buffer> capture_readback_final;
+	SharedPtr<Buffer> capture_readback_backbuffer;
+	u32 capture_row_pitch_final = 0;
+	u32 capture_row_pitch_backbuffer = 0;
+	DXGI_FORMAT capture_backbuffer_format = DXGI_FORMAT_UNKNOWN;
 	while (run)
 	{
 		auto cpu_start_time = std::chrono::high_resolution_clock::now();
@@ -343,11 +427,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		
 		input->update();
 		
-#if SG_PLATFORM_D3D12
-		ImGui_ImplDX12_NewFrame();
-#else
-		seAssert(false, "TODO");
-#endif
+device->imgui_new_frame();
 		ImGui_ImplWin32_NewFrame();
 
 		ImGui::NewFrame();
@@ -459,20 +539,19 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 						*p = '\0';
 						return cbfr; };
 
-				ImGui::Text("IAVertices:    %s", prettify_num(query_data.IAVertices));
-				ImGui::Text("IAPrimitives:  %s", prettify_num(query_data.IAPrimitives));
-				ImGui::Text("VSInvocations: %s", prettify_num(query_data.VSInvocations));
-				ImGui::Text("GSInvocations: %s", prettify_num(query_data.GSInvocations));
-				ImGui::Text("GSPrimitives:  %s", prettify_num(query_data.GSPrimitives));
-				ImGui::Text("CInvocations:  %s", prettify_num(query_data.CInvocations));
-				ImGui::Text("CPrimitives:   %s", prettify_num(query_data.CPrimitives));
-				ImGui::Text("PSInvocations: %s", prettify_num(query_data.PSInvocations));
-				ImGui::Text("HSInvocations: %s", prettify_num(query_data.HSInvocations));
-				ImGui::Text("DSInvocations: %s", prettify_num(query_data.DSInvocations));
-				ImGui::Text("CSInvocations: %s", prettify_num(query_data.CSInvocations));
-				//ImGui::Text("ASInvocations: %ull", query_data.ASInvocations);
-				//ImGui::Text("MSInvocations: %ull", query_data.MSInvocations);
-				//ImGui::Text("MSPrimitives:  %ull", query_data.MSPrimitives);
+				ImGui::Text("IAVertices:    %s", prettify_num(query_data.ia_vertices));
+				ImGui::Text("IAPrimitives:  %s", prettify_num(query_data.ia_primitives));
+				ImGui::Text("VSInvocations: %s", prettify_num(query_data.vs_invocations));
+				ImGui::Text("GSInvocations: %s", prettify_num(query_data.gs_invocations));
+				ImGui::Text("GSPrimitives:  %s", prettify_num(query_data.gs_primitives));
+				ImGui::Text("CInvocations:  %s", prettify_num(query_data.clipping_invocations));
+				ImGui::Text("CPrimitives:   %s", prettify_num(query_data.clipping_primitives));
+				ImGui::Text("PSInvocations: %s", prettify_num(query_data.ps_invocations));
+				ImGui::Text("HSInvocations: %s", prettify_num(query_data.hs_invocations));
+				ImGui::Text("DSInvocations: %s", prettify_num(query_data.ds_invocations));
+				ImGui::Text("CSInvocations: %s", prettify_num(query_data.cs_invocations));
+				ImGui::Text("ASInvocations: %s", prettify_num(query_data.as_invocations));
+				ImGui::Text("MSInvocations: %s", prettify_num(query_data.ms_invocations));
 			}
 		}
 		if (ImGui::CollapsingHeader("Clear Values"))
@@ -596,6 +675,17 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 				device->imgui_render(command_buffer.get());
 			}
 			command_buffer->end_geometry_pass();
+
+			if ((int)total_frame_idx == command_line.capture_frame)
+			{
+				Texture& backbuffer = *backbuffer_rtvs[current_frame_idx]->texture_resource;
+				const u32 capture_size = AlignUp((u32)w * 4u, 256u) * (u32)h;
+				capture_readback_final = sg::create_readback_buffer(*device, capture_size);
+				capture_readback_backbuffer = sg::create_readback_buffer(*device, capture_size);
+				capture_row_pitch_final = command_buffer->copy_texture_to_buffer(capture_readback_final.get(), final_render_target.get());
+				capture_row_pitch_backbuffer = command_buffer->copy_texture_to_buffer(capture_readback_backbuffer.get(), &backbuffer);
+				capture_backbuffer_format = backbuffer.resource_create_desc.format;
+			}
 		}
 
 
@@ -617,11 +707,19 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		gpu_timer.add_time(timestamp_pool->collect_timestamp_us(gpu_timestamp_idx));
 
 		stats_pool->resolve();
-#if SG_PLATFORM_D3D12
 		query_data = stats_pool->collect_query(stat_query_idx);
-#else
-		seAssert(false, "VULKAN TODO");
-#endif
+
+		if (capture_readback_final)
+		{
+			SaveReadbackToPNG(*capture_readback_final, capture_row_pitch_final, (u32)w, (u32)h, final_render_target->resource_create_desc.format, command_line.capture_dir + "/capture_final.png");
+			SaveReadbackToPNG(*capture_readback_backbuffer, capture_row_pitch_backbuffer, (u32)w, (u32)h, capture_backbuffer_format, command_line.capture_dir + "/capture_backbuffer.png");
+			capture_readback_final = nullptr;
+			capture_readback_backbuffer = nullptr;
+			if (command_line.exit_after_capture)
+			{
+				run = false;
+			}
+		}
 
 		total_frame_idx++;
 		wnd->Poll();
@@ -637,9 +735,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	queue->fence_signal(*fence, total_frame_idx);
 	queue->fence_wait_cpu(*fence, total_frame_idx);
 
-#if SG_PLATFORM_D3D12
-	ImGui_ImplDX12_Shutdown();
-#endif
+device->imgui_shutdown();
 	ImGui_ImplWin32_Shutdown();
 	ImPlot::DestroyContext();
 	ImGui::DestroyContext();

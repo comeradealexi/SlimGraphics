@@ -1,5 +1,6 @@
 #pragma once
 #include <sgTypes.h>
+#include "sgVulkanInclude.h"
 
 namespace sg
 {
@@ -8,10 +9,10 @@ namespace sg
 		class IndexBufferView
 		{
 		public:
-#if SG_PLATFORM_D3D12
-			D3D12_INDEX_BUFFER_VIEW ibv;
-#endif
 			SharedPtr<Buffer> buffer_resource;
+			u64 offset = 0;
+			u64 size = 0;
+			vk::IndexType index_type = vk::IndexType::eUint32;
 		};
 	}
 }

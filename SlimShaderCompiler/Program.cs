@@ -342,8 +342,9 @@ namespace SlimShaderCompiler
                     sb.Append("-spirv ");
                     // We don't want to decorate all the HLSL with vulkan binding attributes so each type is offset under spirv
                     sb.Append("-fvk-b-shift 0 0 -fvk-t-shift 16 0 -fvk-s-shift 32 0 -fvk-u-shift 48 0 ");
-                    // Allow use of wave intrinsics
-                    sb.Append("-fspv-target-env=vulkan1.1 ");
+                    // Vulkan 1.3: wave intrinsics, and mesh/amplification shaders compile to the cross-vendor SPV_EXT_mesh_shader
+                    // (vulkan1.1 produced the NVIDIA-only SPV_NV_mesh_shader).
+                    sb.Append("-fspv-target-env=vulkan1.3 ");
                 }
                 sb.Append("-Zi -Qembed_debug "); // TODO - Strip this out when compiling in release
                 sb.AppendFormat("-T {0} ", shader.profile);
