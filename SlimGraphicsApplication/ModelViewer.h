@@ -6,6 +6,7 @@
 #include "LinearConstantBuffer.h"
 #include "Camera.h"
 #include "DebugDraw.h"
+#include <nlohmann/json_fwd.hpp>
 
 class ModelViewer
 {
@@ -19,9 +20,32 @@ public:
 	bool MeshPartVisible(const Camera& camera, Model::MeshPart& mesh_part);
 
 	// Selects the first model file whose path contains 'path_substring' (loaded on the next Render)
-	void SelectModel(const std::string& path_substring);
+	bool SelectModel(const std::string& path_substring);
 	// 0 = vertex shader, 1 = mesh shader, 2 = amplification + mesh shader (mesh modes need mesh shader support)
 	void SetMeshMode(int mode);
+
+	// Applies automated test settings (see TestRunner); every setting the object does not contain is reset to its default
+	// Returns false if a setting could not be applied (such as an unknown model)
+	bool ApplyTestSettings(const nlohmann::json& settings);
+
+	// Counters the shaders increment in the UAV, read back after the GPU finished the frame
+	struct UAVReadBack
+	{
+		sg::u32 UAV_INDEX_PIXELS_SHADED;
+		sg::u32 UAV_INDEX_MESH_SHADER_INVOCATIONS;
+		sg::u32 UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT;
+		sg::u32 UAV_INDEX_MESH_SHADER_PRIM_COUNT;
+		sg::u32 UAV_INDEX_VERTEX_SHADER_INVOCATIONS;
+		sg::u32 UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT;
+		sg::u32 UAV_INDEX_WAVE_INTRINSIC_COUNTER;
+		sg::u32 UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS;
+		sg::u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_IN;
+		sg::u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_OUT;
+		sg::u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_BACK_FACING;
+		sg::u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_FRONT_FACING;
+		sg::u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_SUBPIXEL;
+	};
+	UAVReadBack ReadUAVCounters() const;
 
 private:
 	const DXGI_FORMAT render_target_format;

@@ -150,7 +150,8 @@ namespace sg
 			using FeatureChain = vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan13Features,
 				vk::PhysicalDeviceTimelineSemaphoreFeatures, vk::PhysicalDeviceHostQueryResetFeatures, vk::PhysicalDeviceBufferDeviceAddressFeatures,
 				vk::PhysicalDeviceDescriptorIndexingFeatures, vk::PhysicalDeviceScalarBlockLayoutFeatures, vk::PhysicalDeviceMaintenance5Features,
-				vk::PhysicalDeviceShaderObjectFeaturesEXT, vk::PhysicalDeviceDescriptorHeapFeaturesEXT, vk::PhysicalDeviceMeshShaderFeaturesEXT>;
+				vk::PhysicalDeviceShaderObjectFeaturesEXT, vk::PhysicalDeviceDescriptorHeapFeaturesEXT, vk::PhysicalDeviceMeshShaderFeaturesEXT,
+				vk::PhysicalDeviceLineRasterizationFeatures>;
 
 			template <typename... Features>
 			vk::StructureChain<Features...> query_feature_chain(const vk::raii::PhysicalDevice& physical_device, const vk::StructureChain<Features...>*)
@@ -396,6 +397,10 @@ namespace sg
 			enabled.get<vk::PhysicalDeviceMaintenance5Features>().maintenance5 = VK_TRUE;
 			enabled.get<vk::PhysicalDeviceShaderObjectFeaturesEXT>().shaderObject = VK_TRUE;
 			enabled.get<vk::PhysicalDeviceDescriptorHeapFeaturesEXT>().descriptorHeap = VK_TRUE;
+			// D3D12 rasterizes lines (and wireframe edges) without MSAA as aliased lines with the diamond exit rule, which is
+			// Vulkan's Bresenham mode; the default mode is implementation defined (usually rectangular) and covers other pixels
+			bresenham_lines_supported = supported.get<vk::PhysicalDeviceLineRasterizationFeatures>().bresenhamLines;
+			enabled.get<vk::PhysicalDeviceLineRasterizationFeatures>().bresenhamLines = bresenham_lines_supported;
 			vk::PhysicalDeviceMeshShaderFeaturesEXT& emesh = enabled.get<vk::PhysicalDeviceMeshShaderFeaturesEXT>();
 			if (mesh_shaders_supported)
 			{

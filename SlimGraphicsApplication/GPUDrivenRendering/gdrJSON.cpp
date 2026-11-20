@@ -6,9 +6,13 @@
 namespace gdr
 {
 
-	bool serialise(const SceneNode& node, const char* file_path)
+	bool serialise(const SceneNode& node, const CameraTrack& camera_track, const char* file_path)
 	{
 		nlohmann::json j = node;
+		if (camera_track.is_valid())
+		{
+			j["camera_track"] = camera_track;
+		}
 		std::ofstream os(file_path, std::ios::out | std::ios::trunc);
 		seAssert(os.good(), "Failed To Write File %s", file_path);
 		if (os.good())
@@ -47,7 +51,28 @@ namespace gdr
 		return true;
 	}
 
-	bool deserialise(SceneNode& node, const char* file_path)
+	// Checks the optional camera track has every field NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CameraTrack, ...) reads
+	static bool is_valid_camera_track_json(const nlohmann::json& j)
+	{
+		if (!j.is_object())
+			return false;
+		for (const char* field : { "duration", "near_plane", "far_plane" })
+		{
+			if (!j.contains(field) || !j[field].is_number())
+				return false;
+		}
+		if (!j.contains("points") || !j["points"].is_array())
+			return false;
+		for (const nlohmann::json& point : j["points"])
+		{
+			if (!point.is_object() || !point.contains("position") || !is_valid_float3_json(point["position"]) ||
+				!point.contains("target") || !is_valid_float3_json(point["target"]))
+				return false;
+		}
+		return true;
+	}
+
+	bool deserialise(SceneNode& node, CameraTrack& camera_track, const char* file_path)
 	{
 		std::vector<uint8_t> file_data = se::BasicFileIO::load_file(file_path);
 		if (file_data.size() == 0)
@@ -56,13 +81,15 @@ namespace gdr
 		// Parse without exceptions and validate the structure before converting, so a malformed file just fails to load
 		// (and leaves the current scene untouched).
 		const nlohmann::json j = nlohmann::json::parse(file_data, nullptr, /*allow_exceptions*/ false);
-		if (j.is_discarded() || !is_valid_scene_node_json(j))
+		const bool has_camera_track = !j.is_discarded() && j.is_object() && j.contains("camera_track");
+		if (j.is_discarded() || !is_valid_scene_node_json(j) || (has_camera_track && !is_valid_camera_track_json(j["camera_track"])))
 		{
 			seWriteLine("Failed to parse scene file %s", file_path);
 			return false;
 		}
 		SceneNode loaded_node = j.get<SceneNode>();
 		node = std::move(loaded_node);
+		camera_track = has_camera_track ? j["camera_track"].get<CameraTrack>() : CameraTrack();
 
 		// Set parent pointers
 		set_parent_pointers(node, nullptr);

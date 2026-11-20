@@ -16,6 +16,9 @@ public:
 	void Update(float fTimeDelta, float fTotalTime, const se::GameInput& input);
 	void SetWidthHeight(float _width, float _height);
 	void SetPosition(DirectX::XMFLOAT3A pos) { position = pos; }
+	// Places the camera at 'pos' looking towards 'target' (takes effect on the next Update)
+	void SetLookAt(const DirectX::XMFLOAT3& pos, const DirectX::XMFLOAT3& target);
+	void SetDepthPlanes(float near_plane, float far_plane) { min_depth_plane = near_plane; max_depth_plane = far_plane; }
 	const DirectX::XMFLOAT3A& GetPosition() const { return position; }
 	const ShaderStructs::CameraData& GetCameraShaderData() const { return shader_data; }
 	const DirectX::BoundingFrustum& GetCameraBoundingFrustum() const { return bounding_frustum; }

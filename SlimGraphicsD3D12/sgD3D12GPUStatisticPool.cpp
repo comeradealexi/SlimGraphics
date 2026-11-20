@@ -9,7 +9,15 @@ namespace sg
 		GPUStatisticPool::GPUStatisticPool(ID3D12Device6* device, ID3D12CommandQueue* queue, u32 _max_count) : max_count(_max_count)
 		{
 			stats_copy.resize(max_count);
-			
+
+			D3D12_FEATURE_DATA_D3D12_OPTIONS9 options9 = {};
+			mesh_statistics = SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS9, &options9, sizeof(options9))) && options9.MeshShaderPipelineStatsSupported;
+			if (mesh_statistics)
+			{
+				query_type = D3D12_QUERY_TYPE_PIPELINE_STATISTICS1;
+				query_size = sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS1);
+			}
+
 			D3D12_HEAP_PROPERTIES HeapProps;
 			HeapProps.Type = D3D12_HEAP_TYPE_READBACK;
 			HeapProps.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
@@ -20,7 +28,7 @@ namespace sg
 			D3D12_RESOURCE_DESC BufferDesc;
 			BufferDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 			BufferDesc.Alignment = 0;
-			BufferDesc.Width = sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS) * max_count;
+			BufferDesc.Width = static_cast<UINT64>(query_size) * max_count;
 			BufferDesc.Height = 1;
 			BufferDesc.DepthOrArraySize = 1;
 			BufferDesc.MipLevels = 1;
@@ -37,7 +45,7 @@ namespace sg
 			D3D12_QUERY_HEAP_DESC QueryHeapDesc;
 			QueryHeapDesc.Count = max_count;
 			QueryHeapDesc.NodeMask = 1;
-			QueryHeapDesc.Type = D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS;
+			QueryHeapDesc.Type = mesh_statistics ? D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS1 : D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS;
 			CHECKHR(device->CreateQueryHeap(&QueryHeapDesc, IID_PPV_ARGS(query_heap.GetAddressOf())));
 			query_heap->SetName(L"GPU Statistic QueryHeap");
 		}
@@ -47,11 +55,13 @@ namespace sg
 			seAssert(recording == false, "Recording should be false");
 			D3D12_RANGE Range;
 			Range.Begin = 0;
-			Range.End = current_index * sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS);
-			void* ptr;
-			CHECKHR(readback_buffer->Map(0, &Range, reinterpret_cast<void**>(&ptr)));
+			Range.End = static_cast<SIZE_T>(current_index) * query_size;
+			void* mapped = nullptr;
+			CHECKHR(readback_buffer->Map(0, &Range, &mapped));
+			const uint8_t* ptr = static_cast<const uint8_t*>(mapped);
+			for (u32 i = 0; i < current_index; i++)
 			{
-				memcpy(stats_copy.data(), ptr, Range.End);
+				memcpy(&stats_copy[i], ptr + static_cast<SIZE_T>(i) * query_size, query_size);
 			}
 			D3D12_RANGE EmptyRange = {};
 			readback_buffer->Unmap(0, &EmptyRange);
@@ -68,7 +78,7 @@ namespace sg
 		{
 			seAssert(recording, "Recording should be false");
 			u32 query_count = current_index;
-			command_list->get()->ResolveQueryData(query_heap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, 0, query_count, readback_buffer.Get(), 0);
+			command_list->get()->ResolveQueryData(query_heap.Get(), query_type, 0, query_count, readback_buffer.Get(), 0);
 			recording = false;
 		}
 
@@ -84,17 +94,17 @@ namespace sg
 
 		void GPUStatisticPool::begin_query(Index index, CommandList* command_list)
 		{
-			command_list->get()->BeginQuery(query_heap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, index);
+			command_list->get()->BeginQuery(query_heap.Get(), query_type, index);
 		}
 
 		void GPUStatisticPool::end_query(Index index, CommandList* command_list)
 		{
-			command_list->get()->EndQuery(query_heap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, index);
+			command_list->get()->EndQuery(query_heap.Get(), query_type, index);
 		}
 
 		sg::PipelineStatistics GPUStatisticPool::collect_query(Index idx)
 		{
-			const D3D12_QUERY_DATA_PIPELINE_STATISTICS& d = stats_copy[idx];
+			const D3D12_QUERY_DATA_PIPELINE_STATISTICS1& d = stats_copy[idx];
 			sg::PipelineStatistics stats;
 			stats.ia_vertices = d.IAVertices;
 			stats.ia_primitives = d.IAPrimitives;
@@ -107,6 +117,9 @@ namespace sg
 			stats.hs_invocations = d.HSInvocations;
 			stats.ds_invocations = d.DSInvocations;
 			stats.cs_invocations = d.CSInvocations;
+			stats.as_invocations = d.ASInvocations; // Zero without mesh_statistics (stats_copy is zero initialised)
+			stats.ms_invocations = d.MSInvocations;
+			stats.ms_primitives = d.MSPrimitives;
 			return stats;
 		}
 

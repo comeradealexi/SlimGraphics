@@ -224,6 +224,33 @@ namespace gdr
 		}
 	}
 
+	void Scene::apply_test_settings(const nlohmann::json& s)
+	{
+		// New keys must also be listed in TestRunner.cpp validate_case
+		ShaderStructs::DebugData& d = debug_data.shader_debug_data;
+		d.debug_mode = s.value("debug_mode", 0u);
+		d.cull_all_instances = s.value("cull_all", 0u);
+		d.freeze_culling_camera = 0;
+		d.use_frustum_culling = s.value("frustum_culling", 1u);
+		d.use_cone_culling = s.value("cone_culling", 1u);
+		d.sort_mode = s.value("sort_mode", 1u);
+		d.debug_render_mode = static_cast<ShaderStructs::DebugRenderMode>(s.value("render_mode", 0u));
+		render_options.render_wireframe = s.value("wireframe", false);
+		render_options.depth_enable = s.value("depth_enable", true);
+		render_options.depth_write = s.value("depth_write", true);
+		render_options.recreate_pipelines = true;
+	}
+
+	ShaderStructs::DebugFeedbackData Scene::read_debug_feedback() const
+	{
+		ShaderStructs::DebugFeedbackData feedback = {};
+		if (debug_data.shader_debug_data.debug_mode != 0) // Otherwise the buffer holds an older debug frame's results
+		{
+			debug_readback_buffer->read_memory(0, &feedback, sizeof(feedback));
+		}
+		return feedback;
+	}
+
 	void Scene::imgui()
 	{
 		// Note: ImGui::End() must be called whether or not Begin() returns true.

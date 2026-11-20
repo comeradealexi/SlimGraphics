@@ -30,7 +30,12 @@ namespace sg
 			ComPtr<ID3D12QueryHeap> query_heap = nullptr;
 			ComPtr<ID3D12Resource> readback_buffer = nullptr;
 			std::atomic_uint32_t current_index = 0;
-			std::vector<D3D12_QUERY_DATA_PIPELINE_STATISTICS> stats_copy;
+			// PIPELINE_STATISTICS1 adds the amplification / mesh shader counters (when the device supports it). Its data starts
+			// with the PIPELINE_STATISTICS fields, so results are kept in that layout either way.
+			bool mesh_statistics = false;
+			D3D12_QUERY_TYPE query_type = D3D12_QUERY_TYPE_PIPELINE_STATISTICS;
+			UINT query_size = sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS);
+			std::vector<D3D12_QUERY_DATA_PIPELINE_STATISTICS1> stats_copy;
 		};
 	}
 }

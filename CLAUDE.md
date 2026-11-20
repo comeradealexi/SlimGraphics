@@ -16,7 +16,10 @@ files are generated. Both backends must stay functional and render identically.
 | `SlimShaderCompiler` | C# tool that drives DXC. The build runs the copy in `Binaries\` |
 | `Sharpmake` | Project generation (`main.sharpmake.cs`; `/vulkan` selects the Vulkan backend) |
 | `SubModules` | Third party code. Local fixes live in `SubModules\Patches` (see below) |
+| `SlimGraphicsAssets\GDRAssets` | GPU driven rendering scenes (`*Test.json`; the folder is gitignored, so `git add -f` new scenes) |
 | `Tools\validate.ps1` | Build, validation layer and D3D12/Vulkan parity harness |
+| `Tools\validation_tests.json` | The test plan `validate.ps1` runs (see "Test cases") |
+| `Tools\generate_gdr_scenes.py` | Deterministic generator for the GDR test scenes and their camera tracks |
 
 ## Prerequisites
 
@@ -40,7 +43,9 @@ $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere
   `SlimGraphicsApplication` as the working directory.
 - Validation layers, `seAssert` and `seWriteLine` logging exist only in Debug (`_DEBUG`). Release is a compile check.
 - Command line switches (`main.cpp`): `-capture_frame=N`, `-capture_dir=PATH`, `-exit_after_capture`, `-model=TEXT`,
-  `-mesh_mode=0|1|2` (vertex / mesh / amplification + mesh), `-gdr_scene=PATH`.
+  `-mesh_mode=0|1|2` (vertex / mesh / amplification + mesh), `-gdr_scene=PATH`, `-camera_track` (play the scene's camera
+  track), `-camera_track_time=T` (start it at T seconds), `-test_plan=PATH` / `-test_output=DIR` (run a test plan and
+  quit, see "Test cases").
 - Environment: `SE_LOG_FILE=path` copies engine output (including validation messages) to a file,
   `SG_VULKAN_VALIDATION_LOG=path` copies Vulkan validation messages, `SG_D3D12_GPU_VALIDATION=1` enables D3D12
   GPU-based validation, and `VK_KHRONOS_VALIDATION_VALIDATE_SYNC=true` / `VK_KHRONOS_VALIDATION_GPUAV_ENABLE=true` /
@@ -53,24 +58,55 @@ powershell -ExecutionPolicy Bypass -File Tools\validate.ps1            # both ba
 powershell -ExecutionPolicy Bypass -File Tools\validate.ps1 -Extended  # + D3D12 GPU-based, Vulkan sync and GPU-AV passes
 ```
 
-- The work is done only when the script prints `VALIDATION PASSED` (exit code 0). It requires:
+- The script builds each backend, then runs the whole test plan (`Tools\validation_tests.json`) in one application
+  session per backend and validation pass (`-Extended` passes are separate sessions because layer settings are fixed at
+  device creation). The work is done only when it prints `VALIDATION PASSED` (exit code 0). That requires:
   - clean builds (any warning in `SlimGraphicsVulkan` fails);
-  - every scenario exiting with code 0 and writing its captures;
-  - every scenario logging that its validation layer loaded, with zero `[Vulkan|D3D12 ERROR|WARNING|CORRUPTION]` or
-    `Assert:` lines;
-  - D3D12 and Vulkan final renders differing in at most 0.05% of pixels.
+  - every session exiting with code 0, logging that its validation layer loaded and `[TEST] COMPLETE`;
+  - every case completing and writing its captures, with zero `[Vulkan|D3D12 ERROR|WARNING|CORRUPTION]`, `Assert:` or
+    `[TEST] ERROR` lines (messages are attributed to the case that was running, between `[TEST] BEGIN` and `END`);
+  - D3D12 and Vulkan `_final`, `_output` and `_magnifier` captures differing in at most 0.05% of pixels, and their
+    `[TEST] STAT` lines agreeing (GDR scene totals and input assembler counts exactly; culling feedback, other pipeline
+    statistics and shader counters within 2% plus a small absolute slack). Cases marked `"nondeterministic"` (GPU
+    scheduling dependent visualisations) are not compared.
+- Iterate with `-Backends Vulkan`, `-Cases "gdr_*","mv_mesh*"` (wildcards) and `-SkipBuild` (reuses the executables the
+  last full run saved as `slimgraphicsapplication_<backend>.exe`), then finish with a full run.
 - Use `-Extended` whenever backend code (barriers, descriptors, synchronisation, swap chain, memory) or shaders change,
   and `-BuildRelease` before committing backend changes.
-- Look at the captures and diff images in the output directory (`%TEMP%\SlimGraphicsValidation` by default) when
-  rendering changed. Back buffer diffs that only cover ImGui hover highlights are expected.
+- Look at the captures and diff images in the output directory (`%TEMP%\SlimGraphicsValidation`: `<Backend>\<pass>\` and
+  `parity\`) when rendering changed. Back buffer captures include ImGui with live timings and are only reported.
 - Never make a validation message go away by filtering it, disabling a layer or check, or loosening a threshold: fix the
   cause. The only filtered message is `D3D12_MESSAGE_ID_FENCE_ZERO_WAIT`, which ImGui's DX12 multi-viewport code
   triggers. Only add to that list with evidence that the message comes from outside the engine.
-- New features need coverage: add a command line switch and a scenario to `Tools\validate.ps1`. Things the scenarios do
-  not cover yet (ImGui toggles such as wireframe or the geometry shader path, magnifier interaction, window resize and
-  minimise) must be checked by hand when touched.
+- New features need coverage: add a case to `Tools\validation_tests.json` (see "Test cases"). Things the plan does not
+  cover (ImGui interaction, magnifier mouse input, camera track playback UI, window resize and minimise) must be checked
+  by hand when touched.
 - Best practices validation is advisory. Its known, accepted warnings: one memory block per resource (the D3D12 placed
   resource model) and UNDEFINED initial layout transitions.
+
+## Test cases
+
+- `TestRunner` (`SlimGraphicsApplication\TestRunner.h`) runs a plan: `{"defaults": {...}, "cases": [{"name": ...}, ...]}`.
+  Each case is merged over the defaults, so it fully describes its state and does not depend on case order. Keys:
+  `frames`, `model_viewer`, `gdr`, `gdr_scene` (empty clears it), `camera` (`"default"`, `{"position", "target", "near",
+  "far"}` or `{"track_time": T}`), `depth_clear`, `debug_draw`, `model_viewer_settings` (`ModelViewer::ApplyTestSettings`),
+  `gdr_settings` (`gdr::Scene::apply_test_settings`), `post_process`, `magnifier`, `capture_magnifier`,
+  `nondeterministic`.
+- To cover a new feature, expose its state through one of the settings functions, list the new key in `validate_case`
+  (`TestRunner.cpp` rejects plans with unknown keys, so typos cannot silently test defaults), add cases and run
+  `validate.ps1`. Check the new captures by eye: parity alone passes if a feature renders nothing on both backends.
+- Run a plan by hand: `slimgraphicsapplication.exe -test_plan=..\Tools\validation_tests.json -test_output=<dir>` from
+  `SlimGraphicsApplication`.
+
+## GDR scenes and camera tracks
+
+- `Tools\generate_gdr_scenes.py` writes `MixedAssetsTest`, `VillageTest`, `ForestTest` and `FractalTest` (each roughly
+  4x the previous; FractalTest has ~16k instances and takes ~20 s to load in Debug) and adds tracks to `HeadsTest` and
+  `SpheresTest`. Its output is deterministic: change the generator and regenerate rather than editing the JSON.
+- A scene's optional root `camera_track` (`gdrJSON.h`: `duration`, `near_plane`, `far_plane`, `points` of `position` /
+  `target`) is a closed centripetal Catmull-Rom spline played at constant speed (`gdrCameraTrack.h`). Playback
+  (`CameraTrackPlayer`) advances a fixed 1/60 s per frame, so a given frame or `track_time` always gives the same view.
+- Keep track points clear of geometry and targets at least a few units ahead; validation cases pose cameras on them.
 
 ## Shaders
 
@@ -107,7 +143,8 @@ powershell -ExecutionPolicy Bypass -File Tools\validate.ps1 -Extended  # + D3D12
   backend keeps its own.
 - A `Pipeline` is a set of linked shader objects plus fixed function state. All of that state is dynamic and is set in
   `CommandList::set_graphics_state`: new state must be added there, because shader objects require every relevant state
-  to be set before drawing.
+  to be set before drawing. Rasterization must match D3D12's: lines and wireframe use Bresenham line rasterization
+  (D3D12's aliased lines), which the parity check's pixel and pipeline statistics comparisons catch.
 - Descriptors: CBVs are device addresses in push data; SRV/UAV tables are written into the command list's region of the
   resource heap; sampler `s<n>` is sampler heap slot n. Shaders need no `VkImageView` (descriptors are built from
   `VkImageViewCreateInfo`); views exist only for attachments and ImGui.

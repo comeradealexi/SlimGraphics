@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Builds Slim Graphics for each rendering backend, runs the automated scenarios with the graphics API validation layers
+    Builds Slim Graphics for each rendering backend, runs the automated feature tests with the graphics API validation layers
     enabled and checks the results.
 
 .DESCRIPTION
@@ -9,17 +9,20 @@
       1. Regenerates the project files (Sharpmake, /vulkan for Vulkan) and builds the Debug application (shaders are
          compiled by the pre-build step). Build errors fail; warnings in SlimGraphicsVulkan fail; other first party
          warnings are reported.
-      2. Runs every scenario (model viewer vertex / mesh / amplification paths, GPU driven rendering scenes), capturing
-         frame N and exiting. A run fails if it times out (an assert dialog or hang), exits with a non-zero code, logs any
-         validation error / warning / corruption message or assert, does not report that its validation layer loaded, or
-         does not write its captures.
-      3. Compares the D3D12 and Vulkan final renders pixel by pixel (back buffers with ImGui are reported only: mouse
-         hover highlights differ between runs).
+      2. Runs the test plan (Tools/validation_tests.json by default) in ONE application session per validation pass: the
+         application's TestRunner sets up each case (model viewer modes, GDR scenes and camera track positions, post
+         processing, ...), renders a few frames, captures the final render target, the presented output and the back buffer
+         and logs statistics. A pass fails if the session times out or exits with a non-zero code, its validation layer did
+         not load, any validation error / warning / corruption message or assert is logged, the runner reports an error, it
+         does not complete every case, or a capture is missing. Messages are attributed to the case that was running.
+      3. Compares D3D12 and Vulkan: the final and output captures pixel by pixel (back buffers, which include ImGui with
+         live timings, are reported only) and the logged statistics (scene totals, GPU culling feedback, pipeline statistics,
+         shader counters). Cases marked "nondeterministic" in the plan depend on GPU scheduling and are not compared.
     -Extended adds passes with D3D12 GPU-based validation, Vulkan synchronization validation and Vulkan GPU-assisted
-    validation.
+    validation (each pass is its own session: validation layer settings are fixed when the device is created).
 
     Run from any directory:
-        powershell -ExecutionPolicy Bypass -File Tools\validate.ps1 [-Extended] [-Backends Vulkan] [-SkipBuild]
+        powershell -ExecutionPolicy Bypass -File Tools\validate.ps1 [-Extended] [-Backends Vulkan] [-SkipBuild] [-Cases "gdr_*"]
 
     The project files are left generated for the last backend validated.
 
@@ -33,10 +36,16 @@
     Reuse the executables saved by a previous run (slimgraphicsapplication_<backend>.exe next to the Debug build).
 .PARAMETER ApplySubmodulePatches
     Apply any SubModules/Patches/*.patch that is not applied yet, instead of failing.
+.PARAMETER TestPlan
+    The test plan to run (see SlimGraphicsApplication/TestRunner.h).
+.PARAMETER Cases
+    Only run the plan's cases whose names match one of these wildcard patterns.
 .PARAMETER OutDir
     Where build logs, run logs, captures and diff images are written.
 .PARAMETER MaxDiffPercent
-    Largest percentage of pixels allowed to differ (by more than 24/255 in any channel) between the backends' final renders.
+    Largest percentage of pixels allowed to differ (by more than 24/255 in any channel) between the backends' captures.
+.PARAMETER SessionTimeoutSeconds
+    Longest a test session may run.
 #>
 [CmdletBinding()]
 param(
@@ -46,14 +55,16 @@ param(
     [switch]$BuildRelease,
     [switch]$SkipBuild,
     [switch]$ApplySubmodulePatches,
+    [string]$TestPlan = "", # Default: Tools\validation_tests.json
+    [string[]]$Cases = @(),
     [string]$OutDir = (Join-Path $env:TEMP "SlimGraphicsValidation"),
-    [int]$CaptureFrame = 30,
-    [int]$TimeoutSeconds = 120,
-    [double]$MaxDiffPercent = 0.05
+    [double]$MaxDiffPercent = 0.05,
+    [int]$SessionTimeoutSeconds = 1800
 )
 
 $ErrorActionPreference = "Continue" # Native tool failures are checked through exit codes
 $Root = Split-Path -Parent $PSScriptRoot
+if (-not $TestPlan) { $TestPlan = Join-Path $PSScriptRoot "validation_tests.json" }
 $AppDir = Join-Path $Root "SlimGraphicsApplication"
 $SharpmakeDir = Join-Path $Root "Sharpmake"
 $AppProject = Join-Path $SharpmakeDir "projects\slimgraphicsapplication_vs2022_win64.vcxproj"
@@ -61,19 +72,16 @@ $Failures = New-Object System.Collections.Generic.List[string]
 $Notes = New-Object System.Collections.Generic.List[string]
 $Results = New-Object System.Collections.Generic.List[object]
 
-$Scenarios = @(
-    @{ Name = "default";     Args = @() },
-    @{ Name = "mesh_vs";     Args = @("-mesh_mode=0") },
-    @{ Name = "mesh_ms";     Args = @("-mesh_mode=1") },
-    @{ Name = "mesh_as_ms";  Args = @("-mesh_mode=2") },
-    @{ Name = "gdr_heads";   Args = @("-gdr_scene=../SlimGraphicsAssets/GDRAssets/HeadsTest.json") },
-    @{ Name = "gdr_spheres"; Args = @("-gdr_scene=../SlimGraphicsAssets/GDRAssets/SpheresTest.json") },
-    # 265 instances of 27 meshes: deep hierarchies, multi part meshes, occluders, off screen and sub pixel instances
-    @{ Name = "gdr_mixed";   Args = @("-gdr_scene=../SlimGraphicsAssets/GDRAssets/MixedAssetsTest.json") }
-)
-
 # Lines that count as validation problems in run logs (see the D3D12 / Vulkan debug message callbacks and se::Dbg::Assert)
 $IssuePattern = '^\[(Vulkan|D3D12) (ERROR|WARNING|CORRUPTION)\]|^Assert:'
+
+# Statistics compared between the backends: exact, or within a relative tolerance (plus a small absolute slack for
+# counts that rasterisation or floating point differences between the shader compilers can nudge)
+$ExactStats = @("gdr_instances", "gdr_mesh_parts", "gdr_meshlets", "ia_vertices", "ia_primitives")
+$TolerantStats = @("gdr_culled_total", "gdr_culled_frustum", "gdr_culled_cone", "cs_invocations", "as_invocations", "ms_invocations",
+    "ps_invocations", "gs_invocations", "gs_primitives", "mv_pixels", "mv_ms", "mv_as", "mv_ms_prims", "mv_cull_cone", "mv_cull_sphere", "mv_gs_in", "mv_gs_out")
+$StatTolerance = 0.02
+$StatSlack = 64
 
 function Write-Step([string]$Message) { Write-Host ""; Write-Host "=== $Message" -ForegroundColor Cyan }
 function Add-Failure([string]$Message) { $Failures.Add($Message); Write-Host "FAIL: $Message" -ForegroundColor Red }
@@ -181,7 +189,7 @@ function Invoke-Build([string]$Backend, [string]$Configuration)
 
 function Get-DialogText([int]$ProcessId)
 {
-    # Assert / crash dialogs block the process; read their text so the failure is actionable
+    # Assert / crash / fatal error dialogs block the process; read their text so the failure is actionable
     try
     {
         Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
@@ -200,13 +208,39 @@ function Get-DialogText([int]$ProcessId)
     catch { return "" }
 }
 
-function Invoke-Scenario([string]$Backend, [string]$Exe, $Pass, $Scenario)
+function Get-PlanCases([string]$PlanPath)
 {
-    $dir = Join-Path $OutDir "$Backend\$($Pass.Name)\$($Scenario.Name)"
+    # Case names and their nondeterministic flags (cases inherit the plan defaults)
+    $plan = Get-Content -LiteralPath $PlanPath -Raw | ConvertFrom-Json
+    $defaultNondeterministic = $false
+    if ($plan.defaults -and $plan.defaults.nondeterministic) { $defaultNondeterministic = [bool]$plan.defaults.nondeterministic }
+    $list = @()
+    foreach ($case in $plan.cases)
+    {
+        $nondeterministic = $defaultNondeterministic
+        if ($null -ne $case.nondeterministic) { $nondeterministic = [bool]$case.nondeterministic }
+        $list += [pscustomobject]@{ Name = $case.name; Nondeterministic = $nondeterministic }
+    }
+    return $list
+}
+
+function New-FilteredPlan([string]$PlanPath, [string[]]$Patterns)
+{
+    $plan = Get-Content -LiteralPath $PlanPath -Raw | ConvertFrom-Json
+    $plan.cases = @($plan.cases | Where-Object { $name = $_.name; @($Patterns | Where-Object { $name -like $_ }).Count -gt 0 })
+    if ($plan.cases.Count -eq 0) { Add-Failure "No test cases match $($Patterns -join ', ')"; return $null }
+    $path = Join-Path $OutDir "filtered_plan.json"
+    $plan | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $path -Encoding UTF8
+    return $path
+}
+
+function Invoke-TestSession([string]$Backend, [string]$Exe, $Pass, [string]$PlanPath, $PlanCases)
+{
+    $dir = Join-Path $OutDir "$Backend\$($Pass.Name)"
     if (Test-Path $dir) { Remove-Item -LiteralPath $dir -Recurse -Force }
     New-Item -ItemType Directory -Force $dir | Out-Null
     $log = Join-Path $dir "log.txt"
-    $label = "$Backend/$($Pass.Name)/$($Scenario.Name)"
+    $label = "$Backend/$($Pass.Name)"
 
     $environment = @{ SE_LOG_FILE = $log }
     foreach ($key in $Pass.Env.Keys) { $environment[$key] = $Pass.Env[$key] }
@@ -217,57 +251,95 @@ function Invoke-Scenario([string]$Backend, [string]$Exe, $Pass, $Scenario)
         [Environment]::SetEnvironmentVariable($key, $environment[$key], "Process")
     }
 
-    $problems = @()
-    $exitCode = $null
+    $sessionProblems = @()
     $stopwatch = [Diagnostics.Stopwatch]::StartNew()
     try
     {
-        $argumentList = @($Scenario.Args) + @("-capture_frame=$CaptureFrame", "-exit_after_capture", "`"-capture_dir=$dir`"")
-        $process = Start-Process -FilePath $Exe -ArgumentList $argumentList -WorkingDirectory $AppDir -PassThru
+        $process = Start-Process -FilePath $Exe -ArgumentList @("`"-test_plan=$PlanPath`"", "`"-test_output=$dir`"") -WorkingDirectory $AppDir -PassThru
         $null = $process.Handle # Keeps the exit code available after exit
-        if (-not $process.WaitForExit($TimeoutSeconds * 1000))
+        if (-not $process.WaitForExit($SessionTimeoutSeconds * 1000))
         {
             $dialog = Get-DialogText $process.Id
             Stop-Process -Id $process.Id -Force
-            $problems += "timed out after $TimeoutSeconds s" + $(if ($dialog) { " (dialog: $dialog)" } else { "" })
+            $sessionProblems += "timed out after $SessionTimeoutSeconds s" + $(if ($dialog) { " (dialog: $dialog)" } else { "" })
         }
-        else
+        elseif ($process.ExitCode -ne 0)
         {
-            $exitCode = $process.ExitCode
-            if ($exitCode -ne 0) { $problems += ("exit code 0x{0:X}" -f $exitCode) }
+            $sessionProblems += ("exit code 0x{0:X}" -f $process.ExitCode)
         }
     }
     finally
     {
         foreach ($key in $saved.Keys) { [Environment]::SetEnvironmentVariable($key, $saved[$key], "Process") }
     }
-    $seconds = $stopwatch.Elapsed.TotalSeconds
+    $seconds = [Math]::Round($stopwatch.Elapsed.TotalSeconds, 1)
 
-    $text = @()
-    if (Test-Path $log) { $text = @(Get-Content -LiteralPath $log) } else { $problems += "no log written" }
+    $lines = @()
+    if (Test-Path $log) { $lines = @(Get-Content -LiteralPath $log) } else { $sessionProblems += "no log written" }
     foreach ($status in $Pass.Status)
     {
-        if (-not ($text | Where-Object { $_ -eq $status })) { $problems += "validation not active: missing '$status'" }
+        if (-not ($lines | Where-Object { $_ -eq $status })) { $sessionProblems += "validation not active: missing '$status'" }
     }
-    $issues = @($text | Where-Object { $_ -match $IssuePattern } | Where-Object {
-        $line = $_
-        -not ($Pass.Allow | Where-Object { $line -match [regex]::Escape($_) })
-    })
-    if ($issues.Count -gt 0) { $problems += "$($issues.Count) validation / assert messages" }
-    foreach ($capture in "capture_final.png", "capture_backbuffer.png")
+    if (-not ($lines | Where-Object { $_ -match '^\[TEST\] COMPLETE' })) { $sessionProblems += "the test plan did not complete" }
+
+    # Walk the log: attribute validation messages and runner errors to the case running at the time, collect statistics
+    $caseIssues = @{}
+    $stats = @{}
+    $completed = @{}
+    $current = "(startup)"
+    foreach ($line in $lines)
     {
-        if (-not (Test-Path (Join-Path $dir $capture))) { $problems += "missing $capture" }
+        if ($line -match '^\[TEST\] BEGIN (\S+)') { $current = $Matches[1]; continue }
+        if ($line -match '^\[TEST\] END (\S+)') { $completed[$Matches[1]] = $true; $current = "(between cases)"; continue }
+        if ($line -match '^\[TEST\] STAT (\S+) (.*)$')
+        {
+            $name = $Matches[1]
+            if (-not $stats.ContainsKey($name)) { $stats[$name] = @{} }
+            foreach ($pair in $Matches[2].Split(' ')) { $kv = $pair.Split('='); if ($kv.Count -eq 2) { $stats[$name][$kv[0]] = [double]$kv[1] } }
+            continue
+        }
+        $isIssue = ($line -match $IssuePattern -or $line -match '^\[TEST\] ERROR')
+        if ($isIssue)
+        {
+            $allowed = @($Pass.Allow | Where-Object { $line -match [regex]::Escape($_) }).Count -gt 0
+            if (-not $allowed)
+            {
+                if (-not $caseIssues.ContainsKey($current)) { $caseIssues[$current] = @() }
+                $caseIssues[$current] += $line
+            }
+        }
     }
 
-    $status = if ($problems.Count -eq 0) { "PASS" } else { "FAIL" }
-    $color = if ($problems.Count -eq 0) { "Green" } else { "Red" }
-    Write-Host ("  {0,-4} {1,-36} {2,5:N1}s" -f $status, $label, $seconds) -ForegroundColor $color
-    if ($problems.Count -gt 0)
+    $failedCases = 0
+    foreach ($case in $PlanCases)
     {
-        Add-Failure "$label`: $($problems -join '; ') (log: $log)"
-        $issues | Sort-Object -Unique | Select-Object -First 10 | ForEach-Object { Write-Host "       $($_.Substring(0, [Math]::Min(300, $_.Length)))" -ForegroundColor DarkRed }
+        $problems = @()
+        if (-not $completed.ContainsKey($case.Name)) { $problems += "did not run to completion" }
+        foreach ($suffix in "_final.png", "_output.png", "_backbuffer.png")
+        {
+            if ($completed.ContainsKey($case.Name) -and -not (Test-Path (Join-Path $dir "$($case.Name)$suffix"))) { $problems += "missing $($case.Name)$suffix" }
+        }
+        $issues = @()
+        if ($caseIssues.ContainsKey($case.Name)) { $issues = $caseIssues[$case.Name] }
+        if ($issues.Count -gt 0) { $problems += "$($issues.Count) validation / assert / runner messages" }
+        if ($problems.Count -gt 0)
+        {
+            $failedCases++
+            Add-Failure "$label/$($case.Name): $($problems -join '; ')"
+            $issues | Sort-Object -Unique | Select-Object -First 6 | ForEach-Object { Write-Host "       $($_.Substring(0, [Math]::Min(300, $_.Length)))" -ForegroundColor DarkRed }
+        }
+        $Results.Add([pscustomobject]@{ Backend = $Backend; Pass = $Pass.Name; Case = $case.Name; Status = $(if ($problems.Count -eq 0) { "PASS" } else { "FAIL" }); Issues = $issues.Count })
     }
-    $Results.Add([pscustomobject]@{ Backend = $Backend; Pass = $Pass.Name; Scenario = $Scenario.Name; Status = $status; Seconds = [Math]::Round($seconds, 1); Issues = $issues.Count })
+    foreach ($key in $caseIssues.Keys | Where-Object { $_ -like "(*" })
+    {
+        Add-Failure "$label $key`: $($caseIssues[$key].Count) validation / assert messages outside the test cases"
+        $caseIssues[$key] | Sort-Object -Unique | Select-Object -First 6 | ForEach-Object { Write-Host "       $($_.Substring(0, [Math]::Min(300, $_.Length)))" -ForegroundColor DarkRed }
+    }
+    foreach ($problem in $sessionProblems) { Add-Failure "$label session: $problem (log: $log)" }
+
+    $color = if ($failedCases -eq 0 -and $sessionProblems.Count -eq 0) { "Green" } else { "Red" }
+    Write-Host ("  {0}: {1} cases, {2} failed, {3}s" -f $label, $PlanCases.Count, $failedCases, $seconds) -ForegroundColor $color
+    return $stats
 }
 
 function Initialize-ImageDiff
@@ -293,8 +365,8 @@ public static class SlimGraphicsImageDiff
             return bytes;
         }
     }
-    // Returns the percentage of pixels differing by more than 'threshold' in any channel (-1 if the sizes differ) and writes
-    // an amplified difference image
+    // Returns the percentage of pixels differing by more than 'threshold' in any channel (-1 if the sizes differ) and, when
+    // any do, writes an amplified difference image
     public static double Compare(string a, string b, string diffPath, int threshold)
     {
         int wa, ha, wb, hb;
@@ -310,6 +382,7 @@ public static class SlimGraphicsImageDiff
             byte v = (byte)Math.Min(255, d * 4);
             diff[i] = v; diff[i + 1] = v; diff[i + 2] = v; diff[i + 3] = 255;
         }
+        if (over == 0) return 0.0;
         using (var bitmap = new Bitmap(wa, ha, PixelFormat.Format32bppArgb))
         {
             var data = bitmap.LockBits(new Rectangle(0, 0, wa, ha), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
@@ -323,29 +396,50 @@ public static class SlimGraphicsImageDiff
 "@
 }
 
-function Compare-Backends
+function Compare-Backends($PlanCases, $StatsD3D12, $StatsVulkan)
 {
     Initialize-ImageDiff
     $parityDir = Join-Path $OutDir "parity"
+    if (Test-Path $parityDir) { Remove-Item -LiteralPath $parityDir -Recurse -Force }
     New-Item -ItemType Directory -Force $parityDir | Out-Null
-    foreach ($scenario in $Scenarios)
+    $compared = 0
+    $worst = 0.0
+    foreach ($case in $PlanCases)
     {
-        foreach ($capture in @(@{ File = "capture_final.png"; Gate = $true; Limit = $MaxDiffPercent }, @{ File = "capture_backbuffer.png"; Gate = $false; Limit = 1.0 }))
+        if ($case.Nondeterministic) { continue }
+        # Images: final render target and presented output are gated; the back buffer (ImGui, live timings) is reported
+        foreach ($capture in @(@{ Suffix = "_final.png"; Gate = $true; Limit = $MaxDiffPercent }, @{ Suffix = "_output.png"; Gate = $true; Limit = $MaxDiffPercent },
+                               @{ Suffix = "_magnifier.png"; Gate = $true; Limit = $MaxDiffPercent }, @{ Suffix = "_backbuffer.png"; Gate = $false; Limit = 1.0 }))
         {
-            $a = Join-Path $OutDir "D3D12\core\$($scenario.Name)\$($capture.File)"
-            $b = Join-Path $OutDir "Vulkan\core\$($scenario.Name)\$($capture.File)"
+            $a = Join-Path $OutDir "D3D12\core\$($case.Name)$($capture.Suffix)"
+            $b = Join-Path $OutDir "Vulkan\core\$($case.Name)$($capture.Suffix)"
             if (-not ((Test-Path $a) -and (Test-Path $b))) { continue }
-            $diffPath = Join-Path $parityDir "$($scenario.Name)_$($capture.File.Replace('.png', '_diff.png'))"
+            $diffPath = Join-Path $parityDir "$($case.Name)$($capture.Suffix.Replace('.png', '_diff.png'))"
             $percent = [SlimGraphicsImageDiff]::Compare($a, $b, $diffPath, 24)
-            $ok = $percent -ge 0 -and $percent -le $capture.Limit
-            Write-Host ("  {0,-4} {1,-14} {2,-24} {3,8:N3}% of pixels differ" -f $(if ($ok) { "OK" } else { "DIFF" }), $scenario.Name, $capture.File, $percent) -ForegroundColor $(if ($ok) { "Green" } elseif ($capture.Gate) { "Red" } else { "Yellow" })
-            if (-not $ok)
+            if ($capture.Gate) { $compared++; $worst = [Math]::Max($worst, $percent) }
+            if ($percent -lt 0 -or $percent -gt $capture.Limit)
             {
-                $message = "D3D12 vs Vulkan $($scenario.Name) $($capture.File): $([Math]::Round($percent, 3))% of pixels differ (limit $($capture.Limit)%, diff: $diffPath)"
-                if ($capture.Gate) { Add-Failure $message } else { Add-Note "$message - check the ImGui overlay by eye (hover highlights vary)" }
+                $message = "D3D12 vs Vulkan $($case.Name)$($capture.Suffix): $([Math]::Round($percent, 3))% of pixels differ (limit $($capture.Limit)%, diff: $diffPath)"
+                if ($capture.Gate) { Add-Failure $message } else { Add-Note $message }
+            }
+        }
+        # Statistics
+        if (-not ($StatsD3D12.ContainsKey($case.Name) -and $StatsVulkan.ContainsKey($case.Name))) { continue }
+        $d = $StatsD3D12[$case.Name]
+        $v = $StatsVulkan[$case.Name]
+        foreach ($key in $ExactStats + $TolerantStats)
+        {
+            if (-not ($d.ContainsKey($key) -and $v.ContainsKey($key))) { continue }
+            $difference = [Math]::Abs($d[$key] - $v[$key])
+            $allowed = if ($ExactStats -contains $key) { 0 } else { [Math]::Max($d[$key], $v[$key]) * $StatTolerance + $StatSlack }
+            if ($difference -gt $allowed)
+            {
+                Add-Failure "D3D12 vs Vulkan $($case.Name) $key`: $($d[$key]) vs $($v[$key])"
             }
         }
     }
+    Write-Host ("  {0} captures compared, largest difference {1:N3}% of pixels" -f $compared, $worst)
+    if ($compared -eq 0) { Add-Failure "D3D12 vs Vulkan: no captures to compare" }
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -368,6 +462,12 @@ if ((Get-Item $compilerSource).LastWriteTime -gt (Get-Item $compiler).LastWriteT
     Add-Note "SlimShaderCompiler\Program.cs is newer than Binaries\SlimShaderCompiler.exe - rebuild the compiler (see CLAUDE.md) if it changed"
 }
 
+$planPath = (Resolve-Path -LiteralPath $TestPlan).Path
+if ($Cases.Count -gt 0) { $planPath = New-FilteredPlan $planPath $Cases }
+$planCases = @()
+if ($planPath) { $planCases = @(Get-PlanCases $planPath) }
+
+$sessionStats = @{}
 if ($Failures.Count -eq 0)
 {
     foreach ($backend in $Backends)
@@ -386,24 +486,30 @@ if ($Failures.Count -eq 0)
 
         foreach ($pass in (Get-Passes $backend))
         {
-            Write-Step "$backend runs: $($pass.Name) validation"
-            foreach ($scenario in $Scenarios) { Invoke-Scenario $backend $exe $pass $scenario }
+            Write-Step "$backend tests: $($pass.Name) validation ($($planCases.Count) cases in one session)"
+            $sessionStats["$backend/$($pass.Name)"] = Invoke-TestSession $backend $exe $pass $planPath $planCases
         }
     }
 
-    if ($Backends.Count -eq 2)
+    if ($Backends.Count -eq 2 -and $sessionStats.ContainsKey("D3D12/core") -and $sessionStats.ContainsKey("Vulkan/core"))
     {
         Write-Step "D3D12 / Vulkan parity"
-        Compare-Backends
+        Compare-Backends $planCases $sessionStats["D3D12/core"] $sessionStats["Vulkan/core"]
     }
     else
     {
-        Add-Note "Parity not compared (only $Backends validated)"
+        Add-Note "Parity not compared (both backends' core passes are needed)"
     }
 }
 
 Write-Step "Summary"
-if ($Results.Count -gt 0) { $Results | Format-Table -AutoSize | Out-String | Write-Host }
+if ($Results.Count -gt 0)
+{
+    $Results | Group-Object Backend, Pass | ForEach-Object {
+        $failed = @($_.Group | Where-Object { $_.Status -ne "PASS" }).Count
+        Write-Host ("  {0,-24} {1,3} cases, {2,3} failed" -f $_.Name, $_.Count, $failed) -ForegroundColor $(if ($failed -eq 0) { "Green" } else { "Red" })
+    }
+}
 if (-not $SkipBuild -and $Backends.Count -gt 0)
 {
     $last = $Backends[$Backends.Count - 1]

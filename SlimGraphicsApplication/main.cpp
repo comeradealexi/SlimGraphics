@@ -22,6 +22,8 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 #include "sgUploadHeap.h"
 #include "LinearConstantBuffer.h"
 #include "Camera.h"
+#include "CameraTrackPlayer.h"
+#include "TestRunner.h"
 #include "ModelViewer.h"
 #include "DebugDraw.h"
 #include "Scene/Terrain.h"
@@ -108,14 +110,22 @@ using namespace sg;
 //   -gdr_scene=PATH       Load a GPU driven rendering scene file on startup
 //   -model=TEXT           Model viewer: load the first model whose path contains TEXT
 //   -mesh_mode=N          Model viewer: 0 = vertex shader, 1 = mesh shader, 2 = amplification + mesh shader
+//   -camera_track         Play the GDR scene's camera track (deterministic: a fixed time step per frame)
+//   -camera_track_time=T  Start the camera track at T seconds
+//   -test_plan=PATH       Run an automated test plan in this session, then quit (see TestRunner.h)
+//   -test_output=PATH     Directory the test plan's captures are written to (default: working directory)
 struct CommandLineOptions
 {
+	std::string test_plan;
+	std::string test_output = ".";
 	int capture_frame = -1;
 	std::string capture_dir = ".";
 	bool exit_after_capture = false;
 	std::string gdr_scene;
 	std::string model;
 	int mesh_mode = -1;
+	bool camera_track = false;
+	float camera_track_time = 0.0f;
 };
 
 static CommandLineOptions ParseCommandLine()
@@ -127,17 +137,24 @@ static CommandLineOptions ParseCommandLine()
 	{
 		std::wstring wide_arg(argv[i]);
 		const std::string arg(wide_arg.begin(), wide_arg.end()); // Switches are ASCII
-		auto value_of = [&arg](const char* name) -> const char*
+		// Matches "<name><value>" switches, pointing 'v' at the value
+		const char* v = nullptr;
+		auto match = [&arg, &v](const char* name)
 			{
 				const size_t len = strlen(name);
-				return arg.compare(0, len, name) == 0 ? arg.c_str() + len : nullptr;
+				v = arg.compare(0, len, name) == 0 ? arg.c_str() + len : nullptr;
+				return v != nullptr;
 			};
-		if (const char* v = value_of("-capture_frame=")) options.capture_frame = atoi(v);
-		else if (const char* v = value_of("-capture_dir=")) options.capture_dir = v;
+		if (match("-capture_frame=")) options.capture_frame = atoi(v);
+		else if (match("-capture_dir=")) options.capture_dir = v;
 		else if (arg == "-exit_after_capture") options.exit_after_capture = true;
-		else if (const char* v = value_of("-gdr_scene=")) options.gdr_scene = v;
-		else if (const char* v = value_of("-model=")) options.model = v;
-		else if (const char* v = value_of("-mesh_mode=")) options.mesh_mode = atoi(v);
+		else if (match("-gdr_scene=")) options.gdr_scene = v;
+		else if (match("-model=")) options.model = v;
+		else if (match("-mesh_mode=")) options.mesh_mode = atoi(v);
+		else if (match("-camera_track_time=")) { options.camera_track = true; options.camera_track_time = static_cast<float>(atof(v)); }
+		else if (arg == "-camera_track") options.camera_track = true;
+		else if (match("-test_plan=")) options.test_plan = v;
+		else if (match("-test_output=")) options.test_output = v;
 	}
 	LocalFree(argv);
 	return options;
@@ -384,6 +401,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	float depth_clear_value = 1.0f;
 
 	gdr::Scene gdr_scene(device, dsv_tex);
+	CameraTrackPlayer camera_track_player;
+	u32 camera_track_scene_load_count = 0;
 
 	texture_viewer->set_texture(gdr_scene.get_hzb_texture());
 
@@ -410,12 +429,38 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		gdr_scene.load_scene(command_line.gdr_scene.c_str());
 	}
 
-	// Screenshot capture (see CommandLineOptions)
-	SharedPtr<Buffer> capture_readback_final;
-	SharedPtr<Buffer> capture_readback_backbuffer;
-	u32 capture_row_pitch_final = 0;
-	u32 capture_row_pitch_backbuffer = 0;
-	DXGI_FORMAT capture_backbuffer_format = DXGI_FORMAT_UNKNOWN;
+	// Automated test plan (see TestRunner.h)
+	TestRunner test_runner;
+	TestRunner::Systems test_systems{ camera, camera_track_player, *model_viewer, gdr_scene, *post_process, *magnifying_glass, *debug_draw, enable_model_viewer, enable_gdr, depth_clear_value };
+	if (!command_line.test_plan.empty() && !test_runner.load(command_line.test_plan, command_line.test_output))
+	{
+		run = false;
+	}
+
+	// Screenshot captures (see CommandLineOptions and TestRunner): copies recorded at the end of a frame, saved once the GPU
+	// finished it. "final" is the scene render target, "output" the image presented (after post processing, before ImGui),
+	// "backbuffer" includes ImGui.
+	struct PendingCapture
+	{
+		SharedPtr<Buffer> readback;
+		u32 row_pitch = 0;
+		u32 width = 0;
+		u32 height = 0;
+		DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+		std::string path;
+	};
+	std::vector<PendingCapture> pending_captures;
+	auto record_capture = [&](CommandList& list, Texture& texture, std::string path)
+		{
+			PendingCapture capture;
+			capture.width = texture.resource_create_desc.width;
+			capture.height = texture.resource_create_desc.height;
+			capture.format = texture.resource_create_desc.format;
+			capture.readback = sg::create_readback_buffer(*device, AlignUp(capture.width * 4u, 256u) * capture.height);
+			capture.row_pitch = list.copy_texture_to_buffer(capture.readback.get(), &texture);
+			capture.path = std::move(path);
+			pending_captures.push_back(std::move(capture));
+		};
 	while (run)
 	{
 		auto cpu_start_time = std::chrono::high_resolution_clock::now();
@@ -434,6 +479,8 @@ device->imgui_new_frame();
 		ImGui::NewFrame();
 		//ImPlot::ShowDemoWindow();
 		//ImGui::ShowStyleEditor();
+
+		test_runner.begin_frame(test_systems);
 
 		if (enable_gdr)
 		{
@@ -506,7 +553,21 @@ device->imgui_new_frame();
 		basic_grid.Update(delta_time, total_time, camera);
 		post_process->Update(wnd->g_hWnd, *input, delta_time, total_time, camera, *debug_draw);
 
+		// The loaded GDR scene's camera track
+		if (gdr_scene.get_scene_load_count() != camera_track_scene_load_count)
+		{
+			camera_track_scene_load_count = gdr_scene.get_scene_load_count();
+			camera_track_player.set_track(gdr_scene.get_camera_track());
+			if (command_line.camera_track)
+			{
+				camera_track_player.play(command_line.camera_track_time);
+			}
+		}
+		camera_track_player.imgui();
+		camera_track_player.update(camera);
+
 		camera.Update(delta_time, total_time, *input);
+		test_runner.after_update(test_systems);
 		if (ImGui::CollapsingHeader("Performance"))
 		{
 			// Plots can display overlay texts
@@ -563,7 +624,7 @@ device->imgui_new_frame();
 
 		// Texture Viewer
 		{
-			texture_viewer->imgui_update();
+			//texture_viewer->imgui_update();
 		}
 	
 		command_buffer->start_recording();
@@ -667,7 +728,7 @@ device->imgui_new_frame();
 			// Magnify & Texture Viewer
 			{
 				magnifying_glass->Render(*command_buffer, cbv_cam, copy_to_swap_chain_target_view, *linear_cb);
-				texture_viewer->render(*command_buffer, *linear_cb);
+				//texture_viewer->render(*command_buffer, *linear_cb);
 			}
 
 			command_buffer->start_geometry_pass(1, &backbuffer_rtvs[current_frame_idx], vp, sc);
@@ -677,15 +738,17 @@ device->imgui_new_frame();
 			}
 			command_buffer->end_geometry_pass();
 
-			if ((int)total_frame_idx == command_line.capture_frame)
+			const bool test_capture = !test_runner.capture_name().empty();
+			if (test_capture || (!test_runner.is_active() && (int)total_frame_idx == command_line.capture_frame))
 			{
-				Texture& backbuffer = *backbuffer_rtvs[current_frame_idx]->texture_resource;
-				const u32 capture_size = AlignUp((u32)w * 4u, 256u) * (u32)h;
-				capture_readback_final = sg::create_readback_buffer(*device, capture_size);
-				capture_readback_backbuffer = sg::create_readback_buffer(*device, capture_size);
-				capture_row_pitch_final = command_buffer->copy_texture_to_buffer(capture_readback_final.get(), final_render_target.get());
-				capture_row_pitch_backbuffer = command_buffer->copy_texture_to_buffer(capture_readback_backbuffer.get(), &backbuffer);
-				capture_backbuffer_format = backbuffer.resource_create_desc.format;
+				auto path = [&](const char* suffix) { return test_capture ? test_runner.capture_path(suffix) : command_line.capture_dir + "/capture" + suffix; };
+				record_capture(*command_buffer, *final_render_target, path("_final.png"));
+				record_capture(*command_buffer, *copy_to_swap_chain_target, path("_output.png"));
+				record_capture(*command_buffer, *backbuffer_rtvs[current_frame_idx]->texture_resource, path("_backbuffer.png"));
+				if (test_capture && test_runner.capture_magnifier() && magnifying_glass->active)
+				{
+					record_capture(*command_buffer, *magnifying_glass->render_texture, path("_magnifier.png"));
+				}
 			}
 		}
 
@@ -710,16 +773,22 @@ device->imgui_new_frame();
 		stats_pool->resolve();
 		query_data = stats_pool->collect_query(stat_query_idx);
 
-		if (capture_readback_final)
+		if (!pending_captures.empty())
 		{
-			SaveReadbackToPNG(*capture_readback_final, capture_row_pitch_final, (u32)w, (u32)h, final_render_target->resource_create_desc.format, command_line.capture_dir + "/capture_final.png");
-			SaveReadbackToPNG(*capture_readback_backbuffer, capture_row_pitch_backbuffer, (u32)w, (u32)h, capture_backbuffer_format, command_line.capture_dir + "/capture_backbuffer.png");
-			capture_readback_final = nullptr;
-			capture_readback_backbuffer = nullptr;
-			if (command_line.exit_after_capture)
+			for (PendingCapture& capture : pending_captures)
+			{
+				SaveReadbackToPNG(*capture.readback, capture.row_pitch, capture.width, capture.height, capture.format, capture.path);
+			}
+			pending_captures.clear();
+			if (command_line.exit_after_capture && !test_runner.is_active())
 			{
 				run = false;
 			}
+		}
+		test_runner.end_frame(test_systems, query_data);
+		if (test_runner.is_finished())
+		{
+			run = false;
 		}
 
 		total_frame_idx++;

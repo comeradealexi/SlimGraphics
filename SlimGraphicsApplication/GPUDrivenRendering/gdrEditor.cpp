@@ -67,7 +67,7 @@ scene_file_list = se::BasicFileIO::find_files_recursive("..\\SlimGraphicsAssets\
 			static const char* last_message = nullptr;
 			if (ImGui::Button("Save"))
 			{
-				if (serialise(scene.root_scene_node, file_path_buffer))
+				if (serialise(scene.root_scene_node, scene.camera_track, file_path_buffer))
 				{
 					last_message = "Save Successful";
 				}
@@ -80,7 +80,7 @@ scene_file_list = se::BasicFileIO::find_files_recursive("..\\SlimGraphicsAssets\
 			if (ImGui::Button("Load"))
 			{
 				selected_node = nullptr;
-				if (deserialise(scene.root_scene_node, file_path_buffer))
+				if (scene.load_scene(file_path_buffer))
 				{
 					last_message = "Load Successful";
 				}

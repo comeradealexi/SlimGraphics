@@ -204,13 +204,50 @@ namespace gdr
 
 		void generate_hzb(sg::CommandList& command_list, sg::ShaderResourceView depth_view, SimpleLinearConstantBuffer& cbuffer);
 
-		// Replaces the scene graph with the contents of a scene file (models load on the next update)
-		bool load_scene(const char* file_path) { return deserialise(root_scene_node, file_path); }
+		// Replaces the scene graph (and camera track) with the contents of a scene file (models load on the next update)
+		bool load_scene(const char* file_path)
+		{
+			if (!deserialise(root_scene_node, camera_track, file_path))
+			{
+				return false;
+			}
+			scene_load_count++;
+			return true;
+		}
+
+		// Empties the scene graph (and camera track)
+		void clear_scene()
+		{
+			root_scene_node = SceneNode();
+			camera_track = CameraTrack();
+			scene_load_count++;
+		}
+
+		const CameraTrack& get_camera_track() const { return camera_track; }
+
+		// Automated tests (see TestRunner): applies debug / sorting / pipeline settings, resetting those not given
+		void apply_test_settings(const nlohmann::json& settings);
+
+		struct Statistics
+		{
+			sg::u32 total_instances;
+			sg::u32 total_mesh_parts;
+			sg::u32 total_meshlets;
+
+			ShaderStructs::DebugFeedbackData raw_feedback_data = {};
+		};
+		const Statistics& get_statistics() const { return statistics; }
+		// GPU culling feedback of the last frame the GPU finished (written in debug mode only)
+		ShaderStructs::DebugFeedbackData read_debug_feedback() const;
+		// Incremented each time a scene file is loaded (so users of the camera track know when it changed)
+		sg::u32 get_scene_load_count() const { return scene_load_count; }
 
 		sg::SharedPtr<sg::Texture> get_hzb_texture() const { return gpu_hzb.get_texture(); }
 
 	private:
 		SceneNode root_scene_node;
+		CameraTrack camera_track;
+		sg::u32 scene_load_count = 0;
 		Editor editor;
 
 		sg::SharedPtr<sg::Device> device;
@@ -262,14 +299,7 @@ namespace gdr
 			int depth_comparison = (int) sg::ComparisonFunction::LessEqual;
 		} render_options = {};
 
-		struct Statistics
-		{
-			sg::u32 total_instances;
-			sg::u32 total_mesh_parts;
-			sg::u32 total_meshlets;
-
-			ShaderStructs::DebugFeedbackData raw_feedback_data = {};
-		} statistics = {};
+		Statistics statistics = {};
 		
 	};
 }

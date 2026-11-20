@@ -2,6 +2,7 @@
 #include <sgPlatformInclude.h>
 #include <imgui.h>
 #include <seEngineBasicFileIO.h>
+#include <nlohmann/json.hpp>
 #include "Camera.h"
 #include <algorithm>
 #include "sgUtils.h"
@@ -182,24 +183,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 
 	ImGui::Begin("Model Viewer", nullptr, 0);
 
-	struct UAVReadBack
-	{
-		u32 UAV_INDEX_PIXELS_SHADED;
-		u32 UAV_INDEX_MESH_SHADER_INVOCATIONS;
-		u32 UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT;
-		u32 UAV_INDEX_MESH_SHADER_PRIM_COUNT;
-		u32 UAV_INDEX_VERTEX_SHADER_INVOCATIONS;
-		u32 UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT;
-		u32 UAV_INDEX_WAVE_INTRINSIC_COUNTER;
-		u32 UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS;
-		u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_IN;
-		u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_OUT;
-		u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_BACK_FACING;
-		u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_FRONT_FACING;
-		u32 UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_SUBPIXEL;
-
-	} uav_readback_values = {};
-	readback_uav_buffer->read_memory(0, &uav_readback_values, sizeof(uav_readback_values));
+	const UAVReadBack uav_readback_values = ReadUAVCounters();
 
 	// Model scale and shading etc
 	if (ImGui::CollapsingHeader("Model"))
@@ -1006,19 +990,24 @@ void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap, const Camera& camera
 	}
 }
 
-void ModelViewer::SelectModel(const std::string& path_substring)
+bool ModelViewer::SelectModel(const std::string& path_substring)
 {
 	for (size_t i = 0; i < model_file_list.size(); i++)
 	{
 		if (model_file_list[i].find(path_substring) != std::string::npos)
 		{
+			if (model_init_data.file_path == model_file_list[i] && (model || recreate_model))
+			{
+				return true; // Already loaded (or loading)
+			}
 			model_file_list_current = (int)i;
 			model_init_data.file_path = model_file_list[i];
 			recreate_model = true;
-			return;
+			return true;
 		}
 	}
 	seWriteLine("ModelViewer: no model matching '%s'", path_substring.c_str());
+	return false;
 }
 
 void ModelViewer::SetMeshMode(int mode)
@@ -1026,6 +1015,65 @@ void ModelViewer::SetMeshMode(int mode)
 	render_as_mesh_shader = mode > 0 && device->SupportsMeshShaders();
 	amplification_mesh_shader = mode == 2;
 	CreatePipeline();
+}
+
+ModelViewer::UAVReadBack ModelViewer::ReadUAVCounters() const
+{
+	UAVReadBack values = {};
+	readback_uav_buffer->read_memory(0, &values, sizeof(values));
+	return values;
+}
+
+bool ModelViewer::ApplyTestSettings(const nlohmann::json& s)
+{
+	// New keys must also be listed in TestRunner.cpp validate_case
+	bool ok = true;
+	if (s.contains("model") && s["model"].is_string())
+	{
+		ok = SelectModel(s["model"].get<std::string>());
+	}
+	const int mesh_mode = s.value("mesh_mode", 2);
+	render_as_mesh_shader = mesh_mode > 0 && device->SupportsMeshShaders();
+	amplification_mesh_shader = mesh_mode == 2;
+	mesh_shader_cone_culling = s.value("cone_culling", true);
+	mesh_shader_sphere_frustum_culling = s.value("sphere_culling", true);
+
+	render_mode = static_cast<RenderMode>(std::clamp(s.value("render_mode", 0), 0, static_cast<int>(RenderMode::TriangleSize)));
+	wave_intrinsic_render_mode = static_cast<WaveIntrinsicRenderMode>(std::clamp(s.value("wave_mode", 0), 0, static_cast<int>(WaveIntrinsicRenderMode::AllWavesSameValue)));
+	model_data.wave_intrinsics.x = static_cast<int>(device->GetWaveLaneCountMax());
+	model_data.wave_intrinsics.y = static_cast<int>(wave_intrinsic_render_mode);
+	render_geo = static_cast<RenderGeo>(std::clamp(s.value("render_geo", 0), 0, static_cast<int>(RenderGeo::FullscreenQuad)));
+	standard_vsps_render_mode = static_cast<StandardPixelPipelineMode>(std::clamp(s.value("pixel_pipeline", 0), 0, static_cast<int>(StandardPixelPipelineMode::Max) - 1));
+	model_data.simplified_shading.x = s.value("simplified_value", 0.0f);
+
+	pixel_shader_variations[PixelShaderVariations::EarlyDepthStencil] = s.value("early_depth_stencil", false);
+	pixel_shader_variations[PixelShaderVariations::GeometryShader] = s.value("geometry_shader", false);
+	geometry_shader_data.shader_options.x = s.value("geometry_shader_scale", 1.0f);
+	geometry_shader_data.shader_options.y = s.value("geometry_shader_explode", 0.0f);
+	model_data.geometry_shader_options = geometry_shader_data.shader_options;
+
+	render_wireframe = s.value("wireframe", false);
+	cull_mode = s.value("cull_mode", 0);
+	depth_comparison = s.value("depth_comparison", static_cast<int>(sg::ComparisonFunction::LessEqual));
+	depth_enable = s.value("depth_enable", true);
+	depth_write = s.value("depth_write", true);
+
+	instance_count = std::max(1, s.value("instance_count", 1));
+	render_percentage = std::clamp(s.value("render_percentage", 1.0f), 0.0f, 1.0f);
+	auto_render_percent = false;
+	auto_rotate_model = false;
+	rotate_value = s.value("rotation", 0.0f);
+	const int textures = s.value("textures", true) ? 1 : 0;
+	model_data.textures_enabled = { textures, textures, textures, textures };
+
+	debug_drawing.render_model_parts_aabb = s.value("debug_aabb", false);
+	debug_drawing.render_model_parts_obb = s.value("debug_obb", false);
+	debug_drawing.render_model_parts_sphere = s.value("debug_sphere", false);
+	debug_drawing.render_meshlet_parts = s.value("debug_meshlets", false);
+	cpu_sorting.sort = s.value("cpu_sort", false);
+
+	CreatePipeline();
+	return ok;
 }
 
 bool ModelViewer::MeshPartVisible(const Camera& camera, Model::MeshPart& mesh_part)

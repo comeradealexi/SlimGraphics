@@ -1251,9 +1251,11 @@ namespace sg
             CHECKHR(hr);
             CHECKHR(factory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_ALT_ENTER));
 
+            // Describe the buffers like any other texture, so code reading resource_create_desc (captures, viewers) works on both backends
+            const ResourceCreateDesc buffer_desc(width, height, format, ResourceUsageFlags::RenderTarget);
             for (u32 i = 0; i < swap_chain_buffer_count; i++)
             {
-                SharedPtr<Texture> texture_resource = SharedPtr<Texture>(new Texture(false, {}, true));
+                SharedPtr<Texture> texture_resource = SharedPtr<Texture>(new Texture(false, buffer_desc, true));
                 CHECKHR(swap_chain->GetBuffer(i, IID_PPV_ARGS(texture_resource->resource.GetAddressOf())))
                 rtv_list[i] = create_render_target_view(texture_resource);
             }

@@ -121,6 +121,7 @@ namespace sg
 			vk::PipelineStageFlags2 get_shader_stages() const { return shader_stages; }
 			bool supports_geometry_shaders() const { return geometry_shaders_supported; }
 			bool supports_logic_ops() const { return logic_op_supported; }
+			bool supports_bresenham_lines() const { return bresenham_lines_supported; }
 
 			// Descriptor heaps. Every resource heap descriptor occupies one slot of get_descriptor_slot_size() bytes.
 			const DescriptorHeap& get_resource_heap() const { return *resource_heap; }
@@ -178,6 +179,7 @@ namespace sg
 			bool mesh_shader_queries_supported = false;
 			bool geometry_shaders_supported = false;
 			bool logic_op_supported = false;
+			bool bresenham_lines_supported = false;
 			bool wave_ops_supported = false;
 			u32 wave_lane_count_min = 0;
 			u32 wave_lane_count_max = 0;

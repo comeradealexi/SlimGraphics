@@ -704,6 +704,10 @@ namespace sg
 			command_buffer.setCullMode(state.cull_mode);
 			command_buffer.setFrontFace(state.front_face);
 			command_buffer.setLineWidth(1.0f);
+			if (device.supports_bresenham_lines())
+			{
+				command_buffer.setLineRasterizationModeEXT(vk::LineRasterizationMode::eBresenham); // D3D12's aliased lines (see Device)
+			}
 			command_buffer.setDepthBiasEnable(VK_FALSE);
 			command_buffer.setRasterizationSamplesEXT(vk::SampleCountFlagBits::e1);
 			const vk::SampleMask sample_mask = 0xFFFFFFFFu;

@@ -2,8 +2,25 @@
 #include <imgui.h>
 #include <implot.h>
 #include <algorithm>
+#include <cmath>
 
 using namespace DirectX;
+
+void Camera::SetLookAt(const XMFLOAT3& pos, const XMFLOAT3& target)
+{
+	position = XMFLOAT3A(pos.x, pos.y, pos.z);
+	const XMVECTOR to_target = XMVectorSubtract(XMLoadFloat3(&target), XMLoadFloat3(&pos));
+	if (XMVectorGetX(XMVector3LengthSq(to_target)) < 1e-12f)
+	{
+		return; // Keep the current direction
+	}
+	// Update builds the direction by rotating +Y by roll camera_rot_x, then yaw camera_rot_y:
+	// direction = (-sin(rot_x) cos(rot_y), cos(rot_x), sin(rot_x) sin(rot_y))
+	XMFLOAT3 d;
+	XMStoreFloat3(&d, XMVector3Normalize(to_target));
+	camera_rot_x = std::acos(std::clamp(d.y, -1.0f, 1.0f));
+	camera_rot_y = std::atan2(d.z, -d.x);
+}
 
 void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& input)
 {

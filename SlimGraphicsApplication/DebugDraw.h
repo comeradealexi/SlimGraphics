@@ -34,6 +34,7 @@ public:
 	DebugDraw(sg::Device& device);
 
 	bool IsEnabled() const { return options.enabled; }
+	void SetEnabled(bool enabled) { options.enabled = enabled; }
 
 	void DrawFrustum(ColourRGBA colour, const DirectX::BoundingFrustum& frustum);
 	void DrawOBB(ColourRGBA colour, const DirectX::BoundingOrientedBox& obb);
