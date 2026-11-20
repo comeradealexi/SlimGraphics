@@ -44,6 +44,32 @@ namespace sg
 			constexpr u32 kMaxSamplers = BindingShift::UAV - BindingShift::SAMPLER;
 			constexpr u32 kResourceHeapRegions = 8;
 
+			// Every buffer gets all the usages the engine needs (usage flags do not affect buffer performance on desktop GPUs), so
+			// one set of memory types fits every buffer
+			constexpr vk::BufferUsageFlags kBufferUsage = vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst |
+				vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eIndexBuffer |
+				vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress;
+
+			vk::ImageCreateInfo make_image_create_info(const ResourceCreateDesc& desc)
+			{
+				const bool is_3d = desc.dimension == ResourceDimension::Texture3D;
+				vk::ImageCreateInfo info;
+				info.imageType = desc.dimension == ResourceDimension::Texture1D ? vk::ImageType::e1D : (is_3d ? vk::ImageType::e3D : vk::ImageType::e2D);
+				info.format = translate(desc.format);
+				info.extent = vk::Extent3D(desc.width, desc.height, is_3d ? desc.depth : 1);
+				info.mipLevels = std::max(1u, desc.mip_count);
+				info.arrayLayers = is_3d ? 1 : std::max(1u, desc.depth); // ResourceCreateDesc::depth is DepthOrArraySize, as in D3D12
+				info.samples = vk::SampleCountFlagBits::e1;
+				info.tiling = vk::ImageTiling::eOptimal;
+				info.usage = vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+				auto has = [&desc](ResourceUsageFlags flag) { return (desc.usage_flags & flag) == flag; };
+				if (has(ResourceUsageFlags::RenderTarget)) info.usage |= vk::ImageUsageFlagBits::eColorAttachment;
+				if (has(ResourceUsageFlags::DepthStencil)) info.usage |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
+				if (has(ResourceUsageFlags::UnorderedAccess)) info.usage |= vk::ImageUsageFlagBits::eStorage;
+				info.initialLayout = vk::ImageLayout::eUndefined;
+				return info;
+			}
+
 			// Validation messages go to the debugger output. Set SG_VULKAN_VALIDATION_LOG=<path> to also append them to a file.
 			VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT severity, VkDebugUtilsMessageTypeFlagsEXT,
 				const VkDebugUtilsMessengerCallbackDataEXT* callback_data, void*)
@@ -83,7 +109,11 @@ namespace sg
 
 			void check_imgui_vk_result(VkResult result)
 			{
-				seAssert(result == VK_SUCCESS, "ImGui Vulkan error %i", static_cast<int>(result));
+				// ImGui reports VK_ERROR_OUT_OF_DATE_KHR / VK_SUBOPTIMAL_KHR from its secondary viewport swap chains and handles them
+				if (result != VK_SUCCESS && result != VK_ERROR_OUT_OF_DATE_KHR && result != VK_SUBOPTIMAL_KHR)
+				{
+					report_fatal_error("ImGui Vulkan backend", static_cast<vk::Result>(result), __FILE__, __LINE__);
+				}
 			}
 
 			// The Win32 platform backend does not create Vulkan surfaces, which ImGui needs for windows dragged outside the
@@ -115,11 +145,54 @@ namespace sg
 				return 0;
 			}
 
+			// Promoted features are enabled through their own structures: VkPhysicalDeviceVulkan12Features may not be combined with
+			// VK_EXT_descriptor_indexing (VUID-VkDeviceCreateInfo-pNext-04748).
+			using FeatureChain = vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan13Features,
+				vk::PhysicalDeviceTimelineSemaphoreFeatures, vk::PhysicalDeviceHostQueryResetFeatures, vk::PhysicalDeviceBufferDeviceAddressFeatures,
+				vk::PhysicalDeviceDescriptorIndexingFeatures, vk::PhysicalDeviceScalarBlockLayoutFeatures, vk::PhysicalDeviceMaintenance5Features,
+				vk::PhysicalDeviceShaderObjectFeaturesEXT, vk::PhysicalDeviceDescriptorHeapFeaturesEXT, vk::PhysicalDeviceMeshShaderFeaturesEXT>;
+
+			template <typename... Features>
+			vk::StructureChain<Features...> query_feature_chain(const vk::raii::PhysicalDevice& physical_device, const vk::StructureChain<Features...>*)
+			{
+				return physical_device.getFeatures2<Features...>();
+			}
+
+			FeatureChain query_features(const vk::raii::PhysicalDevice& physical_device)
+			{
+				return query_feature_chain(physical_device, static_cast<const FeatureChain*>(nullptr));
+			}
+
+			// Features the renderer cannot run without (optional ones, such as mesh shaders, are enabled when present)
+			bool has_required_features(const FeatureChain& f)
+			{
+				const vk::PhysicalDeviceVulkan13Features& core13 = f.get<vk::PhysicalDeviceVulkan13Features>();
+				return core13.dynamicRendering && core13.synchronization2 && f.get<vk::PhysicalDeviceTimelineSemaphoreFeatures>().timelineSemaphore &&
+					f.get<vk::PhysicalDeviceHostQueryResetFeatures>().hostQueryReset && f.get<vk::PhysicalDeviceBufferDeviceAddressFeatures>().bufferDeviceAddress &&
+					f.get<vk::PhysicalDeviceScalarBlockLayoutFeatures>().scalarBlockLayout && f.get<vk::PhysicalDeviceMaintenance5Features>().maintenance5 &&
+					f.get<vk::PhysicalDeviceShaderObjectFeaturesEXT>().shaderObject && f.get<vk::PhysicalDeviceDescriptorHeapFeaturesEXT>().descriptorHeap;
+			}
+
 			vk::StencilOpState translate_stencil(const DepthStencil::StencilDesc& desc, const DepthStencil::Desc& ds)
 			{
 				return vk::StencilOpState(translate(desc.fail_operation), translate(desc.pass_operation), translate(desc.depth_operation),
 					translate(desc.comparison_operation), ds.stencil_read_mask, ds.stencil_write_mask, 0);
 			}
+		}
+
+		void report_fatal_error(const char* call, vk::Result result, const char* file, int line)
+		{
+			char message[2048];
+			sprintf_s(message, "Vulkan error %s (%i)\n%s\n%s(%i)", vk::to_string(result).c_str(), static_cast<int>(result), call, file, line);
+			OutputDebugStringA(message);
+			OutputDebugStringA("\n");
+			seWriteLine("[Vulkan ERROR] %s", message);
+			if (IsDebuggerPresent())
+			{
+				__debugbreak();
+			}
+			MessageBoxA(nullptr, message, "Slim Graphics: fatal Vulkan error", MB_OK | MB_ICONERROR);
+			ExitProcess(1);
 		}
 
 		Device::Device()
@@ -143,10 +216,7 @@ namespace sg
 			// Memory types every buffer / texture / target can be bound to. Resources are bound into memory allocated before
 			// they are created (as with D3D12 placed resources), so the allocation must use a type compatible with all of them.
 			{
-				const vk::BufferUsageFlags buffer_usage = vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst |
-					vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eIndexBuffer |
-					vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress;
-				const vk::BufferCreateInfo buffer_info({}, 64 * 1024, buffer_usage);
+				const vk::BufferCreateInfo buffer_info({}, 64 * 1024, kBufferUsage);
 				buffer_memory_type_bits = device.getBufferMemoryRequirements(vk::DeviceBufferMemoryRequirements(&buffer_info)).memoryRequirements.memoryTypeBits;
 
 				auto image_type_bits = [this](vk::Format format, vk::ImageUsageFlags usage)
@@ -166,15 +236,15 @@ namespace sg
 			create_null_descriptors();
 
 			// Sampler used to display textures through ImGui (whose backend uses classic descriptor sets)
-			imgui_sampler = vk::raii::Sampler(device, vk::SamplerCreateInfo({}, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear,
-				vk::SamplerAddressMode::eClampToEdge, vk::SamplerAddressMode::eClampToEdge, vk::SamplerAddressMode::eClampToEdge, 0.0f, VK_FALSE, 1.0f, VK_FALSE, vk::CompareOp::eNever, 0.0f, VK_LOD_CLAMP_NONE));
+			imgui_sampler = CHECKVK(device.createSampler(vk::SamplerCreateInfo({}, vk::Filter::eLinear, vk::Filter::eLinear, vk::SamplerMipmapMode::eLinear,
+				vk::SamplerAddressMode::eClampToEdge, vk::SamplerAddressMode::eClampToEdge, vk::SamplerAddressMode::eClampToEdge, 0.0f, VK_FALSE, 1.0f, VK_FALSE, vk::CompareOp::eNever, 0.0f, VK_LOD_CLAMP_NONE)));
 
 			seWriteLine("Vulkan device created: %s", properties.deviceName.data());
 		}
 
 		Device::~Device()
 		{
-			device.waitIdle();
+			CHECKVK(device.waitIdle());
 
 			// Release everything that owns VMA memory or device objects before the allocator and device are destroyed
 			imgui_texture_viewer = {};
@@ -193,8 +263,8 @@ namespace sg
 
 		void Device::create_instance()
 		{
-			const std::vector<vk::ExtensionProperties> available_extensions = context.enumerateInstanceExtensionProperties();
-			const std::vector<vk::LayerProperties> available_layers = context.enumerateInstanceLayerProperties();
+			const std::vector<vk::ExtensionProperties> available_extensions = CHECKVK(context.enumerateInstanceExtensionProperties());
+			const std::vector<vk::LayerProperties> available_layers = CHECKVK(context.enumerateInstanceLayerProperties());
 
 			std::vector<const char*> extensions = { VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_WIN32_SURFACE_EXTENSION_NAME };
 			std::vector<const char*> layers;
@@ -212,10 +282,11 @@ namespace sg
 					break;
 				}
 			}
+			seWriteLine(layers.empty() ? "Vulkan validation layer: NOT AVAILABLE (install the Vulkan SDK)" : "Vulkan validation layer: enabled");
 #endif
 
 			const vk::ApplicationInfo app_info("SlimGraphics", 1, "SlimGraphics", 1, kApiVersion);
-			instance = vk::raii::Instance(context, vk::InstanceCreateInfo({}, &app_info, layers, extensions));
+			instance = CHECKVK(context.createInstance(vk::InstanceCreateInfo({}, &app_info, layers, extensions)));
 
 #if defined(_DEBUG)
 			if (debug_utils)
@@ -224,17 +295,16 @@ namespace sg
 					vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
 					vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
 					reinterpret_cast<vk::PFN_DebugUtilsMessengerCallbackEXT>(&vulkan_debug_callback));
-				debug_messenger = vk::raii::DebugUtilsMessengerEXT(instance, messenger_info);
+				debug_messenger = CHECKVK(instance.createDebugUtilsMessengerEXT(messenger_info));
 			}
 #endif
 		}
 
 		void Device::select_physical_device()
 		{
-			vk::raii::PhysicalDevices physical_devices(instance);
-			seAssert(!physical_devices.empty(), "No Vulkan physical devices found");
+			std::vector<vk::raii::PhysicalDevice> physical_devices = CHECKVK(instance.enumeratePhysicalDevices());
 
-			// Prefer a discrete GPU supporting Vulkan 1.4 and the required extensions, with a graphics queue that can present
+			// Prefer a discrete GPU supporting Vulkan 1.4 and the required extensions and features, with a graphics queue that can present
 			int best_score = -1;
 			for (vk::raii::PhysicalDevice& candidate : physical_devices)
 			{
@@ -244,9 +314,9 @@ namespace sg
 				{
 					continue;
 				}
-				const std::vector<vk::ExtensionProperties> available = candidate.enumerateDeviceExtensionProperties();
+				const std::vector<vk::ExtensionProperties> available = CHECKVK(candidate.enumerateDeviceExtensionProperties());
 				const bool has_all = std::all_of(std::begin(kRequiredDeviceExtensions), std::end(kRequiredDeviceExtensions), [&available](const char* name) { return has_extension(available, name); });
-				if (!has_all)
+				if (!has_all || !has_required_features(query_features(candidate)))
 				{
 					continue;
 				}
@@ -269,10 +339,12 @@ namespace sg
 				}
 			}
 
-			seAssert(best_score >= 0, "No Vulkan 1.4 device with descriptor heap, shader object and a graphics + present queue found");
 			if (best_score < 0)
 			{
-				MessageBoxA(nullptr, "No GPU supporting Vulkan 1.4 with VK_EXT_descriptor_heap and VK_EXT_shader_object was found.", "Slim Graphics", MB_OK | MB_ICONERROR);
+				const char* message = "No GPU supporting Vulkan 1.4 with VK_EXT_descriptor_heap, VK_EXT_shader_object, VK_KHR_dynamic_rendering, "
+					"VK_EXT_descriptor_indexing and a graphics + present queue was found.";
+				seWriteLine("[Vulkan ERROR] %s", message);
+				MessageBoxA(nullptr, message, "Slim Graphics", MB_OK | MB_ICONERROR);
 				ExitProcess(1);
 			}
 			properties = physical_device.getProperties();
@@ -280,26 +352,11 @@ namespace sg
 
 		void Device::create_logical_device()
 		{
-			const std::vector<vk::ExtensionProperties> available = physical_device.enumerateDeviceExtensionProperties();
-
-			// Promoted features are enabled through their own structures: VkPhysicalDeviceVulkan12Features may not be combined with
-			// VK_EXT_descriptor_indexing (VUID-VkDeviceCreateInfo-pNext-04748).
-			using Features = vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan13Features,
-				vk::PhysicalDeviceTimelineSemaphoreFeatures, vk::PhysicalDeviceHostQueryResetFeatures, vk::PhysicalDeviceBufferDeviceAddressFeatures,
-				vk::PhysicalDeviceDescriptorIndexingFeatures, vk::PhysicalDeviceScalarBlockLayoutFeatures, vk::PhysicalDeviceMaintenance5Features, vk::PhysicalDeviceShaderObjectFeaturesEXT,
-				vk::PhysicalDeviceDescriptorHeapFeaturesEXT, vk::PhysicalDeviceMeshShaderFeaturesEXT>;
-			const Features supported = physical_device.getFeatures2<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan13Features,
-				vk::PhysicalDeviceTimelineSemaphoreFeatures, vk::PhysicalDeviceHostQueryResetFeatures, vk::PhysicalDeviceBufferDeviceAddressFeatures,
-				vk::PhysicalDeviceDescriptorIndexingFeatures, vk::PhysicalDeviceScalarBlockLayoutFeatures, vk::PhysicalDeviceMaintenance5Features, vk::PhysicalDeviceShaderObjectFeaturesEXT,
-				vk::PhysicalDeviceDescriptorHeapFeaturesEXT, vk::PhysicalDeviceMeshShaderFeaturesEXT>();
+			const std::vector<vk::ExtensionProperties> available = CHECKVK(physical_device.enumerateDeviceExtensionProperties());
+			const FeatureChain supported = query_features(physical_device); // Required features were checked by select_physical_device
 			const vk::PhysicalDeviceFeatures& core = supported.get<vk::PhysicalDeviceFeatures2>().features;
 			const vk::PhysicalDeviceVulkan13Features& core13 = supported.get<vk::PhysicalDeviceVulkan13Features>();
 			const vk::PhysicalDeviceMeshShaderFeaturesEXT& mesh = supported.get<vk::PhysicalDeviceMeshShaderFeaturesEXT>();
-			seAssert(core13.dynamicRendering && core13.synchronization2 && supported.get<vk::PhysicalDeviceTimelineSemaphoreFeatures>().timelineSemaphore &&
-				supported.get<vk::PhysicalDeviceHostQueryResetFeatures>().hostQueryReset && supported.get<vk::PhysicalDeviceBufferDeviceAddressFeatures>().bufferDeviceAddress &&
-				supported.get<vk::PhysicalDeviceShaderObjectFeaturesEXT>().shaderObject && supported.get<vk::PhysicalDeviceDescriptorHeapFeaturesEXT>().descriptorHeap &&
-				supported.get<vk::PhysicalDeviceScalarBlockLayoutFeatures>().scalarBlockLayout,
-				"Required Vulkan features missing");
 
 			std::vector<const char*> extensions(std::begin(kRequiredDeviceExtensions), std::end(kRequiredDeviceExtensions));
 			mesh_shaders_supported = has_extension(available, VK_EXT_MESH_SHADER_EXTENSION_NAME) && mesh.meshShader && mesh.taskShader;
@@ -309,7 +366,7 @@ namespace sg
 			}
 
 			// Enable only what the renderer uses
-			Features enabled;
+			FeatureChain enabled;
 			vk::PhysicalDeviceFeatures& f = enabled.get<vk::PhysicalDeviceFeatures2>().features;
 			f.geometryShader = core.geometryShader;
 			f.fillModeNonSolid = core.fillModeNonSolid;
@@ -356,10 +413,10 @@ namespace sg
 			const vk::DeviceQueueCreateInfo queue_create_info({}, queue_family, 1, &queue_priority);
 			vk::DeviceCreateInfo device_create_info({}, queue_create_info, {}, extensions);
 			device_create_info.pNext = &enabled.get<vk::PhysicalDeviceFeatures2>();
-			device = vk::raii::Device(physical_device, device_create_info);
+			device = CHECKVK(physical_device.createDevice(device_create_info));
 
 			// Unlike D3D12, queues are created with the device
-			queue = vk::raii::Queue(device, queue_family, 0);
+			queue = device.getQueue(queue_family, 0);
 
 			// Capabilities used elsewhere
 			auto props = physical_device.getProperties2<vk::PhysicalDeviceProperties2, vk::PhysicalDeviceDescriptorHeapPropertiesEXT, vk::PhysicalDeviceSubgroupProperties, vk::PhysicalDeviceSubgroupSizeControlProperties>();
@@ -414,55 +471,40 @@ namespace sg
 		{
 			// One mapping from DXC's register based set/binding numbers to descriptor heap / push data sources, shared by every
 			// shader object (see PushData in sgVulkanPipeline.h).
-			const VkSpirvResourceTypeFlagsEXT srv_types = VK_SPIRV_RESOURCE_TYPE_SAMPLED_IMAGE_BIT_EXT | VK_SPIRV_RESOURCE_TYPE_READ_ONLY_IMAGE_BIT_EXT |
-				VK_SPIRV_RESOURCE_TYPE_READ_ONLY_STORAGE_BUFFER_BIT_EXT | VK_SPIRV_RESOURCE_TYPE_READ_WRITE_STORAGE_BUFFER_BIT_EXT;
-			const VkSpirvResourceTypeFlagsEXT uav_types = VK_SPIRV_RESOURCE_TYPE_READ_WRITE_IMAGE_BIT_EXT | VK_SPIRV_RESOURCE_TYPE_READ_ONLY_IMAGE_BIT_EXT |
-				VK_SPIRV_RESOURCE_TYPE_READ_WRITE_STORAGE_BUFFER_BIT_EXT | VK_SPIRV_RESOURCE_TYPE_READ_ONLY_STORAGE_BUFFER_BIT_EXT;
+			using R = vk::SpirvResourceTypeFlagBitsEXT;
+			const vk::SpirvResourceTypeFlagsEXT srv_types = R::eSampledImage | R::eReadOnlyImage | R::eReadOnlyStorageBuffer | R::eReadWriteStorageBuffer;
+			const vk::SpirvResourceTypeFlagsEXT uav_types = R::eReadWriteImage | R::eReadOnlyImage | R::eReadWriteStorageBuffer | R::eReadOnlyStorageBuffer;
 
-			auto add_mapping = [this](u32 first_binding, u32 binding_count, VkSpirvResourceTypeFlagsEXT types, VkDescriptorMappingSourceEXT source, const VkDescriptorMappingSourceDataEXT& data)
+			auto add_mapping = [this](u32 first_binding, u32 binding_count, vk::SpirvResourceTypeFlagsEXT types, vk::DescriptorMappingSourceEXT source, const vk::DescriptorMappingSourceDataEXT& data)
 				{
-					VkDescriptorSetAndBindingMappingEXT mapping = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_AND_BINDING_MAPPING_EXT };
-					mapping.descriptorSet = 0;
-					mapping.firstBinding = first_binding;
-					mapping.bindingCount = binding_count;
-					mapping.resourceMask = types;
-					mapping.source = source;
-					mapping.sourceData = data;
-					descriptor_mappings.push_back(mapping);
+					descriptor_mappings.push_back(vk::DescriptorSetAndBindingMappingEXT(0, first_binding, binding_count, types, source, data));
 				};
 
 			// b0-b3: constant buffers read from device addresses in push data
 			for (u32 i = 0; i < PushData::MAX_CBVS; i++)
 			{
-				VkDescriptorMappingSourceDataEXT data = {};
+				vk::DescriptorMappingSourceDataEXT data;
 				data.pushAddressOffset = PushData::CBV_OFFSET + i * static_cast<u32>(sizeof(vk::DeviceAddress));
-				add_mapping(BindingShift::CBV + i, 1, VK_SPIRV_RESOURCE_TYPE_UNIFORM_BUFFER_BIT_EXT, VK_DESCRIPTOR_MAPPING_SOURCE_PUSH_ADDRESS_EXT, data);
+				add_mapping(BindingShift::CBV + i, 1, R::eUniformBuffer, vk::DescriptorMappingSourceEXT::ePushAddress, data);
 			}
 
-			// t0-t15 / u0-u15: descriptor tables in the resource heap, table start slot in push data
+			// t0-t15 / u0-u15: descriptor tables in the resource heap. The table's first slot is a push data index:
+			// offset = push index * slot size + (binding - first binding) * slot size
 			auto table = [this](u32 push_offset)
 				{
-					VkDescriptorMappingSourceDataEXT data = {};
-					data.pushIndex.heapOffset = 0;
-					data.pushIndex.pushOffset = push_offset;
-					data.pushIndex.heapIndexStride = descriptor_slot_size;
-					data.pushIndex.heapArrayStride = descriptor_slot_size;
+					vk::DescriptorMappingSourceDataEXT data;
+					data.pushIndex = vk::DescriptorMappingSourcePushIndexEXT(0, push_offset, descriptor_slot_size, descriptor_slot_size);
 					return data;
 				};
-			add_mapping(BindingShift::SRV, BindingShift::SAMPLER - BindingShift::SRV, srv_types, VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_PUSH_INDEX_EXT, table(PushData::SRV_TABLE_OFFSET));
-			add_mapping(BindingShift::UAV, BindingShift::END - BindingShift::UAV, uav_types, VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_PUSH_INDEX_EXT, table(PushData::UAV_TABLE_OFFSET));
+			add_mapping(BindingShift::SRV, BindingShift::SAMPLER - BindingShift::SRV, srv_types, vk::DescriptorMappingSourceEXT::eHeapWithPushIndex, table(PushData::SRV_TABLE_OFFSET));
+			add_mapping(BindingShift::UAV, BindingShift::END - BindingShift::UAV, uav_types, vk::DescriptorMappingSourceEXT::eHeapWithPushIndex, table(PushData::UAV_TABLE_OFFSET));
 
 			// s0-s15: the global samplers, s<n> at sampler heap index n
-			{
-				VkDescriptorMappingSourceDataEXT data = {};
-				data.constantOffset.heapOffset = 0;
-				data.constantOffset.heapArrayStride = static_cast<u32>(heap_properties.samplerDescriptorSize);
-				add_mapping(BindingShift::SAMPLER, kMaxSamplers, VK_SPIRV_RESOURCE_TYPE_SAMPLER_BIT_EXT, VK_DESCRIPTOR_MAPPING_SOURCE_HEAP_WITH_CONSTANT_OFFSET_EXT, data);
-			}
+			vk::DescriptorMappingSourceDataEXT sampler_data;
+			sampler_data.constantOffset = vk::DescriptorMappingSourceConstantOffsetEXT(0, static_cast<u32>(heap_properties.samplerDescriptorSize));
+			add_mapping(BindingShift::SAMPLER, kMaxSamplers, R::eSampler, vk::DescriptorMappingSourceEXT::eHeapWithConstantOffset, sampler_data);
 
-			descriptor_mapping_info = { VK_STRUCTURE_TYPE_SHADER_DESCRIPTOR_SET_AND_BINDING_MAPPING_INFO_EXT };
-			descriptor_mapping_info.mappingCount = static_cast<u32>(descriptor_mappings.size());
-			descriptor_mapping_info.pMappings = descriptor_mappings.data();
+			descriptor_mapping_info = vk::ShaderDescriptorSetAndBindingMappingInfoEXT(descriptor_mappings);
 		}
 
 		void Device::create_null_descriptors()
@@ -477,8 +519,8 @@ namespace sg
 			SharedPtr<Memory> texture_memory = allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, size_align.size, size_align.alignment);
 			null_texture = create_texture(texture_memory, static_cast<u32>(size_align.size), texture_desc);
 
-			null_sampled_image_descriptor = std::vector<uint8_t>(null_texture->get_descriptor(null_texture->make_shader_resource_view_key(), vk::DescriptorType::eSampledImage),
-				null_texture->get_descriptor(null_texture->make_shader_resource_view_key(), vk::DescriptorType::eSampledImage) + descriptor_slot_size);
+			const uint8_t* sampled_image = null_texture->get_descriptor(null_texture->make_shader_resource_view_key(), vk::DescriptorType::eSampledImage);
+			null_sampled_image_descriptor.assign(sampled_image, sampled_image + descriptor_slot_size);
 			null_storage_buffer_descriptor.resize(descriptor_slot_size);
 			const vk::DescriptorType type = vk::DescriptorType::eStorageBuffer;
 			const vk::DeviceAddressRangeEXT range(null_buffer->get_device_address(), null_buffer->get_size_bytes());
@@ -522,33 +564,27 @@ namespace sg
 
 		void Device::write_image_descriptor(void* destination, vk::DescriptorType type, const vk::ImageViewCreateInfo& view, vk::ImageLayout layout)
 		{
-			const VkImageViewCreateInfo& view_info = view;
-			VkImageDescriptorInfoEXT image_info = { VK_STRUCTURE_TYPE_IMAGE_DESCRIPTOR_INFO_EXT };
-			image_info.pView = &view_info;
-			image_info.layout = static_cast<VkImageLayout>(layout);
-			VkResourceDescriptorInfoEXT info = { VK_STRUCTURE_TYPE_RESOURCE_DESCRIPTOR_INFO_EXT };
-			info.type = static_cast<VkDescriptorType>(type);
-			info.data.pImage = &image_info;
-			VkHostAddressRangeEXT host_range = { destination, descriptor_slot_size };
-			CHECKVK(device.getDispatcher()->vkWriteResourceDescriptorsEXT(static_cast<VkDevice>(*device), 1, &info, &host_range));
+			const vk::ImageDescriptorInfoEXT image_info(&view, layout);
+			const vk::ResourceDescriptorInfoEXT info(type, vk::ResourceDescriptorDataEXT(&image_info));
+			const vk::HostAddressRangeEXT host_range(destination, descriptor_slot_size);
+			CHECKVK(device.writeResourceDescriptorsEXT(info, host_range));
 		}
 
 		void Device::write_buffer_descriptors(u32 count, const vk::DescriptorType* types, const vk::DeviceAddressRangeEXT* ranges, void* const* destinations)
 		{
 			constexpr u32 kBatch = 64;
-			VkResourceDescriptorInfoEXT infos[kBatch];
-			VkHostAddressRangeEXT host_ranges[kBatch];
+			std::array<vk::ResourceDescriptorInfoEXT, kBatch> infos;
+			std::array<vk::HostAddressRangeEXT, kBatch> host_ranges;
 			for (u32 first = 0; first < count; first += kBatch)
 			{
 				const u32 batch = std::min(kBatch, count - first);
 				for (u32 i = 0; i < batch; i++)
 				{
-					infos[i] = { VK_STRUCTURE_TYPE_RESOURCE_DESCRIPTOR_INFO_EXT };
-					infos[i].type = static_cast<VkDescriptorType>(types[first + i]);
-					infos[i].data.pAddressRange = reinterpret_cast<const VkDeviceAddressRangeEXT*>(&ranges[first + i]);
-					host_ranges[i] = { destinations[first + i], descriptor_slot_size };
+					infos[i] = vk::ResourceDescriptorInfoEXT(types[first + i], vk::ResourceDescriptorDataEXT(&ranges[first + i]));
+					host_ranges[i] = vk::HostAddressRangeEXT(destinations[first + i], descriptor_slot_size);
 				}
-				CHECKVK(device.getDispatcher()->vkWriteResourceDescriptorsEXT(static_cast<VkDevice>(*device), batch, infos, host_ranges));
+				CHECKVK(device.writeResourceDescriptorsEXT(vk::ArrayProxy<const vk::ResourceDescriptorInfoEXT>(batch, infos.data()),
+					vk::ArrayProxy<const vk::HostAddressRangeEXT>(batch, host_ranges.data())));
 			}
 		}
 
@@ -566,8 +602,9 @@ namespace sg
 			init_info.QueueFamily = queue_family;
 			init_info.Queue = static_cast<VkQueue>(*queue);
 			init_info.DescriptorPoolSize = 64; // ImGui owned pool: font atlas + textures shown with ImGui::Image
-			init_info.MinImageCount = 2;
-			init_info.ImageCount = std::max(2u, swap_chain_buffer_count);
+			// Secondary viewport swap chains use the main swap chain's image count
+			init_info.MinImageCount = swap_chain_buffer_count;
+			init_info.ImageCount = swap_chain_buffer_count;
 			init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 			init_info.UseDynamicRendering = true;
 			init_info.PipelineRenderingCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR };
@@ -575,9 +612,10 @@ namespace sg
 			init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &imgui_colour_format;
 			init_info.CheckVkResultFn = check_imgui_vk_result;
 			ImGui::GetPlatformIO().Platform_CreateVkSurface = imgui_create_vk_surface;
-			const bool ok = ImGui_ImplVulkan_Init(&init_info);
-			seAssert(ok, "ImGui_ImplVulkan_Init failed");
-			(void)ok;
+			if (!ImGui_ImplVulkan_Init(&init_info))
+			{
+				report_fatal_error("ImGui_ImplVulkan_Init", vk::Result::eErrorInitializationFailed, __FILE__, __LINE__);
+			}
 			imgui_initialised = true;
 
 			// Default viewer texture (replaced by the magnifying glass target), matching the D3D12 backend
@@ -598,7 +636,7 @@ namespace sg
 			{
 				return;
 			}
-			device.waitIdle();
+			CHECKVK(device.waitIdle());
 			imgui_texture_viewer = {}; // Descriptor sets are freed with the ImGui descriptor pool
 			ImGui_ImplVulkan_Shutdown();
 			imgui_initialised = false;
@@ -741,20 +779,11 @@ namespace sg
 		{
 			if (desc.dimension == ResourceDimension::Buffer)
 			{
-				const vk::BufferCreateInfo buffer_info({}, desc.width, vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eShaderDeviceAddress);
+				const vk::BufferCreateInfo buffer_info({}, desc.width, kBufferUsage);
 				const vk::MemoryRequirements req = device.getBufferMemoryRequirements(vk::DeviceBufferMemoryRequirements(&buffer_info)).memoryRequirements;
 				return { req.size, req.alignment };
 			}
-			vk::ImageCreateInfo image_info;
-			image_info.imageType = desc.dimension == ResourceDimension::Texture1D ? vk::ImageType::e1D : (desc.dimension == ResourceDimension::Texture3D ? vk::ImageType::e3D : vk::ImageType::e2D);
-			image_info.format = translate(desc.format);
-			image_info.extent = vk::Extent3D(desc.width, desc.height, desc.dimension == ResourceDimension::Texture3D ? desc.depth : 1);
-			image_info.mipLevels = std::max(1u, desc.mip_count);
-			image_info.arrayLayers = desc.dimension == ResourceDimension::Texture3D ? 1 : std::max(1u, desc.depth);
-			image_info.usage = vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
-			if ((desc.usage_flags & ResourceUsageFlags::RenderTarget) == ResourceUsageFlags::RenderTarget) image_info.usage |= vk::ImageUsageFlagBits::eColorAttachment;
-			if ((desc.usage_flags & ResourceUsageFlags::DepthStencil) == ResourceUsageFlags::DepthStencil) image_info.usage |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
-			if ((desc.usage_flags & ResourceUsageFlags::UnorderedAccess) == ResourceUsageFlags::UnorderedAccess) image_info.usage |= vk::ImageUsageFlagBits::eStorage;
+			const vk::ImageCreateInfo image_info = make_image_create_info(desc);
 			const vk::MemoryRequirements req = device.getImageMemoryRequirements(vk::DeviceImageMemoryRequirements(&image_info)).memoryRequirements;
 			return { req.size, req.alignment };
 		}
@@ -797,7 +826,7 @@ namespace sg
 		{
 			SharedPtr<QueueFence> fence(new QueueFence());
 			vk::SemaphoreTypeCreateInfo timeline_info(vk::SemaphoreType::eTimeline, 0);
-			fence->timeline_semaphore = vk::raii::Semaphore(device, vk::SemaphoreCreateInfo({}, &timeline_info));
+			fence->timeline_semaphore = CHECKVK(device.createSemaphore(vk::SemaphoreCreateInfo({}, &timeline_info)));
 			return fence;
 		}
 
@@ -816,12 +845,12 @@ namespace sg
 
 		SharedPtr<CommandQueue> Device::create_command_queue()
 		{
-			return SharedPtr<CommandQueue>(new CommandQueue(*this, *queue, queue_family));
+			return SharedPtr<CommandQueue>(new CommandQueue(*this));
 		}
 
 		SharedPtr<CommandList> Device::create_command_buffer()
 		{
-			return SharedPtr<CommandList>(new CommandList(*this, queue_family));
+			return SharedPtr<CommandList>(new CommandList(*this));
 		}
 
 		SharedPtr<VertexShader> Device::create_vertex_shader(const std::vector<uint8_t>& shader)
@@ -867,75 +896,117 @@ namespace sg
 			}
 
 			// Graphics stages are linked (the shader object equivalent of a monolithic pipeline) so the driver can optimise
-			// across stage interfaces.
-			const bool link = shaders.size() > 1;
-			std::vector<VkShaderCreateInfoEXT> create_infos(shaders.size());
+			// across stage interfaces. Every shader uses the shared descriptor heap mapping.
+			std::vector<vk::ShaderCreateInfoEXT> create_infos(shaders.size());
 			for (size_t i = 0; i < shaders.size(); i++)
 			{
 				const Shader& shader = *shaders[i];
-				VkShaderCreateInfoEXT& info = create_infos[i];
-				info = { VK_STRUCTURE_TYPE_SHADER_CREATE_INFO_EXT };
-				info.pNext = &descriptor_mapping_info;
-				info.flags = VK_SHADER_CREATE_DESCRIPTOR_HEAP_BIT_EXT;
-				if (link) info.flags |= VK_SHADER_CREATE_LINK_STAGE_BIT_EXT;
-				if (shader.get_stage() == vk::ShaderStageFlagBits::eMeshEXT && mesh_without_task) info.flags |= VK_SHADER_CREATE_NO_TASK_SHADER_BIT_EXT;
-				info.stage = static_cast<VkShaderStageFlagBits>(shader.get_stage());
-				info.nextStage = i + 1 < shaders.size() ? static_cast<VkShaderStageFlags>(shaders[i + 1]->get_stage()) : 0;
-				info.codeType = VK_SHADER_CODE_TYPE_SPIRV_EXT;
-				info.codeSize = shader.get_code().size() * sizeof(u32);
-				info.pCode = shader.get_code().data();
-				info.pName = shader.get_entry_point();
+				vk::ShaderCreateFlagsEXT flags = vk::ShaderCreateFlagBitsEXT::eDescriptorHeap;
+				if (shaders.size() > 1) flags |= vk::ShaderCreateFlagBitsEXT::eLinkStage;
+				if (shader.get_stage() == vk::ShaderStageFlagBits::eMeshEXT && mesh_without_task) flags |= vk::ShaderCreateFlagBitsEXT::eNoTaskShader;
+				create_infos[i]
+					.setPNext(&descriptor_mapping_info)
+					.setFlags(flags)
+					.setStage(shader.get_stage())
+					.setNextStage(i + 1 < shaders.size() ? vk::ShaderStageFlags(shaders[i + 1]->get_stage()) : vk::ShaderStageFlags())
+					.setCodeType(vk::ShaderCodeTypeEXT::eSpirv)
+					.setCodeSize(shader.get_code().size() * sizeof(u32))
+					.setPCode(shader.get_code().data())
+					.setPName(shader.get_entry_point());
 			}
+			pipeline.shaders = CHECKVK(device.createShadersEXT(create_infos));
 
-			std::vector<VkShaderEXT> handles(shaders.size(), VK_NULL_HANDLE);
-			CHECKVK(device.getDispatcher()->vkCreateShadersEXT(static_cast<VkDevice>(*device), static_cast<u32>(create_infos.size()), create_infos.data(), nullptr, handles.data()));
-			for (size_t i = 0; i < shaders.size(); i++)
+			// vkCmdBindShadersEXT arguments: every stage of the bind point the device supports, VK_NULL_HANDLE where unused
+			auto bind_stage = [&pipeline, &shaders](vk::ShaderStageFlagBits stage)
+				{
+					vk::ShaderEXT shader = VK_NULL_HANDLE;
+					for (size_t i = 0; i < shaders.size(); i++)
+					{
+						if (shaders[i]->get_stage() == stage) shader = *pipeline.shaders[i];
+					}
+					pipeline.bound_stages[pipeline.bound_stage_count] = stage;
+					pipeline.bound_shaders[pipeline.bound_stage_count] = shader;
+					pipeline.bound_stage_count++;
+					return shader != VK_NULL_HANDLE;
+				};
+			if (pipeline.get_bind_point() == vk::PipelineBindPoint::eCompute)
 			{
-				pipeline.stages.push_back(shaders[i]->get_stage());
-				pipeline.shaders.emplace_back(device, handles[i]);
+				bind_stage(vk::ShaderStageFlagBits::eCompute);
+			}
+			else
+			{
+				pipeline.has_vertex_shader = bind_stage(vk::ShaderStageFlagBits::eVertex);
+				bind_stage(vk::ShaderStageFlagBits::eFragment);
+				if (geometry_shaders_supported) bind_stage(vk::ShaderStageFlagBits::eGeometry);
+				if (mesh_shaders_supported)
+				{
+					bind_stage(vk::ShaderStageFlagBits::eTaskEXT);
+					bind_stage(vk::ShaderStageFlagBits::eMeshEXT);
+				}
 			}
 
-			// Record which descriptors the shaders use (table sizes, stand-ins for unset bindings)
+			// Descriptors the shaders read: CBVs (push addresses, stand-ins when unset) and SRV/UAV table entries
 			for (const Shader* shader : shaders)
 			{
 				for (const SpirvReflection::DescriptorBinding& b : shader->get_reflection().bindings)
 				{
 					seAssert(b.set == 0 && b.binding < BindingShift::END && b.count == 1, "Unsupported shader binding (set %u binding %u count %u)", b.set, b.binding, b.count);
-					seAssert(b.binding >= BindingShift::SRV || b.binding < PushData::MAX_CBVS, "Constant buffer register b%u exceeds the push data CBVs", b.binding);
-					const bool known = std::any_of(pipeline.descriptor_uses.begin(), pipeline.descriptor_uses.end(), [&b](const Pipeline::DescriptorUse& u) { return u.binding == b.binding; });
+					if (b.binding < BindingShift::SRV)
+					{
+						seAssert(b.binding < PushData::MAX_CBVS, "Constant buffer register b%u exceeds the push data CBVs", b.binding);
+						pipeline.used_cbv_mask |= 1u << b.binding;
+						continue;
+					}
+					if (b.binding >= BindingShift::SAMPLER && b.binding < BindingShift::UAV)
+					{
+						continue; // Global samplers
+					}
+					seAssert(b.type == vk::DescriptorType::eSampledImage || b.type == vk::DescriptorType::eStorageImage || b.type == vk::DescriptorType::eStorageBuffer,
+						"Unsupported descriptor type %i for binding %u (typed buffers are not supported, use structured buffers)", static_cast<int>(b.type), b.binding);
+					const bool known = std::any_of(pipeline.table_entries.begin(), pipeline.table_entries.end(), [&b](const Pipeline::TableEntry& e) { return e.binding == b.binding; });
 					if (!known)
 					{
-						pipeline.descriptor_uses.push_back({ b.binding, b.type });
+						pipeline.table_entries.push_back({ b.binding, b.type });
 					}
-					if (b.binding >= BindingShift::SRV && b.binding < BindingShift::SAMPLER) pipeline.srv_table_size = std::max(pipeline.srv_table_size, b.binding - BindingShift::SRV + 1);
-					if (b.binding >= BindingShift::UAV) pipeline.uav_table_size = std::max(pipeline.uav_table_size, b.binding - BindingShift::UAV + 1);
+					if (b.binding < BindingShift::SAMPLER) pipeline.srv_table_size = std::max(pipeline.srv_table_size, b.binding - BindingShift::SRV + 1);
+					else pipeline.uav_table_size = std::max(pipeline.uav_table_size, b.binding - BindingShift::UAV + 1);
 				}
 			}
 		}
 
-		void Device::set_graphics_state(Pipeline& pipeline, const Rasterizer::Desc& rd, const DepthStencil::Desc& ds, const Blend::Desc& blend, u32 render_target_count)
+		void Device::set_graphics_state(Pipeline& pipeline, PrimitiveTopology topology, const Rasterizer::Desc& rd, const DepthStencil::Desc& ds, const Blend::Desc& blend, u32 render_target_count)
 		{
-			pipeline.polygon_mode = translate(rd.fill_mode);
-			pipeline.cull_mode = translate(rd.cull_mode);
+			seAssert(render_target_count <= GraphicsState::MAX_RENDER_TARGETS, "Too many render targets");
+			GraphicsState& state = pipeline.graphics_state;
+			state.topology = translate(topology);
+			state.polygon_mode = translate(rd.fill_mode);
+			state.cull_mode = translate(rd.cull_mode);
 			// The flipped (negative height) viewport keeps D3D's screen space winding, so D3D's convention maps directly
-			pipeline.front_face = rd.front_counter_clockwise ? vk::FrontFace::eCounterClockwise : vk::FrontFace::eClockwise;
-			pipeline.depth_test = ds.depth_enable;
-			pipeline.depth_write = ds.depth_enable && ds.depth_write;
-			pipeline.depth_compare = translate(ds.comparison_function);
-			pipeline.stencil_test = ds.stencil_enable;
-			pipeline.stencil_front = translate_stencil(ds.stencil_front_desc, ds);
-			pipeline.stencil_back = translate_stencil(ds.stencil_back_desc, ds);
-			pipeline.alpha_to_coverage = blend.alpha_to_coverage_enable;
-			pipeline.logic_op_enable = blend.render_targets[0].logic_op_enable && logic_op_supported;
-			pipeline.logic_op = translate(blend.render_targets[0].logic_op);
-			pipeline.render_target_count = render_target_count;
-			for (u32 i = 0; i < render_target_count; i++)
+			state.front_face = rd.front_counter_clockwise ? vk::FrontFace::eCounterClockwise : vk::FrontFace::eClockwise;
+			state.depth_test = ds.depth_enable;
+			state.depth_write = ds.depth_enable && ds.depth_write;
+			state.depth_compare = translate(ds.comparison_function);
+			state.stencil_test = ds.stencil_enable;
+			state.stencil_front = translate_stencil(ds.stencil_front_desc, ds);
+			state.stencil_back = translate_stencil(ds.stencil_back_desc, ds);
+			state.alpha_to_coverage = blend.alpha_to_coverage_enable;
+			state.logic_op_enable = blend.render_targets[0].logic_op_enable && logic_op_supported;
+			state.logic_op = translate(blend.render_targets[0].logic_op);
+			const vk::ColorComponentFlags all_channels = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+			for (u32 i = 0; i < GraphicsState::MAX_RENDER_TARGETS; i++)
 			{
+				if (i >= render_target_count)
+				{
+					state.blend_enables[i] = VK_FALSE;
+					state.blend_equations[i] = vk::ColorBlendEquationEXT(vk::BlendFactor::eOne, vk::BlendFactor::eZero, vk::BlendOp::eAdd, vk::BlendFactor::eOne, vk::BlendFactor::eZero, vk::BlendOp::eAdd);
+					state.write_masks[i] = all_channels;
+					continue;
+				}
 				const Blend::RenderTargetDesc& rt = blend.render_targets[blend.independent_blend_enable ? i : 0];
-				pipeline.blend_enables.push_back(rt.blend_enable ? VK_TRUE : VK_FALSE);
-				pipeline.blend_equations.push_back(vk::ColorBlendEquationEXT(translate(rt.src_blend), translate(rt.dest_blend), translate(rt.blend_op),
-					translate(rt.src_blend_alpha), translate(rt.dest_blend_alpha), translate(rt.blend_op_alpha)));
-				pipeline.write_masks.push_back(static_cast<vk::ColorComponentFlags>(rt.render_target_write_mask & 0xf));
+				state.blend_enables[i] = rt.blend_enable ? VK_TRUE : VK_FALSE;
+				state.blend_equations[i] = vk::ColorBlendEquationEXT(translate(rt.src_blend), translate(rt.dest_blend), translate(rt.blend_op),
+					translate(rt.src_blend_alpha), translate(rt.dest_blend_alpha), translate(rt.blend_op_alpha));
+				state.write_masks[i] = static_cast<vk::ColorComponentFlags>(rt.render_target_write_mask & 0xf);
 			}
 		}
 
@@ -944,12 +1015,10 @@ namespace sg
 			seAssert(pipeline_desc.vertex_shader != nullptr, "Graphics pipelines need a vertex shader");
 			SharedPtr<Pipeline> pipeline(new Pipeline(binding_desc, vk::PipelineBindPoint::eGraphics));
 			create_shader_objects(*pipeline, { pipeline_desc.vertex_shader.get(), pipeline_desc.geometry_shader.get(), pipeline_desc.pixel_shader.get() }, false);
-			pipeline->has_vertex_shader = true;
-			pipeline->topology = translate(pipeline_desc.primitive_topology);
-			set_graphics_state(*pipeline, pipeline_desc.rasterizer_desc, pipeline_desc.depth_stencil_desc, pipeline_desc.blend_desc, pipeline_desc.render_target_count);
+			set_graphics_state(*pipeline, pipeline_desc.primitive_topology, pipeline_desc.rasterizer_desc, pipeline_desc.depth_stencil_desc, pipeline_desc.blend_desc, pipeline_desc.render_target_count);
 
-			// Vertex input: match input layout elements to the vertex shader's inputs by semantic (strides come from the vertex
-			// buffer view at draw time)
+			// Vertex input: match input layout elements to the vertex shader's inputs by semantic (the stride comes from the
+			// vertex buffer view at draw time). Vulkan has one input rate per vertex buffer, D3D12 one per element.
 			const SpirvReflection& vs_reflection = pipeline_desc.vertex_shader->get_reflection();
 			const InputLayout::Desc& input_layout = pipeline_desc.input_layout;
 			for (u32 i = 0; i < input_layout.num_elements; i++)
@@ -961,9 +1030,11 @@ namespace sg
 				{
 					continue; // Element not read by this vertex shader
 				}
-				seAssert(element.input_classification == InputLayout::InputClassification::PerVertex || element.instance_data_step_rate <= 1, "Instance step rates above 1 are not supported");
 				const vk::VertexInputRate rate = element.input_classification == InputLayout::InputClassification::PerInstance ? vk::VertexInputRate::eInstance : vk::VertexInputRate::eVertex;
-				pipeline->vertex_attributes.push_back({ location, element.input_slot, translate(element.format), element.aligned_byte_offset, rate });
+				seAssert(element.input_slot == 0, "Only vertex buffer slot 0 is supported");
+				seAssert(rate == vk::VertexInputRate::eVertex || element.instance_data_step_rate <= 1, "Instance step rates above 1 are not supported");
+				seAssert(pipeline->vertex_attributes.empty() || pipeline->vertex_attributes[0].rate == rate, "Mixed per vertex / per instance elements in one vertex buffer");
+				pipeline->vertex_attributes.push_back({ location, translate(element.format), element.aligned_byte_offset, rate });
 			}
 			for (const SpirvReflection::VertexInput& input : vs_reflection.vertex_inputs)
 			{
@@ -992,19 +1063,13 @@ namespace sg
 			seAssert(pipeline_desc.pixel_shader != nullptr, "No Pixel Shader Provided");
 			SharedPtr<Pipeline> pipeline(new Pipeline(binding_desc, vk::PipelineBindPoint::eGraphics));
 			create_shader_objects(*pipeline, { pipeline_desc.amp_shader.get(), pipeline_desc.mesh_shader.get(), pipeline_desc.pixel_shader.get() }, pipeline_desc.amp_shader == nullptr);
-			pipeline->topology = translate(pipeline_desc.primitive_topology);
-			set_graphics_state(*pipeline, pipeline_desc.rasterizer_desc, pipeline_desc.depth_stencil_desc, pipeline_desc.blend_desc, pipeline_desc.render_target_count);
+			set_graphics_state(*pipeline, pipeline_desc.primitive_topology, pipeline_desc.rasterizer_desc, pipeline_desc.depth_stencil_desc, pipeline_desc.blend_desc, pipeline_desc.render_target_count);
 			return pipeline;
 		}
 
 		SharedPtr<Buffer> Device::create_buffer(SharedPtr<Memory> memory, u32 size, BufferType type, bool uav_access)
 		{
-			// Buffers get every usage the engine might need (usage flags do not affect buffer performance on desktop GPUs)
-			const vk::BufferUsageFlags usage = vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst |
-				vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eIndexBuffer |
-				vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndirectBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress;
-			vk::raii::Buffer vk_buffer(device, vk::BufferCreateInfo({}, size, usage, vk::SharingMode::eExclusive));
-
+			vk::raii::Buffer vk_buffer = CHECKVK(device.createBuffer(vk::BufferCreateInfo({}, size, kBufferUsage, vk::SharingMode::eExclusive)));
 			const vk::MemoryRequirements requirements = vk_buffer.getMemoryRequirements();
 			seAssert(requirements.size <= memory->get_size(), "Buffer does not fit in its memory");
 			seAssert((requirements.memoryTypeBits & (1u << memory->get_memory_type_index())) != 0, "Memory type not compatible with buffer");
@@ -1021,21 +1086,7 @@ namespace sg
 
 		SharedPtr<Texture> Device::create_texture(SharedPtr<Memory> memory, u32 size, const ResourceCreateDesc& resource_desc)
 		{
-			vk::ImageCreateInfo image_info;
-			image_info.imageType = resource_desc.dimension == ResourceDimension::Texture1D ? vk::ImageType::e1D : (resource_desc.dimension == ResourceDimension::Texture3D ? vk::ImageType::e3D : vk::ImageType::e2D);
-			image_info.format = translate(resource_desc.format);
-			image_info.extent = vk::Extent3D(resource_desc.width, resource_desc.height, resource_desc.dimension == ResourceDimension::Texture3D ? resource_desc.depth : 1);
-			image_info.mipLevels = std::max(1u, resource_desc.mip_count);
-			image_info.arrayLayers = resource_desc.dimension == ResourceDimension::Texture3D ? 1 : std::max(1u, resource_desc.depth);
-			image_info.samples = vk::SampleCountFlagBits::e1;
-			image_info.tiling = vk::ImageTiling::eOptimal;
-			image_info.usage = vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
-			if ((resource_desc.usage_flags & ResourceUsageFlags::RenderTarget) == ResourceUsageFlags::RenderTarget) image_info.usage |= vk::ImageUsageFlagBits::eColorAttachment;
-			if ((resource_desc.usage_flags & ResourceUsageFlags::DepthStencil) == ResourceUsageFlags::DepthStencil) image_info.usage |= vk::ImageUsageFlagBits::eDepthStencilAttachment;
-			if ((resource_desc.usage_flags & ResourceUsageFlags::UnorderedAccess) == ResourceUsageFlags::UnorderedAccess) image_info.usage |= vk::ImageUsageFlagBits::eStorage;
-			image_info.initialLayout = vk::ImageLayout::eUndefined;
-
-			vk::raii::Image image(device, image_info);
+			vk::raii::Image image = CHECKVK(device.createImage(make_image_create_info(resource_desc)));
 			const vk::MemoryRequirements requirements = image.getMemoryRequirements();
 			seAssert(requirements.size <= memory->get_size(), "Texture does not fit in its memory");
 			seAssert((requirements.memoryTypeBits & (1u << memory->get_memory_type_index())) != 0, "Memory type not compatible with texture");
@@ -1217,7 +1268,14 @@ namespace sg
 			const float max_anisotropy = std::clamp(static_cast<float>(desc.max_anisotropy), 1.0f, properties.limits.maxSamplerAnisotropy);
 			const float max_bias = properties.limits.maxSamplerLodBias;
 			const bool compare = desc.comparison_func != ComparisonFunction::None;
-			return vk::SamplerCreateInfo({}, mag_filter, min_filter, mip_mode, translate(desc.address_u), translate(desc.address_v), translate(desc.address_w),
+			// D3D12's MIRROR_ONCE needs the samplerMirrorClampToEdge feature, which can only be enabled through
+			// VkPhysicalDeviceVulkan12Features (not allowed alongside VK_EXT_descriptor_indexing) or another extension: use
+			// MIRRORED_REPEAT, which matches it inside [-1, 2] texture coordinates
+			auto address_mode = [](TextureAddressMode mode)
+				{
+					return mode == TextureAddressMode::MirrorOnce ? vk::SamplerAddressMode::eMirroredRepeat : translate(mode);
+				};
+			return vk::SamplerCreateInfo({}, mag_filter, min_filter, mip_mode, address_mode(desc.address_u), address_mode(desc.address_v), address_mode(desc.address_w),
 				std::clamp(desc.mip_lod_bias, -max_bias, max_bias), anisotropic ? VK_TRUE : VK_FALSE, max_anisotropy, compare ? VK_TRUE : VK_FALSE,
 				translate(desc.comparison_func), desc.min_lod, desc.max_lod, translate_border_colour(desc.border_color));
 		}
@@ -1229,19 +1287,24 @@ namespace sg
 			{
 				return;
 			}
-			std::vector<VkSamplerCreateInfo> infos;
-			std::vector<VkHostAddressRangeEXT> destinations;
+			std::vector<vk::SamplerCreateInfo> infos;
+			std::vector<vk::HostAddressRangeEXT> destinations;
 			for (size_t i = 0; i < samplers.size(); i++)
 			{
 				infos.push_back(make_sampler_create_info(samplers[i].sampler_desc));
-				destinations.push_back({ sampler_heap->get_mapped_data() + i * heap_properties.samplerDescriptorSize, static_cast<size_t>(heap_properties.samplerDescriptorSize) });
+				destinations.push_back(vk::HostAddressRangeEXT(sampler_heap->get_mapped_data() + i * heap_properties.samplerDescriptorSize, static_cast<size_t>(heap_properties.samplerDescriptorSize)));
 			}
-			CHECKVK(device.getDispatcher()->vkWriteSamplerDescriptorsEXT(static_cast<VkDevice>(*device), static_cast<u32>(infos.size()), infos.data(), destinations.data()));
+			CHECKVK(device.writeSamplerDescriptorsEXT(infos, destinations));
 		}
 
 		void Device::AddSamplers(const char* sampler_name, const sg::SamplerDesc& sampler_desc)
 		{
-			seAssert(samplers.size() < kMaxSamplers, "Too many global samplers");
+			// Registers s0-s15 map to the sampler heap's usable range; anything more would overwrite the reserved range
+			seAssert(samplers.size() < kMaxSamplers, "Too many global samplers (max %u)", kMaxSamplers);
+			if (samplers.size() >= kMaxSamplers)
+			{
+				return;
+			}
 			samplers.push_back({ sampler_name, sampler_desc });
 			write_samplers();
 		}
@@ -1288,11 +1351,14 @@ namespace sg
 			present_queue = command_queue;
 			swap_chain_buffer_count = buffer_count;
 
-			surface = vk::raii::SurfaceKHR(instance, vk::Win32SurfaceCreateInfoKHR({}, GetModuleHandle(nullptr), hwnd));
-			seAssert(physical_device.getSurfaceSupportKHR(queue_family, *surface), "Queue family cannot present to this surface");
+			surface = CHECKVK(instance.createWin32SurfaceKHR(vk::Win32SurfaceCreateInfoKHR({}, GetModuleHandle(nullptr), hwnd)));
+			if (!CHECKVK(physical_device.getSurfaceSupportKHR(queue_family, *surface)))
+			{
+				report_fatal_error("getSurfaceSupportKHR: the graphics queue cannot present to this window", vk::Result::eErrorSurfaceLostKHR, __FILE__, __LINE__);
+			}
 
 			// Prefer the requested format, then the formats every Windows driver supports
-			const std::vector<vk::SurfaceFormatKHR> formats = physical_device.getSurfaceFormatsKHR(*surface);
+			const std::vector<vk::SurfaceFormatKHR> formats = CHECKVK(physical_device.getSurfaceFormatsKHR(*surface));
 			const vk::Format requested = translate(format);
 			swap_chain_format = formats[0];
 			for (vk::Format candidate : { requested, vk::Format::eB8G8R8A8Unorm, vk::Format::eR8G8B8A8Unorm })
@@ -1310,8 +1376,8 @@ namespace sg
 
 			acquire_semaphores.clear();
 			present_semaphores.clear();
-			for (u32 i = 0; i < swap_chain_buffer_count + 1; i++) acquire_semaphores.emplace_back(device, vk::SemaphoreCreateInfo());
-			for (u32 i = 0; i < swap_chain_buffer_count; i++) present_semaphores.emplace_back(device, vk::SemaphoreCreateInfo());
+			for (u32 i = 0; i < swap_chain_buffer_count + 1; i++) acquire_semaphores.push_back(CHECKVK(device.createSemaphore(vk::SemaphoreCreateInfo())));
+			for (u32 i = 0; i < swap_chain_buffer_count; i++) present_semaphores.push_back(CHECKVK(device.createSemaphore(vk::SemaphoreCreateInfo())));
 
 			for (u32 i = 0; i < swap_chain_buffer_count; i++)
 			{
@@ -1327,7 +1393,7 @@ namespace sg
 
 		void Device::create_swap_chain_resources(vk::SwapchainKHR old_swap_chain)
 		{
-			const vk::SurfaceCapabilitiesKHR caps = physical_device.getSurfaceCapabilitiesKHR(*surface);
+			const vk::SurfaceCapabilitiesKHR caps = CHECKVK(physical_device.getSurfaceCapabilitiesKHR(*surface));
 			vk::Extent2D extent = swap_chain_extent;
 			if (caps.currentExtent.width != 0xFFFFFFFFu)
 			{
@@ -1343,10 +1409,14 @@ namespace sg
 			const vk::ImageUsageFlags usage = (vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc) & caps.supportedUsageFlags;
 			const vk::SwapchainCreateInfoKHR create_info({}, *surface, image_count, swap_chain_format.format, swap_chain_format.colorSpace, extent, 1, usage,
 				vk::SharingMode::eExclusive, {}, caps.currentTransform, vk::CompositeAlphaFlagBitsKHR::eOpaque, vk::PresentModeKHR::eFifo, VK_TRUE, old_swap_chain);
-			swap_chain = vk::raii::SwapchainKHR(device, create_info);
+			swap_chain = CHECKVK(device.createSwapchainKHR(create_info));
 
-			const std::vector<vk::Image> images = swap_chain.getImages();
-			seAssert(images.size() == swap_chain_buffer_count, "Swap chain created %u images, %u requested", static_cast<u32>(images.size()), swap_chain_buffer_count);
+			// The application owns one render target view per requested buffer, so the image count must match exactly
+			const std::vector<vk::Image> images = CHECKVK(swap_chain.getImages());
+			if (images.size() != swap_chain_buffer_count)
+			{
+				report_fatal_error("createSwapchainKHR: the surface needs a different number of images than the application requested", vk::Result::eErrorInitializationFailed, __FILE__, __LINE__);
+			}
 
 			if (swap_chain_textures.empty())
 			{
@@ -1359,38 +1429,37 @@ namespace sg
 			swap_chain_image_initialised.assign(swap_chain_buffer_count, false);
 			for (u32 i = 0; i < swap_chain_buffer_count; i++)
 			{
-				swap_chain_textures[i]->set_external_image(images[std::min<size_t>(i, images.size() - 1)], true);
+				swap_chain_textures[i]->set_external_image(images[i], true);
 			}
 		}
 
 		bool Device::surface_has_area()
 		{
-			const vk::SurfaceCapabilitiesKHR caps = physical_device.getSurfaceCapabilitiesKHR(*surface);
+			const vk::SurfaceCapabilitiesKHR caps = CHECKVK(physical_device.getSurfaceCapabilitiesKHR(*surface));
 			return caps.currentExtent.width != 0 && caps.currentExtent.height != 0;
 		}
 
 		bool Device::acquire_next_image()
 		{
 			const vk::Semaphore acquire_semaphore = *acquire_semaphores[acquire_semaphore_index];
-			u32 image_index = 0;
-			VkResult result = device.getDispatcher()->vkAcquireNextImageKHR(static_cast<VkDevice>(*device), static_cast<VkSwapchainKHR>(*swap_chain), UINT64_MAX,
-				static_cast<VkSemaphore>(acquire_semaphore), VK_NULL_HANDLE, &image_index);
-			if (result == VK_ERROR_OUT_OF_DATE_KHR)
+			vk::ResultValue<u32> acquired = swap_chain.acquireNextImage(UINT64_MAX, acquire_semaphore);
+			if (acquired.result == vk::Result::eErrorOutOfDateKHR)
 			{
 				if (!surface_has_area())
 				{
-					return false;
+					return false; // Minimised: keep rendering offscreen until the window has an area again
 				}
 				recreate_swap_chain();
-				result = device.getDispatcher()->vkAcquireNextImageKHR(static_cast<VkDevice>(*device), static_cast<VkSwapchainKHR>(*swap_chain), UINT64_MAX,
-					static_cast<VkSemaphore>(acquire_semaphore), VK_NULL_HANDLE, &image_index);
+				acquired = swap_chain.acquireNextImage(UINT64_MAX, acquire_semaphore);
 			}
-			if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+			// A suboptimal swap chain still provides an image; it is recreated after the next present
+			if (acquired.result != vk::Result::eSuboptimalKHR)
 			{
-				return false;
+				CHECKVK(acquired.result);
 			}
 			acquire_semaphore_index = (acquire_semaphore_index + 1) % static_cast<u32>(acquire_semaphores.size());
 
+			const u32 image_index = acquired.value;
 			present_queue->submit_semaphores(acquire_semaphore, VK_NULL_HANDLE);
 			if (!swap_chain_image_initialised[image_index])
 			{
@@ -1404,7 +1473,7 @@ namespace sg
 		void Device::recreate_swap_chain()
 		{
 			seWriteLine("Vulkan: recreating swap chain");
-			device.waitIdle();
+			CHECKVK(device.waitIdle());
 			// Old images are about to be destroyed; drop any first-use transitions still queued for them
 			for (const SharedPtr<Texture>& texture : swap_chain_textures)
 			{
@@ -1417,7 +1486,7 @@ namespace sg
 		void Device::enter_minimised_mode()
 		{
 			// Keep rendering into an offscreen image so the application loop is unchanged; nothing is presented
-			device.waitIdle();
+			CHECKVK(device.waitIdle());
 			if (!minimised_back_buffer)
 			{
 				const ResourceCreateDesc& swap_desc = swap_chain_textures[0]->resource_create_desc;
@@ -1455,16 +1524,10 @@ namespace sg
 			const vk::Semaphore present_semaphore = *present_semaphores[swap_chain_current_index];
 			command_queue->submit_semaphores(VK_NULL_HANDLE, present_semaphore);
 
-			const VkSemaphore wait_semaphore = static_cast<VkSemaphore>(present_semaphore);
-			const VkSwapchainKHR vk_swap_chain = static_cast<VkSwapchainKHR>(*swap_chain);
-			VkPresentInfoKHR present_info = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
-			present_info.waitSemaphoreCount = 1;
-			present_info.pWaitSemaphores = &wait_semaphore;
-			present_info.swapchainCount = 1;
-			present_info.pSwapchains = &vk_swap_chain;
-			present_info.pImageIndices = &swap_chain_current_index;
-			const VkResult result = device.getDispatcher()->vkQueuePresentKHR(static_cast<VkQueue>(command_queue->get()), &present_info);
-			if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+			const vk::SwapchainKHR present_swap_chain_handle = *swap_chain;
+			const vk::PresentInfoKHR present_info(present_semaphore, present_swap_chain_handle, swap_chain_current_index);
+			const vk::Result result = queue.presentKHR(present_info);
+			if (result == vk::Result::eErrorOutOfDateKHR || result == vk::Result::eSuboptimalKHR)
 			{
 				if (!surface_has_area())
 				{
@@ -1475,7 +1538,7 @@ namespace sg
 			}
 			else
 			{
-				seAssert(result == VK_SUCCESS, "vkQueuePresentKHR failed (%i)", static_cast<int>(result));
+				CHECKVK(result);
 			}
 
 			if (!acquire_next_image())

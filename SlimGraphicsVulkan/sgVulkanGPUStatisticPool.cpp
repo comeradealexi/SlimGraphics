@@ -23,18 +23,20 @@ namespace sg
 			// Segments per application query (switches between vertex and mesh work within one query)
 			constexpr u32 kSegmentsPerQuery = 16;
 
-			bool get_results(const vk::raii::QueryPool& pool, u32 count, u32 counters, std::vector<u64>& out)
+			// The CPU has already waited for the frame. eNotReady (an unwritten query) is tolerated: those counters read 0.
+			void get_results(const vk::raii::QueryPool& pool, u32 count, u32 counters, std::vector<u64>& out)
 			{
 				out.assign(static_cast<size_t>(count) * counters, 0);
 				if (count == 0)
 				{
-					return true;
+					return;
 				}
 				const size_t stride = sizeof(u64) * counters;
-				const VkResult result = pool.getDispatcher()->vkGetQueryPoolResults(static_cast<VkDevice>(pool.getDevice()), static_cast<VkQueryPool>(*pool), 0, count,
-					count * stride, out.data(), stride, VK_QUERY_RESULT_64_BIT);
-				seAssert(result == VK_SUCCESS || result == VK_NOT_READY, "vkGetQueryPoolResults failed (%i)", static_cast<int>(result));
-				return result == VK_SUCCESS;
+				const vk::Result result = pool.getResults(0, count, count * stride, out.data(), stride, vk::QueryResultFlagBits::e64);
+				if (result != vk::Result::eNotReady)
+				{
+					CHECKVK(result);
+				}
 			}
 		}
 
@@ -43,11 +45,11 @@ namespace sg
 		{
 			results.resize(max_count);
 			segments.reserve(max_segments);
-			classic_pool = vk::raii::QueryPool(device, vk::QueryPoolCreateInfo({}, vk::QueryType::ePipelineStatistics, max_segments, kClassicStatistics));
+			classic_pool = CHECKVK(device.createQueryPool(vk::QueryPoolCreateInfo({}, vk::QueryType::ePipelineStatistics, max_segments, kClassicStatistics)));
 			classic_pool.reset(0, max_segments);
 			if (mesh_shader_queries)
 			{
-				mesh_pool = vk::raii::QueryPool(device, vk::QueryPoolCreateInfo({}, vk::QueryType::ePipelineStatistics, max_segments, kMeshStatistics));
+				mesh_pool = CHECKVK(device.createQueryPool(vk::QueryPoolCreateInfo({}, vk::QueryType::ePipelineStatistics, max_segments, kMeshStatistics)));
 				mesh_pool.reset(0, max_segments);
 			}
 		}

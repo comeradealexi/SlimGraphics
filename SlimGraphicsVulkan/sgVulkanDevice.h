@@ -116,6 +116,7 @@ namespace sg
 		public:
 			const vk::raii::Device& get_device() const { return device; }
 			const vk::raii::Queue& get_queue() const { return queue; }
+			u32 get_queue_family() const { return queue_family; }
 			VmaAllocator get_allocator() const { return allocator; }
 			vk::PipelineStageFlags2 get_shader_stages() const { return shader_stages; }
 			bool supports_geometry_shaders() const { return geometry_shaders_supported; }
@@ -152,7 +153,7 @@ namespace sg
 			vk::SamplerCreateInfo make_sampler_create_info(const sg::SamplerDesc& desc) const;
 			// Creates (linked when more than one) shader objects for the given stages, in pipeline order
 			void create_shader_objects(Pipeline& pipeline, std::initializer_list<const Shader*> shaders, bool mesh_without_task);
-			void set_graphics_state(Pipeline& pipeline, const Rasterizer::Desc& rasterizer, const DepthStencil::Desc& depth_stencil, const Blend::Desc& blend, u32 render_target_count);
+			void set_graphics_state(Pipeline& pipeline, PrimitiveTopology topology, const Rasterizer::Desc& rasterizer, const DepthStencil::Desc& depth_stencil, const Blend::Desc& blend, u32 render_target_count);
 
 			// Swap chain
 			void create_swap_chain_resources(vk::SwapchainKHR old_swap_chain);
@@ -192,8 +193,8 @@ namespace sg
 			u32 descriptor_slot_size = 0;
 			std::mutex descriptor_region_mutex;
 			std::vector<u32> free_descriptor_regions;
-			std::vector<VkDescriptorSetAndBindingMappingEXT> descriptor_mappings; // Shared by every shader
-			VkShaderDescriptorSetAndBindingMappingInfoEXT descriptor_mapping_info = {};
+			std::vector<vk::DescriptorSetAndBindingMappingEXT> descriptor_mappings; // Shared by every shader
+			vk::ShaderDescriptorSetAndBindingMappingInfoEXT descriptor_mapping_info;
 			SharedPtr<Buffer> null_buffer;
 			SharedPtr<Texture> null_texture;
 			std::vector<uint8_t> null_sampled_image_descriptor;

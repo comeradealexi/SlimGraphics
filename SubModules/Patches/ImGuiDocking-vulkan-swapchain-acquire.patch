@@ -1,8 +1,28 @@
 diff --git a/backends/imgui_impl_vulkan.cpp b/backends/imgui_impl_vulkan.cpp
-index ddf41476c..d5686e597 100644
+index ddf41476c..887c87983 100644
 --- a/backends/imgui_impl_vulkan.cpp
 +++ b/backends/imgui_impl_vulkan.cpp
-@@ -1755,82 +1755,9 @@ void ImGui_ImplVulkanH_CreateOrResizeWindow(VkInstance instance, VkPhysicalDevic
+@@ -805,14 +805,17 @@ void ImGui_ImplVulkan_UpdateTexture(ImTextureData* tex)
+         // Upload to Buffer:
+         {
+             char* map = nullptr;
+-            err = vkMapMemory(v->Device, upload_buffer_memory, 0, upload_size, 0, (void**)(&map));
++            // SlimGraphics local patch: map and flush the whole allocation. Its size is rounded up from upload_size, and a
++            // flushed range must end on a nonCoherentAtomSize multiple or at the end of the allocation
++            // (VUID-VkMappedMemoryRange-size-01389/01390).
++            err = vkMapMemory(v->Device, upload_buffer_memory, 0, VK_WHOLE_SIZE, 0, (void**)(&map));
+             check_vk_result(err);
+             for (int y = 0; y < upload_h; y++)
+                 memcpy(map + upload_pitch * y, tex->GetPixelsAt(upload_x, upload_y + y), (size_t)upload_pitch);
+             VkMappedMemoryRange range[1] = {};
+             range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+             range[0].memory = upload_buffer_memory;
+-            range[0].size = upload_size;
++            range[0].size = VK_WHOLE_SIZE;
+             err = vkFlushMappedMemoryRanges(v->Device, 1, range);
+             check_vk_result(err);
+             vkUnmapMemory(v->Device, upload_buffer_memory);
+@@ -1755,82 +1758,9 @@ void ImGui_ImplVulkanH_CreateOrResizeWindow(VkInstance instance, VkPhysicalDevic
      ImGui_ImplVulkanH_CreateWindowSwapChain(physical_device, device, wd, allocator, width, height, min_image_count);
      //ImGui_ImplVulkan_CreatePipeline(device, allocator, VK_NULL_HANDLE, wd->RenderPass, VK_SAMPLE_COUNT_1_BIT, &wd->Pipeline, g_VulkanInitInfo.Subpass);
      ImGui_ImplVulkanH_CreateWindowCommandBuffers(physical_device, device, wd, queue_family, allocator);
@@ -88,7 +108,7 @@ index ddf41476c..d5686e597 100644
  }
  
  void ImGui_ImplVulkanH_DestroyWindow(VkInstance instance, VkDevice device, ImGui_ImplVulkanH_Window* wd, const VkAllocationCallbacks* allocator)
-@@ -2020,7 +1947,7 @@ static void ImGui_ImplVulkan_RenderWindow(ImGuiViewport* viewport, void*)
+@@ -2020,7 +1950,7 @@ static void ImGui_ImplVulkan_RenderWindow(ImGuiViewport* viewport, void*)
              VkImageMemoryBarrier barrier = {};
              barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
              barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;

@@ -38,7 +38,7 @@ namespace sg
 		{
 			friend class Device;
 		public:
-			CommandList(Device& device, u32 queue_family);
+			explicit CommandList(Device& device);
 			~CommandList();
 			CommandList(const CommandList&) = delete;
 			CommandList& operator=(const CommandList&) = delete;
@@ -93,14 +93,14 @@ namespace sg
 			{
 				bool active = false;
 				u32 render_target_count = 0;
-				SharedPtr<RenderTargetView> render_targets[8];
+				SharedPtr<RenderTargetView> render_targets[GraphicsState::MAX_RENDER_TARGETS];
 				SharedPtr<DepthStencilView> depth_stencil;
 				vk::Rect2D render_area;
 				vk::Viewport viewport;
 				vk::Rect2D scissor;
 				// Clears requested before rendering began are folded into the attachment load ops
-				bool clear_colour[8] = {};
-				vk::ClearColorValue clear_colour_value[8];
+				bool clear_colour[GraphicsState::MAX_RENDER_TARGETS] = {};
+				vk::ClearColorValue clear_colour_value[GraphicsState::MAX_RENDER_TARGETS];
 				bool clear_depth = false;
 				bool clear_stencil = false;
 				vk::ClearDepthStencilValue clear_depth_stencil_value;
@@ -109,10 +109,15 @@ namespace sg
 			void suspend_rendering();
 			// Records all pending transitions (and optionally the pending UAV memory barrier) in one barrier batch
 			void flush_barriers(bool include_uav_barrier);
+			// Everything a draw (mesh = mesh shader draw) / dispatch needs recorded first: barriers, rendering, shader state
+			void prepare_draw(bool mesh);
+			void prepare_dispatch();
+			// Copies and clears may not be recorded inside a render pass instance: ends rendering and records pending barriers
+			void prepare_transfer();
 			// Brings shader, dynamic state, descriptor heap and push data state up to date before a draw / dispatch
 			void flush_shader_state();
 			void bind_shaders();
-			void set_graphics_state();
+			void set_graphics_state(const GraphicsState& state);
 			void set_vertex_input();
 			void write_descriptor_tables();
 			void set_viewport_scissor();
@@ -152,6 +157,9 @@ namespace sg
 			bool vertex_input_dirty = true;
 			bool push_data_dirty = true;
 			bool viewport_dirty = true;
+			// Fixed function state last set on the command buffer (valid until third party code binds a pipeline)
+			GraphicsState current_graphics_state;
+			bool graphics_state_valid = false;
 			// Binding and pipeline the current descriptor tables were written for
 			u64 tables_binding_version = ~0ull;
 			const Pipeline* tables_pipeline = nullptr;
@@ -166,6 +174,9 @@ namespace sg
 			bool rendering = false;
 			PassState pass;
 			std::vector<PendingTransition> pending_transitions;
+			// Reused by flush_barriers to avoid allocating per barrier batch
+			std::vector<vk::BufferMemoryBarrier2> buffer_barriers;
+			std::vector<vk::ImageMemoryBarrier2> image_barriers;
 
 			struct ActiveStatistics
 			{

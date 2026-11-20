@@ -7,15 +7,13 @@ namespace sg
 {
 	namespace Vulkan
 	{
+		// Submits to the device's single graphics + compute + present queue.
 		class CommandQueue
 		{
 		public:
-			CommandQueue(Device& device, vk::Queue queue, u32 queue_family);
+			explicit CommandQueue(Device& device);
 			CommandQueue(const CommandQueue&) = delete;
 			CommandQueue& operator=(const CommandQueue&) = delete;
-
-			vk::Queue get() const { return queue; }
-			u32 get_family_index() const { return queue_family; }
 
 			void submit_command_list(CommandList* command_list);
 
@@ -38,8 +36,6 @@ namespace sg
 			vk::CommandBuffer record_pending_initialisation();
 
 			Device& device;
-			vk::Queue queue;
-			const u32 queue_family;
 
 			// Internal timeline used to know when initialisation command buffers can be reused
 			vk::raii::Semaphore internal_timeline = nullptr;
@@ -51,6 +47,7 @@ namespace sg
 				u64 completion_value = 0;
 			};
 			std::deque<InitialisationCommandBuffer> initialisation_command_buffers;
+			std::vector<vk::ImageMemoryBarrier2> initialisation_barriers; // Reused to avoid per submission allocations
 		};
 	}
 }

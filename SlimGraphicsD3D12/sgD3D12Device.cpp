@@ -161,19 +161,29 @@ namespace sg
                     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
                     {
                         debugController->EnableDebugLayer();
+                        seWriteLine("D3D12 debug layer: enabled");
 
                         // Enable additional debug layers.
                         dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
 
-                        #if 0//true
-						    ComPtr<ID3D12Debug1> debugController1;
-						    if (SUCCEEDED(debugController->QueryInterface(IID_PPV_ARGS(&debugController1))))
-						    {
-                                debugController1->SetEnableGPUBasedValidation(true);
-						    }
-                        #endif
+                        // Set SG_D3D12_GPU_VALIDATION=1 for GPU-based validation (much slower; validates descriptors,
+                        // resource states and out of bounds accesses as shaders execute)
+                        char* gpu_validation_env = nullptr;
+                        size_t gpu_validation_env_length = 0;
+                        const bool gpu_validation = _dupenv_s(&gpu_validation_env, &gpu_validation_env_length, "SG_D3D12_GPU_VALIDATION") == 0 &&
+                            gpu_validation_env != nullptr && gpu_validation_env[0] == '1';
+                        free(gpu_validation_env);
+                        ComPtr<ID3D12Debug1> debugController1;
+                        if (gpu_validation && SUCCEEDED(debugController.As(&debugController1)))
+                        {
+                            debugController1->SetEnableGPUBasedValidation(TRUE);
+                            seWriteLine("D3D12 GPU-based validation: enabled");
+                        }
                     }
-
+                    else
+                    {
+                        seWriteLine("D3D12 debug layer: NOT AVAILABLE (install the Windows \"Graphics Tools\" optional feature)");
+                    }
                 }
             #endif
 

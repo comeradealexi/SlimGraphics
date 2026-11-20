@@ -1,6 +1,7 @@
 #pragma once
 #include <sgTypes.h>
 #include "sgVulkanInclude.h"
+#include <array>
 #include <vector>
 
 namespace sg
@@ -38,8 +39,35 @@ namespace sg
 		static_assert(offsetof(PushData, srv_table_slot) == PushData::SRV_TABLE_OFFSET && offsetof(PushData, uav_table_slot) == PushData::UAV_TABLE_OFFSET, "Push data layout mismatch");
 		static_assert(sizeof(PushData) % 4 == 0, "Push data size must be a multiple of 4");
 
-		// A set of (linked) shader objects plus the fixed function state they are drawn with. All of it is dynamic state with
-		// VK_EXT_shader_object; CommandList::set_pipeline binds the shaders and sets the state.
+		// Fixed function state of a graphics pipeline, all of it dynamic state with shader objects. Every colour attachment slot
+		// is filled in (slots past the pipeline's render targets: blending off, all channels written) so it can be set as is.
+		// CommandList skips setting it when consecutive pipelines share the same state.
+		struct GraphicsState
+		{
+			static constexpr u32 MAX_RENDER_TARGETS = 8;
+
+			vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList;
+			vk::PolygonMode polygon_mode = vk::PolygonMode::eFill;
+			vk::CullModeFlags cull_mode = vk::CullModeFlagBits::eBack;
+			vk::FrontFace front_face = vk::FrontFace::eClockwise;
+			vk::Bool32 depth_test = VK_TRUE;
+			vk::Bool32 depth_write = VK_TRUE;
+			vk::CompareOp depth_compare = vk::CompareOp::eLessOrEqual;
+			vk::Bool32 stencil_test = VK_FALSE;
+			vk::StencilOpState stencil_front;
+			vk::StencilOpState stencil_back;
+			vk::Bool32 alpha_to_coverage = VK_FALSE;
+			vk::Bool32 logic_op_enable = VK_FALSE;
+			vk::LogicOp logic_op = vk::LogicOp::eNoOp;
+			std::array<vk::Bool32, MAX_RENDER_TARGETS> blend_enables = {};
+			std::array<vk::ColorBlendEquationEXT, MAX_RENDER_TARGETS> blend_equations = {};
+			std::array<vk::ColorComponentFlags, MAX_RENDER_TARGETS> write_masks = {};
+
+			bool operator==(const GraphicsState&) const = default;
+		};
+
+		// A set of (linked) shader objects plus the fixed function state they are drawn with. CommandList::set_pipeline binds
+		// the shaders and sets the state.
 		class Pipeline
 		{
 			friend class Device;
@@ -51,52 +79,41 @@ namespace sg
 			vk::PipelineBindPoint get_bind_point() const { return bind_point; }
 
 		private:
-			struct DescriptorUse
+			// An SRV or UAV table entry the shaders read (unset entries get a stand-in descriptor of this type)
+			struct TableEntry
 			{
 				u32 binding = 0;
-				vk::DescriptorType type = vk::DescriptorType::eUniformBuffer;
+				vk::DescriptorType type = vk::DescriptorType::eSampledImage;
 			};
 
 			struct VertexAttribute
 			{
 				u32 location = 0;
-				u32 slot = 0;
 				vk::Format format = vk::Format::eUndefined;
 				u32 offset = 0;
 				vk::VertexInputRate rate = vk::VertexInputRate::eVertex;
 			};
 
+			static constexpr u32 MAX_BOUND_STAGES = 5; // Vertex, fragment, geometry, task, mesh
+
 			const BindingDesc binding_desc;
 			const vk::PipelineBindPoint bind_point;
 
-			std::vector<vk::ShaderStageFlagBits> stages;
 			std::vector<vk::raii::ShaderEXT> shaders;
+			// What vkCmdBindShadersEXT is called with: every stage of the bind point the device supports, VK_NULL_HANDLE for
+			// the stages this pipeline does not use
+			std::array<vk::ShaderStageFlagBits, MAX_BOUND_STAGES> bound_stages = {};
+			std::array<vk::ShaderEXT, MAX_BOUND_STAGES> bound_shaders = {};
+			u32 bound_stage_count = 0;
 			bool has_vertex_shader = false;
 
-			// Descriptors the shaders use (to fill unset table entries with valid descriptors)
-			std::vector<DescriptorUse> descriptor_uses;
+			std::vector<TableEntry> table_entries;
 			u32 srv_table_size = 0;
 			u32 uav_table_size = 0;
+			u32 used_cbv_mask = 0; // Bit n set: the shaders read b<n>
 
-			// Graphics state
-			std::vector<VertexAttribute> vertex_attributes;
-			vk::PrimitiveTopology topology = vk::PrimitiveTopology::eTriangleList;
-			vk::PolygonMode polygon_mode = vk::PolygonMode::eFill;
-			vk::CullModeFlags cull_mode = vk::CullModeFlagBits::eBack;
-			vk::FrontFace front_face = vk::FrontFace::eClockwise;
-			bool depth_test = true;
-			bool depth_write = true;
-			vk::CompareOp depth_compare = vk::CompareOp::eLessOrEqual;
-			bool stencil_test = false;
-			vk::StencilOpState stencil_front;
-			vk::StencilOpState stencil_back;
-			bool alpha_to_coverage = false;
-			bool logic_op_enable = false;
-			vk::LogicOp logic_op = vk::LogicOp::eNoOp;
-			u32 render_target_count = 0;
-			std::vector<vk::Bool32> blend_enables;
-			std::vector<vk::ColorBlendEquationEXT> blend_equations;
-			std::vector<vk::ColorComponentFlags> write_masks;
+			std::vector<VertexAttribute> vertex_attributes; // All in vertex buffer slot 0
+			GraphicsState graphics_state;
 		};
 	}
 }

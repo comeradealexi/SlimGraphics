@@ -13,14 +13,13 @@ namespace sg
 		namespace
 		{
 			constexpr u32 kTextureRowPitchAlignment = 256; // Matches UploadHeap::upload_texture_subresource / D3D12_TEXTURE_DATA_PITCH_ALIGNMENT
-			constexpr u32 kMaxColourAttachments = 8;
 		}
 
-		CommandList::CommandList(Device& device_, u32 queue_family) : device(device_), shader_stages(device_.get_shader_stages())
+		CommandList::CommandList(Device& device_) : device(device_), shader_stages(device_.get_shader_stages())
 		{
 			const vk::raii::Device& vk_device = device.get_device();
-			command_pool = vk::raii::CommandPool(vk_device, vk::CommandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eTransient, queue_family));
-			vk::raii::CommandBuffers buffers(vk_device, vk::CommandBufferAllocateInfo(*command_pool, vk::CommandBufferLevel::ePrimary, 1));
+			command_pool = CHECKVK(vk_device.createCommandPool(vk::CommandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eTransient, device.get_queue_family())));
+			std::vector<vk::raii::CommandBuffer> buffers = CHECKVK(vk_device.allocateCommandBuffers(vk::CommandBufferAllocateInfo(*command_pool, vk::CommandBufferLevel::ePrimary, 1)));
 			command_buffer = std::move(buffers[0]);
 			region_first_slot = device.allocate_descriptor_region();
 		}
@@ -34,7 +33,7 @@ namespace sg
 		{
 			// The previous submission of this command list has completed (the caller waited on its fence), so resetting the pool
 			// and releasing the resources it referenced is safe.
-			command_pool.reset();
+			CHECKVK(command_pool.reset());
 			retained_buffers.clear();
 			retained_textures.clear();
 
@@ -46,6 +45,7 @@ namespace sg
 			vertex_input_dirty = true;
 			push_data_dirty = true;
 			viewport_dirty = true;
+			graphics_state_valid = false;
 			tables_binding_version = ~0ull;
 			tables_pipeline = nullptr;
 			push_data = PushData();
@@ -57,7 +57,7 @@ namespace sg
 			pending_transitions.clear();
 			statistics = ActiveStatistics();
 
-			command_buffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+			CHECKVK(command_buffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit)));
 		}
 
 		void CommandList::end_recording()
@@ -71,7 +71,7 @@ namespace sg
 			bind(default_binding, PipelineType::Compute);
 			flush_barriers(true);
 
-			command_buffer.end();
+			CHECKVK(command_buffer.end());
 		}
 
 		void CommandList::set_pipeline(Pipeline* pipeline)
@@ -87,7 +87,7 @@ namespace sg
 
 		void CommandList::bind(Binding& bind, PipelineType)
 		{
-			// Graphics and compute share one set of push data / descriptor tables, written for whichever shaders are bound
+			// Graphics and compute share one set of push data / descriptor tables, written for whichever shaders are bound.
 			// Transition UAVs that are no longer bound back to their read state and newly bound ones to UNORDERED_ACCESS.
 			// Work on unique resources so a resource that stays bound (in another slot or via another mip view) is untouched.
 			struct ResourceRef
@@ -175,24 +175,38 @@ namespace sg
 			command_buffer.bindIndexBuffer(view.buffer_resource->get(), view.offset, view.index_type);
 		}
 
-		void CommandList::draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location)
+		void CommandList::prepare_draw(bool mesh)
 		{
 			ensure_bindings_valid();
-			update_statistics_mode(false);
-			flush_barriers(!rendering);
+			update_statistics_mode(mesh);
+			flush_barriers(!rendering); // Inside rendering, UAV writes are ordered by the draw sequence (as with D3D12 without UAV barriers)
 			ensure_rendering();
 			flush_shader_state();
+		}
+
+		void CommandList::prepare_dispatch()
+		{
+			ensure_bindings_valid();
+			prepare_transfer(); // Dispatches, like copies, run outside render pass instances
+			flush_shader_state();
+		}
+
+		void CommandList::prepare_transfer()
+		{
+			suspend_rendering();
+			flush_barriers(true);
+		}
+
+		void CommandList::draw_instanced(u32 vertex_count_per_instance, u32 instance_count, u32 start_vertex_location, u32 start_instance_location)
+		{
+			prepare_draw(false);
 			command_buffer.draw(vertex_count_per_instance, instance_count, start_vertex_location, start_instance_location);
 			mark_uavs_written();
 		}
 
 		void CommandList::draw_indexed_instanced(u32 index_count_per_instance, u32 instance_count, u32 start_index_location, i32 base_vertex_location, u32 start_instance_location)
 		{
-			ensure_bindings_valid();
-			update_statistics_mode(false);
-			flush_barriers(!rendering);
-			ensure_rendering();
-			flush_shader_state();
+			prepare_draw(false);
 			command_buffer.drawIndexed(index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location);
 			mark_uavs_written();
 		}
@@ -200,7 +214,7 @@ namespace sg
 		void CommandList::start_geometry_pass(u32 render_target_count, SharedPtr<RenderTargetView>* render_targets, const Viewport& viewport, const ScissorRect scissor, SharedPtr<DepthStencilView> depth_stencil)
 		{
 			seAssert(!pass.active, "Geometry passes cannot be nested");
-			seAssert(render_target_count <= 8, "Too many render targets");
+			seAssert(render_target_count <= GraphicsState::MAX_RENDER_TARGETS, "Too many render targets");
 			suspend_rendering();
 
 			pass = PassState();
@@ -265,37 +279,28 @@ namespace sg
 
 		void CommandList::dispatch(u32 x, u32 y, u32 z)
 		{
-			ensure_bindings_valid();
-			suspend_rendering();
-			flush_barriers(true);
-			flush_shader_state();
+			prepare_dispatch();
 			command_buffer.dispatch(x, y, z);
 			mark_uavs_written();
 		}
 
 		void CommandList::dispatch_mesh(u32 x, u32 y, u32 z)
 		{
-			ensure_bindings_valid();
-			update_statistics_mode(true);
-			flush_barriers(!rendering);
-			ensure_rendering();
-			flush_shader_state();
+			prepare_draw(true);
 			command_buffer.drawMeshTasksEXT(x, y, z);
 			mark_uavs_written();
 		}
 
 		void CommandList::execute_indirect(IndirectArguments& indirect_argument)
 		{
-			// Only used for indirect DispatchMesh (see Device::create_indirect_arguments)
-			ensure_bindings_valid();
-			update_statistics_mode(true);
+			// Only used for indirect DispatchMesh (see Device::create_indirect_arguments). The arguments are usually written by
+			// a compute shader, so pending UAV writes are always made visible (unlike other draws inside a pass).
 			Buffer* buffer = indirect_argument.indirect_buffer.get();
 			retain(indirect_argument.indirect_buffer);
 			const ResourceState state = get_current_state(buffer);
 			transition(buffer, state, ResourceState::IndirectArgument);
 			flush_barriers(true);
-			ensure_rendering();
-			flush_shader_state();
+			prepare_draw(true);
 			command_buffer.drawMeshTasksIndirectEXT(buffer->get(), 0, 1, sizeof(VkDrawMeshTasksIndirectCommandEXT));
 			transition(buffer, ResourceState::IndirectArgument, state);
 			mark_uavs_written();
@@ -319,8 +324,7 @@ namespace sg
 
 			const ResourceState state = get_current_state(buffer);
 			transition(buffer, state, ResourceState::CopyDest);
-			suspend_rendering();
-			flush_barriers(true);
+			prepare_transfer();
 
 			// Same range as the D3D12 raw R32 clear view: the UAV's elements, in whole 32-bit words
 			const u64 view_size = uav.get_size_bytes() & ~3ull;
@@ -347,8 +351,7 @@ namespace sg
 			const ResourceState state_source = get_current_state(source);
 			transition(dest, state_dest, ResourceState::CopyDest);
 			transition(source, state_source, ResourceState::CopySource);
-			suspend_rendering();
-			flush_barriers(true);
+			prepare_transfer();
 
 			command_buffer.copyBuffer(source->get(), dest->get(), vk::BufferCopy(source_offset, dest_offset, size));
 
@@ -362,8 +365,7 @@ namespace sg
 			const ResourceState state_source = get_current_state(&source);
 			transition(&dest, state_dest, ResourceState::CopyDest);
 			transition(&source, state_source, ResourceState::CopySource);
-			suspend_rendering();
-			flush_barriers(true);
+			prepare_transfer();
 
 			if (dest.get_vk_format() == source.get_vk_format())
 			{
@@ -414,8 +416,7 @@ namespace sg
 
 			const ResourceState state_dest = get_current_state(dest);
 			transition(dest, state_dest, ResourceState::CopyDest);
-			suspend_rendering();
-			flush_barriers(true);
+			prepare_transfer();
 
 			const vk::BufferImageCopy2 region(source_offset, (row_pitch / info.block_bytes) * info.block_width, blocks_high * info.block_height,
 				vk::ImageSubresourceLayers(dest->get_aspect(), mip, layer, 1), {}, extent);
@@ -438,8 +439,7 @@ namespace sg
 			const ResourceState state_source = get_current_state(source);
 			transition(dest, state_dest, ResourceState::CopyDest);
 			transition(source, state_source, ResourceState::CopySource);
-			suspend_rendering();
-			flush_barriers(true);
+			prepare_transfer();
 
 			const vk::BufferImageCopy2 region(0, (row_pitch / info.block_bytes) * info.block_width, blocks_high * info.block_height,
 				vk::ImageSubresourceLayers(source->get_aspect(), 0, 0, 1), {}, extent);
@@ -478,8 +478,7 @@ namespace sg
 			retain(rtv->texture_resource);
 			const ResourceState state = get_current_state(texture);
 			transition(texture, state, ResourceState::CopyDest);
-			suspend_rendering();
-			flush_barriers(true);
+			prepare_transfer();
 			command_buffer.clearColorImage(texture->get(), vk::ImageLayout::eTransferDstOptimal, clear_value, texture->get_full_range());
 			transition(texture, ResourceState::CopyDest, state);
 		}
@@ -516,8 +515,7 @@ namespace sg
 			retain(dsv->texture_resource);
 			const ResourceState state = get_current_state(texture);
 			transition(texture, state, ResourceState::CopyDest);
-			suspend_rendering();
-			flush_barriers(true);
+			prepare_transfer();
 			vk::ImageSubresourceRange range = texture->get_full_range();
 			range.aspectMask = vk::ImageAspectFlags();
 			if (clear_depth) range.aspectMask |= vk::ImageAspectFlagBits::eDepth;
@@ -579,7 +577,7 @@ namespace sg
 			}
 			flush_barriers(true);
 
-			std::array<vk::RenderingAttachmentInfo, 8> colour_attachments;
+			std::array<vk::RenderingAttachmentInfo, GraphicsState::MAX_RENDER_TARGETS> colour_attachments;
 			for (u32 i = 0; i < pass.render_target_count; i++)
 			{
 				RenderTargetView& rtv = *pass.render_targets[i];
@@ -623,6 +621,7 @@ namespace sg
 			heaps_dirty = true;
 			push_data_dirty = true;
 			shaders_dirty = active_pipeline != nullptr;
+			graphics_state_valid = false;
 			vertex_input_dirty = true;
 			viewport_dirty = true;
 		}
@@ -645,10 +644,8 @@ namespace sg
 			}
 			suspend_rendering();
 
-			std::vector<vk::BufferMemoryBarrier2> buffer_barriers;
-			std::vector<vk::ImageMemoryBarrier2> image_barriers;
-			buffer_barriers.reserve(pending_transitions.size());
-			image_barriers.reserve(pending_transitions.size());
+			buffer_barriers.clear();
+			image_barriers.clear();
 			for (const PendingTransition& t : pending_transitions)
 			{
 				const StateInfo before = get_state_info(t.before, shader_stages);
@@ -667,7 +664,7 @@ namespace sg
 			pending_transitions.clear();
 
 			// UAV barrier equivalent: make shader storage writes visible to subsequent shader/indirect/transfer work
-			vk::MemoryBarrier2 memory_barrier(shader_stages, vk::AccessFlagBits2::eShaderStorageWrite,
+			const vk::MemoryBarrier2 memory_barrier(shader_stages, vk::AccessFlagBits2::eShaderStorageWrite,
 				shader_stages | vk::PipelineStageFlagBits2::eDrawIndirect | vk::PipelineStageFlagBits2::eTransfer,
 				vk::AccessFlagBits2::eShaderStorageRead | vk::AccessFlagBits2::eShaderStorageWrite | vk::AccessFlagBits2::eIndirectCommandRead | vk::AccessFlagBits2::eTransferRead);
 			if (uav_barrier)
@@ -682,69 +679,46 @@ namespace sg
 		void CommandList::bind_shaders()
 		{
 			const Pipeline& p = *active_pipeline;
-			if (p.get_bind_point() == vk::PipelineBindPoint::eCompute)
+			command_buffer.bindShadersEXT(vk::ArrayProxy<const vk::ShaderStageFlagBits>(p.bound_stage_count, p.bound_stages.data()),
+				vk::ArrayProxy<const vk::ShaderEXT>(p.bound_stage_count, p.bound_shaders.data()));
+			if (p.get_bind_point() == vk::PipelineBindPoint::eGraphics)
 			{
-				const vk::ShaderStageFlagBits stage = vk::ShaderStageFlagBits::eCompute;
-				const vk::ShaderEXT shader = *p.shaders[0];
-				command_buffer.bindShadersEXT(stage, shader);
-			}
-			else
-			{
-				// Every graphics stage the device supports is bound, with VK_NULL_HANDLE for stages the pipeline does not use
-				std::array<vk::ShaderStageFlagBits, 5> stages;
-				std::array<vk::ShaderEXT, 5> shaders;
-				u32 count = 0;
-				auto add_stage = [&](vk::ShaderStageFlagBits stage)
-					{
-						stages[count] = stage;
-						shaders[count] = VK_NULL_HANDLE;
-						for (size_t i = 0; i < p.stages.size(); i++)
-						{
-							if (p.stages[i] == stage) shaders[count] = *p.shaders[i];
-						}
-						count++;
-					};
-				add_stage(vk::ShaderStageFlagBits::eVertex);
-				add_stage(vk::ShaderStageFlagBits::eFragment);
-				if (device.supports_geometry_shaders()) add_stage(vk::ShaderStageFlagBits::eGeometry);
-				if (device.SupportsMeshShaders())
+				if (!graphics_state_valid || !(current_graphics_state == p.graphics_state))
 				{
-					add_stage(vk::ShaderStageFlagBits::eTaskEXT);
-					add_stage(vk::ShaderStageFlagBits::eMeshEXT);
+					set_graphics_state(p.graphics_state);
 				}
-				command_buffer.bindShadersEXT(vk::ArrayProxy<const vk::ShaderStageFlagBits>(count, stages.data()), vk::ArrayProxy<const vk::ShaderEXT>(count, shaders.data()));
-				set_graphics_state();
 				vertex_input_dirty = true;
 			}
 			shaders_dirty = false;
 		}
 
-		void CommandList::set_graphics_state()
+		void CommandList::set_graphics_state(const GraphicsState& state)
 		{
-			// With shader objects every piece of fixed function state a draw depends on is dynamic and must be set
-			const Pipeline& p = *active_pipeline;
+			// With shader objects every piece of fixed function state a draw depends on is dynamic and must be set. State the
+			// renderer never changes (no rasterizer discard, primitive restart, depth bias or bounds, single sample, unit line
+			// width) is set here too, as binding a third party pipeline may have overwritten it.
 			command_buffer.setRasterizerDiscardEnable(VK_FALSE);
-			command_buffer.setPrimitiveTopology(p.topology);
+			command_buffer.setPrimitiveTopology(state.topology);
 			command_buffer.setPrimitiveRestartEnable(VK_FALSE);
-			command_buffer.setPolygonModeEXT(p.polygon_mode);
-			command_buffer.setCullMode(p.cull_mode);
-			command_buffer.setFrontFace(p.front_face);
+			command_buffer.setPolygonModeEXT(state.polygon_mode);
+			command_buffer.setCullMode(state.cull_mode);
+			command_buffer.setFrontFace(state.front_face);
 			command_buffer.setLineWidth(1.0f);
 			command_buffer.setDepthBiasEnable(VK_FALSE);
 			command_buffer.setRasterizationSamplesEXT(vk::SampleCountFlagBits::e1);
 			const vk::SampleMask sample_mask = 0xFFFFFFFFu;
 			command_buffer.setSampleMaskEXT(vk::SampleCountFlagBits::e1, sample_mask);
-			command_buffer.setAlphaToCoverageEnableEXT(p.alpha_to_coverage);
+			command_buffer.setAlphaToCoverageEnableEXT(state.alpha_to_coverage);
 
-			command_buffer.setDepthTestEnable(p.depth_test);
-			command_buffer.setDepthWriteEnable(p.depth_write);
-			command_buffer.setDepthCompareOp(p.depth_compare);
+			command_buffer.setDepthTestEnable(state.depth_test);
+			command_buffer.setDepthWriteEnable(state.depth_write);
+			command_buffer.setDepthCompareOp(state.depth_compare);
 			command_buffer.setDepthBoundsTestEnable(VK_FALSE);
-			command_buffer.setStencilTestEnable(p.stencil_test);
-			if (p.stencil_test)
+			command_buffer.setStencilTestEnable(state.stencil_test);
+			if (state.stencil_test)
 			{
-				const vk::StencilOpState& f = p.stencil_front;
-				const vk::StencilOpState& b = p.stencil_back;
+				const vk::StencilOpState& f = state.stencil_front;
+				const vk::StencilOpState& b = state.stencil_back;
 				command_buffer.setStencilOp(vk::StencilFaceFlagBits::eFront, f.failOp, f.passOp, f.depthFailOp, f.compareOp);
 				command_buffer.setStencilOp(vk::StencilFaceFlagBits::eBack, b.failOp, b.passOp, b.depthFailOp, b.compareOp);
 				command_buffer.setStencilCompareMask(vk::StencilFaceFlagBits::eFrontAndBack, f.compareMask);
@@ -754,27 +728,17 @@ namespace sg
 
 			if (device.supports_logic_ops())
 			{
-				command_buffer.setLogicOpEnableEXT(p.logic_op_enable);
-				if (p.logic_op_enable) command_buffer.setLogicOpEXT(p.logic_op);
+				command_buffer.setLogicOpEnableEXT(state.logic_op_enable);
+				if (state.logic_op_enable) command_buffer.setLogicOpEXT(state.logic_op);
 			}
 
-			// Blend state for every possible attachment (beyond the pipeline's render targets: blending off, all channels written)
-			std::array<vk::Bool32, kMaxColourAttachments> blend_enables;
-			std::array<vk::ColorBlendEquationEXT, kMaxColourAttachments> blend_equations;
-			std::array<vk::ColorComponentFlags, kMaxColourAttachments> write_masks;
-			const vk::ColorBlendEquationEXT no_blend(vk::BlendFactor::eOne, vk::BlendFactor::eZero, vk::BlendOp::eAdd, vk::BlendFactor::eOne, vk::BlendFactor::eZero, vk::BlendOp::eAdd);
-			const vk::ColorComponentFlags all_channels = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
-			for (u32 i = 0; i < kMaxColourAttachments; i++)
-			{
-				const bool used = i < p.render_target_count;
-				blend_enables[i] = used ? p.blend_enables[i] : VK_FALSE;
-				blend_equations[i] = used ? p.blend_equations[i] : no_blend;
-				write_masks[i] = used ? p.write_masks[i] : all_channels;
-			}
-			command_buffer.setColorBlendEnableEXT(0, blend_enables);
-			command_buffer.setColorBlendEquationEXT(0, blend_equations);
-			command_buffer.setColorWriteMaskEXT(0, write_masks);
+			command_buffer.setColorBlendEnableEXT(0, state.blend_enables);
+			command_buffer.setColorBlendEquationEXT(0, state.blend_equations);
+			command_buffer.setColorWriteMaskEXT(0, state.write_masks);
 			command_buffer.setBlendConstants({ 1.0f, 1.0f, 1.0f, 1.0f }); // D3D12's default blend factor
+
+			current_graphics_state = state;
+			graphics_state_valid = true;
 		}
 
 		void CommandList::set_vertex_input()
@@ -786,9 +750,7 @@ namespace sg
 			vk::VertexInputBindingDescription2EXT binding(0, static_cast<u32>(vertex_buffer_stride), vk::VertexInputRate::eVertex, 1);
 			for (const Pipeline::VertexAttribute& a : p.vertex_attributes)
 			{
-				seAssert(a.slot == 0, "Only vertex buffer slot 0 is supported");
-				seAssert(attribute_count == 0 || binding.inputRate == a.rate, "Mixed per vertex / per instance elements in one vertex buffer");
-				binding.inputRate = a.rate;
+				binding.inputRate = a.rate; // Device::create_pipeline checks all elements share one rate
 				attributes[attribute_count++] = vk::VertexInputAttributeDescription2EXT(a.location, 0, a.format, a.offset);
 			}
 			command_buffer.setVertexInputEXT(vk::ArrayProxy<const vk::VertexInputBindingDescription2EXT>(attribute_count > 0 ? 1u : 0u, &binding),
@@ -834,16 +796,11 @@ namespace sg
 			std::array<void*, BindingShift::END> buffer_destinations;
 			u32 buffer_count = 0;
 
-			for (const Pipeline::DescriptorUse& use : p.descriptor_uses)
+			for (const Pipeline::TableEntry& entry : p.table_entries)
 			{
-				const bool is_srv = use.binding >= BindingShift::SRV && use.binding < BindingShift::SAMPLER;
-				const bool is_uav = use.binding >= BindingShift::UAV;
-				if (!is_srv && !is_uav)
-				{
-					continue; // CBVs are push addresses, samplers are global
-				}
-				const u32 index = use.binding - (is_srv ? BindingShift::SRV : BindingShift::UAV);
-				const u32 slot = is_srv ? push_data.srv_table_slot + index : push_data.uav_table_slot + index;
+				const bool is_srv = entry.binding < BindingShift::UAV;
+				const u32 index = entry.binding - (is_srv ? BindingShift::SRV : BindingShift::UAV);
+				const u32 slot = (is_srv ? push_data.srv_table_slot : push_data.uav_table_slot) + index;
 				uint8_t* destination = heap + static_cast<size_t>(slot) * slot_size;
 
 				Texture* texture = nullptr;
@@ -873,19 +830,9 @@ namespace sg
 					range = uav.get_size_bytes();
 				}
 
-				switch (use.type)
+				if (entry.type == vk::DescriptorType::eStorageBuffer)
 				{
-				case vk::DescriptorType::eSampledImage:
-				case vk::DescriptorType::eStorageImage:
-				{
-					seAssert(texture || !buffer, "Shader binding %u expects a texture but a buffer is bound", use.binding);
-					const uint8_t* source = texture ? texture->get_descriptor(view_key, use.type) : device.get_null_descriptor(use.type);
-					seAssert(source != nullptr, "No resource bound for shader binding %u", use.binding);
-					if (source) memcpy(destination, source, slot_size);
-					break;
-				}
-				case vk::DescriptorType::eStorageBuffer:
-					seAssert(buffer || !texture, "Shader binding %u expects a buffer but a texture is bound", use.binding);
+					seAssert(buffer || !texture, "Shader binding %u expects a buffer but a texture is bound", entry.binding);
 					if (buffer)
 					{
 						buffer_types[buffer_count] = vk::DescriptorType::eStorageBuffer;
@@ -898,10 +845,13 @@ namespace sg
 					{
 						memcpy(destination, device.get_null_descriptor(vk::DescriptorType::eStorageBuffer), slot_size);
 					}
-					break;
-				default:
-					seAssert(false, "Unsupported descriptor type %i for shader binding %u", static_cast<int>(use.type), use.binding);
-					break;
+				}
+				else // Sampled or storage image
+				{
+					seAssert(texture || !buffer, "Shader binding %u expects a texture but a buffer is bound", entry.binding);
+					const uint8_t* source = texture ? texture->get_descriptor(view_key, entry.type) : device.get_null_descriptor(entry.type);
+					seAssert(source != nullptr, "No resource bound for shader binding %u", entry.binding);
+					if (source) memcpy(destination, source, slot_size);
 				}
 			}
 
@@ -917,6 +867,7 @@ namespace sg
 			{
 				return;
 			}
+			const Pipeline& p = *active_pipeline;
 
 			if (heaps_dirty)
 			{
@@ -929,9 +880,9 @@ namespace sg
 			{
 				bind_shaders();
 			}
-			if (active_pipeline->get_bind_point() == vk::PipelineBindPoint::eGraphics)
+			if (p.get_bind_point() == vk::PipelineBindPoint::eGraphics)
 			{
-				if (vertex_input_dirty && active_pipeline->has_vertex_shader)
+				if (vertex_input_dirty && p.has_vertex_shader)
 				{
 					set_vertex_input();
 				}
@@ -950,11 +901,9 @@ namespace sg
 			for (u32 i = 0; i < PushData::MAX_CBVS; i++)
 			{
 				vk::DeviceAddress address = active_binding.cbvs[i].address;
-				if (address == 0)
+				if (address == 0 && (p.used_cbv_mask & (1u << i)))
 				{
-					const bool used = std::any_of(active_pipeline->descriptor_uses.begin(), active_pipeline->descriptor_uses.end(),
-						[i](const Pipeline::DescriptorUse& u) { return u.binding == BindingShift::CBV + i; });
-					address = used ? device.get_null_constant_buffer_address() : 0;
+					address = device.get_null_constant_buffer_address();
 				}
 				if (push_data.cbv_addresses[i] != address)
 				{

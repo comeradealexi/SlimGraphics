@@ -27,7 +27,7 @@ namespace sg
 			seAssert(memory->get_mapped_data() != nullptr, "Memory is not mapped");
 			if (cpu_readable && !memory->is_host_coherent())
 			{
-				vmaInvalidateAllocation(memory->get_allocator(), memory->get_allocation(), 0, VK_WHOLE_SIZE);
+				CHECKVK(vmaInvalidateAllocation(memory->get_allocator(), memory->get_allocation(), 0, VK_WHOLE_SIZE));
 			}
 			return memory->get_mapped_data();
 		}
@@ -37,7 +37,7 @@ namespace sg
 			// Memory stays persistently mapped; just make CPU writes visible on non-coherent memory.
 			if (cpu_writeable && !memory->is_host_coherent())
 			{
-				vmaFlushAllocation(memory->get_allocator(), memory->get_allocation(), 0, VK_WHOLE_SIZE);
+				CHECKVK(vmaFlushAllocation(memory->get_allocator(), memory->get_allocation(), 0, VK_WHOLE_SIZE));
 			}
 		}
 
@@ -50,7 +50,7 @@ namespace sg
 				memcpy(static_cast<uint8_t*>(memory->get_mapped_data()) + offset, memory_src, size);
 				if (!memory->is_host_coherent())
 				{
-					vmaFlushAllocation(memory->get_allocator(), memory->get_allocation(), offset, size);
+					CHECKVK(vmaFlushAllocation(memory->get_allocator(), memory->get_allocation(), offset, size));
 				}
 			}
 		}
@@ -63,7 +63,7 @@ namespace sg
 			{
 				if (!memory->is_host_coherent())
 				{
-					vmaInvalidateAllocation(memory->get_allocator(), memory->get_allocation(), offset, size);
+					CHECKVK(vmaInvalidateAllocation(memory->get_allocator(), memory->get_allocation(), offset, size));
 				}
 				memcpy(memory_dest, static_cast<const uint8_t*>(memory->get_mapped_data()) + offset, size);
 			}

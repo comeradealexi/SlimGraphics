@@ -52,7 +52,7 @@ namespace sg
 			{
 				return *it->second;
 			}
-			auto inserted = views.emplace(key, vk::raii::ImageView(owner.get_device(), make_view_create_info(key)));
+			auto inserted = views.emplace(key, CHECKVK(owner.get_device().createImageView(make_view_create_info(key))));
 			return *inserted.first->second;
 		}
 

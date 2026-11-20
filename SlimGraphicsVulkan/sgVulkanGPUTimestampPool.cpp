@@ -10,7 +10,7 @@ namespace sg
 			: max_timestamps(maximum_timestamps), timestamp_period_ns(period_ns), timestamp_mask(valid_bits >= 64 ? ~0ull : ((1ull << valid_bits) - 1ull))
 		{
 			timestamps_copy.resize(static_cast<size_t>(max_timestamps) * 2);
-			query_pool = vk::raii::QueryPool(device, vk::QueryPoolCreateInfo({}, vk::QueryType::eTimestamp, max_timestamps * 2));
+			query_pool = CHECKVK(device.createQueryPool(vk::QueryPoolCreateInfo({}, vk::QueryType::eTimestamp, max_timestamps * 2)));
 			query_pool.reset(0, max_timestamps * 2); // Queries must be reset before first use (hostQueryReset)
 		}
 
@@ -22,11 +22,13 @@ namespace sg
 			{
 				return;
 			}
-			// The CPU has already waited for the frame, so results are available. VK_NOT_READY is tolerated (values keep their previous contents).
-			const VkResult result = query_pool.getDispatcher()->vkGetQueryPoolResults(static_cast<VkDevice>(query_pool.getDevice()), static_cast<VkQueryPool>(*query_pool), 0, query_count,
-				query_count * sizeof(u64), timestamps_copy.data(), sizeof(u64), VK_QUERY_RESULT_64_BIT);
-			seAssert(result == VK_SUCCESS || result == VK_NOT_READY, "vkGetQueryPoolResults failed (%i)", static_cast<int>(result));
-			(void)result;
+			// The CPU has already waited for the frame, so results are available. eNotReady (a query that was allocated but not
+			// written) is tolerated: those values keep their previous contents.
+			const vk::Result result = query_pool.getResults(0, query_count, query_count * sizeof(u64), timestamps_copy.data(), sizeof(u64), vk::QueryResultFlagBits::e64);
+			if (result != vk::Result::eNotReady)
+			{
+				CHECKVK(result);
+			}
 		}
 
 		void GPUTimestampPool::begin_frame()
