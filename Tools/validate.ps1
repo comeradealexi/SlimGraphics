@@ -67,7 +67,9 @@ $Scenarios = @(
     @{ Name = "mesh_ms";     Args = @("-mesh_mode=1") },
     @{ Name = "mesh_as_ms";  Args = @("-mesh_mode=2") },
     @{ Name = "gdr_heads";   Args = @("-gdr_scene=../SlimGraphicsAssets/GDRAssets/HeadsTest.json") },
-    @{ Name = "gdr_spheres"; Args = @("-gdr_scene=../SlimGraphicsAssets/GDRAssets/SpheresTest.json") }
+    @{ Name = "gdr_spheres"; Args = @("-gdr_scene=../SlimGraphicsAssets/GDRAssets/SpheresTest.json") },
+    # 265 instances of 27 meshes: deep hierarchies, multi part meshes, occluders, off screen and sub pixel instances
+    @{ Name = "gdr_mixed";   Args = @("-gdr_scene=../SlimGraphicsAssets/GDRAssets/MixedAssetsTest.json") }
 )
 
 # Lines that count as validation problems in run logs (see the D3D12 / Vulkan debug message callbacks and se::Dbg::Assert)
