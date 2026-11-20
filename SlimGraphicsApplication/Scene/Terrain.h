@@ -23,6 +23,7 @@ private:
 	sg::SharedPtr<sg::Device> device;
 
 	sg::SharedPtr<sg::Texture> terrain_texture;
+	bool terrain_load_attempted = false; // Only try once so a missing file does not retry (and assert) every frame
 	sg::SharedPtr<sg::TextureView> terrain_texture_view;
 	
 	sg::Ptr<sg::Pipeline> terrain_pipeline;

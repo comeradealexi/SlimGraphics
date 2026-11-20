@@ -13,8 +13,12 @@ inline uint32_t DivRoundUp(uint32_t num, uint32_t den) { return (num + den - 1) 
 
 inline const char* StringPathToFilename(std::string& str)
 {
-	size_t slashpos = str.find_first_of('/');
-	slashpos = str.find_first_of('/', slashpos + 1);
+	// Skip the leading "../SlimGraphicsAssets/" style prefix (std::filesystem paths use either separator).
+	size_t slashpos = str.find_first_of("/\\");
+	if (slashpos != std::string::npos)
+	{
+		slashpos = str.find_first_of("/\\", slashpos + 1);
+	}
 	if (slashpos == std::string::npos) slashpos = 0;
 	else slashpos++;
 	return str.c_str() + slashpos;
@@ -75,13 +79,22 @@ ModelViewer::ModelViewer(SharedPtr<Device>& _device) : render_target_format(DXGI
 
 	const std::vector<const char*> extensions = { ".obj", ".dae", ".fbx", ".gltf" };
 	model_file_list = se::BasicFileIO::find_files_recursive("../SlimGraphicsAssets", extensions);
-	model_init_data.file_path = model_file_list[0];
-	for (size_t i = 0; i < model_file_list.size(); i++)
+	seAssert(!model_file_list.empty(), "No model files found in ../SlimGraphicsAssets");
+	if (model_file_list.empty())
 	{
-		if (model_file_list[i].find("head.OBJ") != std::string::npos)
+		recreate_model = false; // Nothing to load
+	}
+	else
+	{
+		model_init_data.file_path = model_file_list[0];
+		for (size_t i = 0; i < model_file_list.size(); i++)
 		{
-			model_init_data.file_path = model_file_list[i];
-			break;
+			if (model_file_list[i].find("head.OBJ") != std::string::npos)
+			{
+				model_init_data.file_path = model_file_list[i];
+				model_file_list_current = (int)i;
+				break;
+			}
 		}
 	}
 
@@ -131,7 +144,7 @@ bool projectBox(DirectX::XMFLOAT3 bmin, DirectX::XMFLOAT3 bmax, float znear, Dir
 	//if (min(P0.w, P1.w, P2.w, P3.w, P4.w, P5.w, P6.w, P7.w) < znear) return false;
 	for (size_t i = 1; i < 8; i++)
 	{
-		min_w = std::max(min_w, P[i].w);
+		min_w = std::min(min_w, P[i].w);
 	}
 	if (min_w < znear) return false;
 
@@ -193,7 +206,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	{
 		ImGui::Indent();
 		int list_changed = model_file_list_current;
-		if (ImGui::BeginCombo("File", StringPathToFilename(model_file_list[model_file_list_current]), ImGuiComboFlags_HeightLargest))
+		if (!model_file_list.empty() && ImGui::BeginCombo("File", StringPathToFilename(model_file_list[model_file_list_current]), ImGuiComboFlags_HeightLargest))
 		{
 			for (int n = 0; n < model_file_list.size(); n++)
 			{
@@ -280,6 +293,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 			}
 		}
 		ImGui::SeparatorText("Model Info:");
+		if (model)
 		{
 			ImGui::Text("Bounds: %3.3f, %3.3f, %3.3f", model->max_extent.x, model->max_extent.y, model->max_extent.z);
 			ImGui::Text("Bounding Box Min: %3.3f, %3.3f, %3.3f", model->bounding_box_min.x, model->bounding_box_min.y, model->bounding_box_min.z);
@@ -417,10 +431,12 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 				ImGui::Text("Triangle Culling:");
 
 				static const char* BackFaceCullingNames[] = { "Default", "Cull Back", "Cull Front" };
-				ImGui::SliderInt("Backface Culling", &model_data.geometry_shader_culling.x, 0, 2, BackFaceCullingNames[model_data.geometry_shader_culling.x]);
+				model_data.geometry_shader_culling.x = std::clamp(model_data.geometry_shader_culling.x, 0, 2);
+				ImGui::SliderInt("Backface Culling", &model_data.geometry_shader_culling.x, 0, 2, BackFaceCullingNames[model_data.geometry_shader_culling.x], ImGuiSliderFlags_AlwaysClamp);
 
 				static const char* SubPixelCullingNames[] = { "Default", "Cull Small Triangles" };
-				ImGui::SliderInt("Sub Pixel Triangle Culling", &model_data.geometry_shader_culling.y, 0, 1, SubPixelCullingNames[model_data.geometry_shader_culling.y]);
+				model_data.geometry_shader_culling.y = std::clamp(model_data.geometry_shader_culling.y, 0, 1);
+				ImGui::SliderInt("Sub Pixel Triangle Culling", &model_data.geometry_shader_culling.y, 0, 1, SubPixelCullingNames[model_data.geometry_shader_culling.y], ImGuiSliderFlags_AlwaysClamp);
 
 				ImGui::Text("Triangle Scaling:");
 
@@ -561,7 +577,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 	}
 
 	// Model scale
-	if (scale_model_to_1)
+	if (scale_model_to_1 && model)
 	{
 		float position_multiplier = 1.0f / std::max(std::max(model->max_extent.x, model->max_extent.y), model->max_extent.z);
 		model_scale = position_multiplier;
@@ -576,7 +592,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 		recreate_pipeline |= ImGui::Checkbox("Depth Enable", &depth_enable);
 		recreate_pipeline |= ImGui::Checkbox("Depth Write", &depth_write);
 		recreate_pipeline |= ImGui::Combo("Cull Mode", &cull_mode, "Back\0Front\0None\0", 3);
-		recreate_pipeline |= ImGui::Combo("Depth Comparison", &depth_comparison, "None\0Never\0Less\0Equal\0LessEqual\0Greater\0NotEqual\0GreaterEqual\0Always", 9);
+		recreate_pipeline |= ImGui::Combo("Depth Comparison", &depth_comparison, "None\0Never\0Less\0Equal\0LessEqual\0Greater\0NotEqual\0GreaterEqual\0Always\0");
 	}
 
 	if (ImGui::CollapsingHeader("CPU Optimisations"))
@@ -670,7 +686,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 		recreate_model = false;
 	}
 
-	if (model)
+	if (model && model->HasGeometry())
 	{
 		std::vector<Model::MeshPart*> render_list_ordered;
 		render_list_ordered.reserve(model->GetMeshParts().size());
@@ -680,7 +696,7 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			if (!render_model_bool_array[i])
 				continue;
 
-			if (!MeshPartVisible(camera, DirectX::XMFLOAT3(), model->GetMeshParts().at(i), model_scale))
+			if (!MeshPartVisible(camera, model->GetMeshParts().at(i)))
 				continue;
 
 			render_list_ordered.push_back(&(model->GetMeshParts().at(i)));
@@ -724,6 +740,10 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 			for (Model::MeshPart* mesh_part_ptr : render_list_ordered)
 			{
 				Model::MeshPart& mesh_part = *mesh_part_ptr;
+				if (mesh_part.mesh_shader_data.meshlets.empty())
+				{
+					continue; // No triangles in this part, nothing to dispatch (and no meshlet buffers to bind)
+				}
 				Model::Material& mesh_material = model->GetMaterial(mesh_part_ptr->material_index);
 
 				b.set_srv(mesh_material.srv_diffuse, 0);
@@ -878,6 +898,9 @@ void ModelViewer::Render(CommandList& command_list, const Camera& camera, Consta
 
 void ModelViewer::CreatePipeline()
 {
+	// D3D12 does not accept COMPARISON_FUNC_NONE as a depth function, so treat "None" as "Never".
+	const ComparisonFunction depth_function = depth_comparison != (int)ComparisonFunction::None ? (ComparisonFunction)depth_comparison : ComparisonFunction::Never;
+
 	std::string pixel_shader_file;
 	switch (standard_vsps_render_mode)
 	{
@@ -901,7 +924,7 @@ void ModelViewer::CreatePipeline()
 	pipeline_desc.depth_stencil_format = depth_stencil_format;
 	pipeline_desc.depth_stencil_desc.depth_enable = depth_enable;
 	pipeline_desc.depth_stencil_desc.depth_write = depth_write;
-	pipeline_desc.depth_stencil_desc.comparison_function = (ComparisonFunction)depth_comparison;
+	pipeline_desc.depth_stencil_desc.comparison_function = depth_function;
 	pipeline_desc.rasterizer_desc.fill_mode = render_wireframe ? Rasterizer::FillMode::Wireframe : Rasterizer::FillMode::Solid;
 	const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
 	pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
@@ -931,7 +954,7 @@ void ModelViewer::CreatePipeline()
 		mesh_shading.pipeline_desc.depth_stencil_format = depth_stencil_format;
 		mesh_shading.pipeline_desc.depth_stencil_desc.depth_enable = depth_enable;
 		mesh_shading.pipeline_desc.depth_stencil_desc.depth_write = depth_write;
-		mesh_shading.pipeline_desc.depth_stencil_desc.comparison_function = (ComparisonFunction)depth_comparison;
+		mesh_shading.pipeline_desc.depth_stencil_desc.comparison_function = depth_function;
 		mesh_shading.pipeline_desc.rasterizer_desc.fill_mode = render_wireframe ? Rasterizer::FillMode::Wireframe : Rasterizer::FillMode::Solid;
 		const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
 		mesh_shading.pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
@@ -951,7 +974,7 @@ void ModelViewer::CreatePipeline()
 		amplification_mesh_shading.pipeline_desc.depth_stencil_format = depth_stencil_format;
 		amplification_mesh_shading.pipeline_desc.depth_stencil_desc.depth_enable = depth_enable;
 		amplification_mesh_shading.pipeline_desc.depth_stencil_desc.depth_write = depth_write;
-		amplification_mesh_shading.pipeline_desc.depth_stencil_desc.comparison_function = (ComparisonFunction)depth_comparison;
+		amplification_mesh_shading.pipeline_desc.depth_stencil_desc.comparison_function = depth_function;
 		amplification_mesh_shading.pipeline_desc.rasterizer_desc.fill_mode = render_wireframe ? Rasterizer::FillMode::Wireframe : Rasterizer::FillMode::Solid;
 		const Rasterizer::CullMode cull_values[] = { Rasterizer::CullMode::Back, Rasterizer::CullMode::Front, Rasterizer::CullMode::None };
 		amplification_mesh_shading.pipeline_desc.rasterizer_desc.cull_mode = cull_values[cull_mode];
@@ -983,10 +1006,11 @@ void ModelViewer::CreateModel(Ptr<UploadHeap>& upload_heap, const Camera& camera
 	}
 }
 
-bool ModelViewer::MeshPartVisible(const Camera& camera, DirectX::XMFLOAT3 position, Model::MeshPart& mesh_part, float scale)
+bool ModelViewer::MeshPartVisible(const Camera& camera, Model::MeshPart& mesh_part)
 {
-	float radius = std::max<float>(std::max<float>(fabsf(mesh_part.max_extent.x), fabsf(mesh_part.max_extent.y)), fabsf(mesh_part.max_extent.z)) * scale;
-	DirectX::BoundingSphere bs(position, radius);
+	// Use the part's own bounding sphere, moved into world space by the current model matrix (scale + rotation).
+	DirectX::BoundingSphere bs(mesh_part.sphere_centre, mesh_part.sphere_radius);
+	bs.Transform(bs, model_data.model_matrix);
 	bool visible = false;
 
 	if (cpu_culling.cull_all)

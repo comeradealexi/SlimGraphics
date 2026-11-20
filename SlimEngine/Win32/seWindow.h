@@ -23,6 +23,7 @@ namespace se
 
 		HINSTANCE               g_hInst = nullptr;
 		HWND                    g_hWnd = nullptr;
+		bool                    quit_requested = false; // Set once WM_QUIT has been received by Poll()
 
 		std::vector<std::function<void(HWND, UINT, WPARAM, LPARAM)>> window_callbacks;
 	};

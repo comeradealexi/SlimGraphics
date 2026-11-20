@@ -226,6 +226,17 @@ void DebugDraw::DrawGeoSphere(ColourRGBA colour, DirectX::XMFLOAT3 centre, float
 
 void DebugDraw::FinaliseDraw(ColourRGBA colour, DirectX::XMFLOAT3 centre, DirectX::VertexCollection& v, DirectX::IndexCollection& i)
 {
+	// Drop draws that no longer fit in the fixed size GPU/upload buffers rather than writing past them.
+	if (vertices.size() + v.size() > MAX_VERTICES || indices.size() + i.size() > MAX_INDICES)
+	{
+		if (!capacity_warning_shown)
+		{
+			seWriteLine("DebugDraw: buffer capacity reached, further debug draws this frame are skipped");
+			capacity_warning_shown = true;
+		}
+		return;
+	}
+
 	DirectX::XMMATRIX transform = DirectX::XMMatrixTranslation(centre.x, centre.y, centre.z);
 
 	draw_list.push_back({ (sg::u32)i.size(), (sg::u32)indices.size(), (sg::u32)vertices.size() });

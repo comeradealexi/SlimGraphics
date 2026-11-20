@@ -12,6 +12,15 @@ namespace sg
 			cpu_fence = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 		}
 
+		CommandQueue::~CommandQueue()
+		{
+			if (cpu_fence)
+			{
+				CloseHandle(cpu_fence);
+				cpu_fence = nullptr;
+			}
+		}
+
 		void CommandQueue::submit_command_list(CommandList* command_list)
 		{
 			ID3D12CommandList* p_command_list = command_list->get().Get();

@@ -10,6 +10,9 @@ namespace sg
 		{
 		public:
 			CommandQueue(ComPtr<ID3D12CommandQueue>& in_queue);
+			~CommandQueue();
+			CommandQueue(const CommandQueue&) = delete;
+			CommandQueue& operator=(const CommandQueue&) = delete;
 			ComPtr<ID3D12CommandQueue> get() { return queue; }
 
 			void submit_command_list(CommandList* command_list);

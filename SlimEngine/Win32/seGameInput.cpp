@@ -38,8 +38,10 @@ se::GameInput::GameInput()
 	if (FAILED(hr))
 	{
 		seAssert(false, "GameInputCreate failed");
+		game_input = nullptr;
+		return;
 	}
-	hr = game_input->RegisterDeviceCallback(nullptr, GameInputKindKeyboard, GameInputDeviceAnyStatus, GameInputBlockingEnumeration, this, se::GameInputDeviceCallback, nullptr);
+	hr = game_input->RegisterDeviceCallback(nullptr, GameInputKindKeyboard, GameInputDeviceAnyStatus, GameInputBlockingEnumeration, this, se::GameInputDeviceCallback, &device_callback_token);
 	if (FAILED(hr))
 	{
 		seAssert(false, "GameInputCreate failed");
@@ -48,13 +50,42 @@ se::GameInput::GameInput()
 
 se::GameInput::~GameInput()
 {
+	if (game_input)
+	{
+		if (device_callback_token != 0)
+		{
+			// Waits for any in-flight callback to finish so 'this' is not used after destruction.
+			game_input->UnregisterCallback(device_callback_token, UINT64_MAX);
+			device_callback_token = 0;
+		}
+	}
 
+	{
+		std::lock_guard<std::mutex> lock(keyboards_mutex);
+		for (IGameInputDevice* keyboard : keyboards)
+		{
+			keyboard->Release();
+		}
+		keyboards.clear();
+	}
+
+	if (game_input)
+	{
+		game_input->Release();
+		game_input = nullptr;
+	}
 }
 
 void se::GameInput::update()
 {
 	frame_counter++;
 
+	if (!game_input)
+	{
+		return;
+	}
+
+	std::lock_guard<std::mutex> lock(keyboards_mutex);
 	for (IGameInputDevice* keyboard : keyboards)
 	{
 		IGameInputReading* gir = nullptr;
@@ -105,12 +136,16 @@ void se::GameInput::update()
 
 inline void se::GameInput::add_keyboard(IGameInputDevice* kb) 
 { 
-	kb->AddRef(); 
-	keyboards.insert(kb); 
+	std::lock_guard<std::mutex> lock(keyboards_mutex);
+	if (keyboards.insert(kb).second)
+	{
+		kb->AddRef();
+	}
 }
 
 inline void se::GameInput::remove_keyboard(IGameInputDevice* kb) 
 { 
+	std::lock_guard<std::mutex> lock(keyboards_mutex);
 	if (keyboards.erase(kb) != 0) 
 	{ 
 		kb->Release(); 

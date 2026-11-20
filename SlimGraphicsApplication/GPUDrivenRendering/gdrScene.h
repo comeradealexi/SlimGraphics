@@ -4,6 +4,9 @@
 #include <DirectXMath.h>
 #include <DirectXCollision.h>
 #include <unordered_map>
+#include <set>
+#include <map>
+#include <bit>
 #include "sgUploadHeap.h"
 #include "gdrShaderStructures.h"
 #include "LinearConstantBuffer.h"
@@ -45,15 +48,25 @@ namespace gdr
 		if (cpu_data.size() == 0)
 			return;
 
-		const size_t memory_size = cpu_data.size() * sizeof(T);
-		allocated_memory_size = memory_size;
-		sg::SharedPtr<sg::Memory> mem = device->allocate_memory(sg::MemoryType::GPUOptimal, sg::MemorySubType::Buffer, memory_size);
-		buffer = device->create_buffer(mem, memory_size, sg::BufferType::GeneralDataBuffer, true);
+		const sg::u32 memory_size = static_cast<sg::u32>(cpu_data.size() * sizeof(T));
 
-		uav = device->create_unordered_access_view(buffer, sizeof(T), cpu_data.size());
-		srv = device->create_shader_resource_view(buffer, sizeof(T), cpu_data.size());
+		// Only reallocate when the existing buffer is too small. Data that changes every frame (e.g. instance data)
+		// then reuses the same GPU buffer instead of allocating a new one per frame.
+		if (!buffer || allocated_memory_size < memory_size)
+		{
+			allocated_memory_size = memory_size;
+			sg::SharedPtr<sg::Memory> mem = device->allocate_memory(sg::MemoryType::GPUOptimal, sg::MemorySubType::Buffer, memory_size);
+			buffer = device->create_buffer(mem, memory_size, sg::BufferType::GeneralDataBuffer, true);
+
+			uav = device->create_unordered_access_view(buffer, sizeof(T), cpu_data.size());
+			srv = device->create_shader_resource_view(buffer, sizeof(T), cpu_data.size());
+		}
 
 		UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(memory_size, 256);
+		if (upload_offset == UploadHeap::INVALID_OFFSET)
+		{
+			return;
+		}
 		upload_heap->write_upload_memory(upload_offset, cpu_data.data(), memory_size);
 		upload_heap->upload_to_buffer(buffer.get(), 0, upload_offset, memory_size);
 	}
@@ -61,8 +74,9 @@ namespace gdr
 	template <typename T>
 	void gdr::GPUBuffer<T>::create(sg::SharedPtr<sg::Device>& device, sg::u32 element_count, bool power_of_two_elements)
 	{
-		const size_t scaled_element_count = power_of_two_elements ? std::bit_ceil(element_count) : element_count;
-		const size_t memory_size = scaled_element_count * sizeof(T);
+		// Power of two buffers are bitonic sorted in tiles of 32, so never make them smaller than one tile.
+		const size_t scaled_element_count = power_of_two_elements ? std::max<size_t>(std::bit_ceil(std::max<sg::u32>(element_count, 1u)), 32) : std::max<sg::u32>(element_count, 1u);
+		const sg::u32 memory_size = static_cast<sg::u32>(scaled_element_count * sizeof(T));
 		if (allocated_memory_size < memory_size)
 		{
 			allocated_memory_size = memory_size;
@@ -156,7 +170,8 @@ namespace gdr
 		};
 		std::vector<ModelData> models;
 
-		const ModelData& find_model(std::string_view name);
+		// Returns nullptr when the model is not loaded (e.g. it failed to import)
+		const ModelData* find_model(std::string_view name);
 		void create_and_upload_to_gpu(sg::SharedPtr<sg::Device>& device, sg::Ptr<sg::UploadHeap>& upload_heap);
 	};
 
@@ -184,10 +199,10 @@ namespace gdr
 		void imgui();
 		void update(Ptr<UploadHeap>& upload_heap);
 		void render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw, sg::ShaderResourceView depth_view);
-		void load_model(std::string path, ShaderStructs::ModelData& gpu_model_data);
+		bool load_model(std::string path, ShaderStructs::ModelData& gpu_model_data);
 		void load_gpu_data(SceneGraphTraverser& scene_graph, Ptr<UploadHeap>& upload_heap);
 
-		void generate_hzb(sg::CommandList& command_list, sg::ShaderResourceView depth_view);
+		void generate_hzb(sg::CommandList& command_list, sg::ShaderResourceView depth_view, SimpleLinearConstantBuffer& cbuffer);
 
 		sg::SharedPtr<sg::Texture> get_hzb_texture() const { return gpu_hzb.get_texture(); }
 
@@ -201,6 +216,8 @@ namespace gdr
 		HZB gpu_hzb;
 
 		ModelBuffers model_buffers;
+		// Model paths that failed to import; skipped so a bad path does not trigger a reload every frame.
+		std::set<std::string> failed_model_paths;
 		struct PerInstanceRenderInfo
 		{
 			sg::u32 instance_offset;

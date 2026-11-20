@@ -69,6 +69,8 @@ namespace sg
 		private:
 			void flush_bound_uavs();
 			void ensure_bindings_valid();
+			D3D12_RESOURCE_STATES get_current_state(Buffer* buffer);
+			void transition(Buffer* buffer, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
 
 			ComPtr<ID3D12GraphicsCommandList6> command_list;
 			ComPtr<ID3D12CommandAllocator> command_allocator;

@@ -7,9 +7,9 @@
 // Data type: KeyValue (uint key + uint value). Modify comparator for float keys.
 
 static const float FLT_MAX = 3.402823466e+38f;
-static const float FLT_MIN = 1.175494351e-38;
 #if GDR_SORT_DESCENDING
-#define GDR_INVALID_KEY FLT_MIN
+// Must sort after every real key. Keys are >= 0, so use the most negative float (FLT_MIN is the smallest *positive* float).
+#define GDR_INVALID_KEY (-FLT_MAX)
 #else
 #define GDR_INVALID_KEY FLT_MAX
 #endif

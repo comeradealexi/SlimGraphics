@@ -69,7 +69,7 @@ cbuffer DebugConstantBufferData : register(b2)
     DebugData debug;
 };
 
-cbuffer DebugConstantBufferData : register(b3)
+cbuffer CullingCameraConstantBufferData : register(b3)
 {
     CameraData culling_camera;
 };
@@ -125,10 +125,19 @@ bool CullAllInstances()
 #endif
 }
 
+// Largest axis scale of a model matrix = longest basis row. (The diagonal terms are wrong once the matrix contains rotation.)
+float GetMaxScale(row_major float4x4 m)
+{
+    return sqrt(max(max(dot(m[0].xyz, m[0].xyz), dot(m[1].xyz, m[1].xyz)), dot(m[2].xyz, m[2].xyz)));
+}
+
+// DispatchMesh is limited to 65535 groups per dimension, so large meshlet counts are spread over X and Y.
+#define GDR_MAX_DISPATCH_X 65535u
+
 float CalculateSortKey(MeshletData meshlet, InstanceData instance)
 {
     float4 sphere_data = mul(float4(meshlet.spherepos_xyz_radius_w.xyz, 1.0), instance.model_matrix);
-    float model_matrix_highest_scale = max(max(instance.model_matrix[0][0], instance.model_matrix[1][1]), instance.model_matrix[2][2]);
+    float model_matrix_highest_scale = GetMaxScale(instance.model_matrix);
     sphere_data.w = meshlet.spherepos_xyz_radius_w.w * model_matrix_highest_scale;
     
     float3 camera_to_sphere_centre = GetCullingCameraData().camera_position.xyz - sphere_data.xyz;
@@ -143,9 +152,9 @@ float CalculateSortKey(MeshletData meshlet, InstanceData instance)
 bool IsMeshletSphereInFrustum(MeshletData meshlet, InstanceData instance)
 {
     float4 sphere_data = mul(float4(meshlet.spherepos_xyz_radius_w.xyz, 1.0), instance.model_matrix);
-    float model_matrix_highest_scale = max(max(instance.model_matrix[0][0], instance.model_matrix[1][1]), instance.model_matrix[2][2]);
+    float model_matrix_highest_scale = GetMaxScale(instance.model_matrix);
     sphere_data.w = meshlet.spherepos_xyz_radius_w.w * model_matrix_highest_scale;
-    
+
     CameraData camera_data = GetCullingCameraData();
     float4 center = float4(sphere_data.xyz, 1.0);
     float radius = sphere_data.w;
@@ -229,10 +238,13 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
 [numthreads(1, 1, 1)]
 void build_indirect_arguments(uint3 dtid : SV_DispatchThreadID)
 {
-    // Align to 32 for indirect dispatch size...
-    IndirectArgumentBuffer[0].x = AtomicCounter[0].x;
-    IndirectArgumentBuffer[0].y = 1;
-    IndirectArgumentBuffer[0].y = 1;
+    // One mesh shader group per visible meshlet, split over X/Y to respect the 65535 per-dimension limit.
+    // ms_main reconstructs the linear index as gid.y * GDR_MAX_DISPATCH_X + gid.x.
+    uint count = AtomicCounter[0].x;
+    uint x = min(count, GDR_MAX_DISPATCH_X);
+    uint y = (count + GDR_MAX_DISPATCH_X - 1) / GDR_MAX_DISPATCH_X; // 0 when nothing is visible
+    IndirectArgumentBuffer[0].x = x;
+    IndirectArgumentBuffer[0].y = y;
     IndirectArgumentBuffer[0].z = 1;
 
 }
@@ -255,7 +267,8 @@ struct PSInput
 [OutputTopology("triangle")]
 void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, uint3 dtid : SV_DispatchThreadID, out indices uint3 tris[124], out vertices PSInput verts[64])
 {   
-    bool valid_thread = gid.x < AtomicCounter[0];
+    uint meshlet_list_index = gid.y * GDR_MAX_DISPATCH_X + gid.x;
+    bool valid_thread = meshlet_list_index < AtomicCounter[0].x;
     uint out_vertex_count = 0;
     uint out_triangle_count = 0;
     
@@ -266,7 +279,7 @@ void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, uint3 dtid :
     
     if (valid_thread)
     {
-        instance_stage_output = PerInstanceDataOutput[gid.x];
+        instance_stage_output = PerInstanceDataOutput[meshlet_list_index];
         meshlet = Meshlets[instance_stage_output.meshlet_index];
         instance = Instances[instance_stage_output.instance_index];
         // model = Models[instance.model_index];

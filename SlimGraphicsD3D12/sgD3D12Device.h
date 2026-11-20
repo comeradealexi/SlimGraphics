@@ -46,7 +46,13 @@ namespace sg
 		class Device
 		{
 		public:
-			static constexpr u64 DESCRIPTOR_COUNT = 4080; // D3D12 Limit
+			// Size of the CPU/shader-visible CBV/SRV/UAV, RTV and DSV heaps (well within D3D12 limits).
+			static constexpr u64 DESCRIPTOR_COUNT = 4080;
+			// Shader visible sampler heaps are limited to D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE (2048) on most hardware.
+			// Per command list linear (reset each recording) shader visible CBV/SRV/UAV heap. Every bind() consumes new
+			// descriptors, so this needs room for a whole frame of draws/dispatches (Tier 1 allows up to 1,000,000).
+			static constexpr u64 COMMAND_LIST_DESCRIPTOR_COUNT = 65536;
+			static constexpr u64 SAMPLER_DESCRIPTOR_COUNT = D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE;
 
 		public:
 			Device();

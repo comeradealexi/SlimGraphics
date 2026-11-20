@@ -30,8 +30,9 @@ void Terrain::Update(float delta_time, float total_time, const Camera& camera, D
 
 void Terrain::Render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw)
 {
-	if (terrain_texture == nullptr)
+	if (terrain_texture == nullptr && !terrain_load_attempted)
 	{
+		terrain_load_attempted = true;
 		LoadHeightmapTexture(upload_heap);
 	}
 }
@@ -50,18 +51,14 @@ void Terrain::LoadHeightmapTexture(sg::Ptr<sg::UploadHeap>& upload_heap)
 		rcd.height = h;
 		rcd.format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		sg::SizeAndAlignment size_align = device->calculate_resource_size_alignment(rcd);
-		const sg::u64 res_size = device->CalculateResourceSize(w, h, 1, 0, rcd.format);
-		seAssert(res_size == bitmap_data.size(), "expecting sizes to match");
 		SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, size_align.size, size_align.alignment);
 		terrain_texture = device->create_texture(mem, size_align.size, rcd);
 		//sg::SharedPtr<sg::Buffer> terrain_buffer = device->create_buffer(mem, size_align.size, sg::BufferType::Texture, false);
 
 		//device->set_imgui_viewer_texture(terrain_texture);
 
-		UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(size_align.size, size_align.alignment);
-		upload_heap->write_upload_memory(upload_offset, bitmap_data.data(), bitmap_data.size());
-
-		upload_heap->upload_to_texture(terrain_texture.get(), upload_offset, bitmap_data.size());
+		// Writes rows at the pitch the GPU copy expects (row size aligned to 256 bytes).
+		upload_heap->upload_texture_subresource(terrain_texture.get(), 0, bitmap_data.data(), w * 4, h);
 		//upload_heap->upload_to_buffer(terrain_buffer.get(), 0, upload_offset, bitmap_data.size());
 	}
 }

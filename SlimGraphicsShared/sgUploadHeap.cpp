@@ -89,6 +89,41 @@ void UploadHeap::upload_to_texture(sg::Texture* dest_texture, sg::u32 texture_mi
 	data.command_list->copy_buffer_to_texture(size, dest_texture, data.buffer.get(), upload_heap_offset, texture_mip_index);
 }
 
+void UploadHeap::upload_texture_subresource(sg::Texture* dest_texture, sg::u32 subresource_index, const void* data, sg::u32 tight_row_pitch, sg::u32 row_count)
+{
+	static constexpr u32 kTextureRowPitchAlignment = 256;	// D3D12_TEXTURE_DATA_PITCH_ALIGNMENT
+	static constexpr u32 kTexturePlacementAlignment = 512;	// D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT
+
+	seAssert(dest_texture && data, "expected valid texture and data");
+	seAssert(tight_row_pitch > 0 && row_count > 0, "expected non-empty texture data");
+
+	const u32 aligned_row_pitch = AlignUp(tight_row_pitch, kTextureRowPitchAlignment);
+	const u32 total_size = aligned_row_pitch * row_count;
+
+	const Offset offset = allocate_upload_memory(total_size, kTexturePlacementAlignment);
+	if (offset == INVALID_OFFSET)
+	{
+		return;
+	}
+
+	PerFrameData& frame = frame_data();
+	char* dest = static_cast<char*>(frame.mapped_gpu_memory) + offset;
+	const char* src = static_cast<const char*>(data);
+	if (aligned_row_pitch == tight_row_pitch)
+	{
+		memcpy(dest, src, total_size);
+	}
+	else
+	{
+		for (u32 row = 0; row < row_count; row++)
+		{
+			memcpy(dest + (size_t)row * aligned_row_pitch, src + (size_t)row * tight_row_pitch, tight_row_pitch);
+		}
+	}
+
+	frame.command_list->copy_buffer_to_texture(total_size, dest_texture, frame.buffer.get(), offset, subresource_index);
+}
+
 void UploadHeap::end_frame()
 {
 	PerFrameData& data = frame_data();

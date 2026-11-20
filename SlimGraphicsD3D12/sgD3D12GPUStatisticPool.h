@@ -29,7 +29,7 @@ namespace sg
 			const u32 max_count;
 			ComPtr<ID3D12QueryHeap> query_heap = nullptr;
 			ComPtr<ID3D12Resource> readback_buffer = nullptr;
-			std::atomic_uint32_t current_index;
+			std::atomic_uint32_t current_index = 0;
 			std::vector<D3D12_QUERY_DATA_PIPELINE_STATISTICS> stats_copy;
 		};
 	}

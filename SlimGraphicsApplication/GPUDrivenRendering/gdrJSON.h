@@ -38,4 +38,7 @@ namespace gdr
 
 	bool serialise(const SceneNode& node, const char* file_path);
 	bool deserialise(SceneNode& node, const char* file_path);
+
+	// Recursively sets each child's parent pointer (needed after loading or copying a subtree).
+	void set_parent_pointers(SceneNode& node, SceneNode* parent);
 }

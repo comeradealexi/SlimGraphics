@@ -14,7 +14,11 @@ namespace se
 			{
 				return m_data;
 			}
-			auto uiFileSize = is.tellg();
+			const std::streamoff uiFileSize = is.tellg();
+			if (uiFileSize <= 0)
+			{
+				return m_data;
+			}
 			is.seekg(0);
 			m_data.resize(uiFileSize);
 			is.read((char*)m_data.data(), uiFileSize);
@@ -24,13 +28,15 @@ namespace se
 
 	bool BasicFileIO::write_file(const char* data, size_t data_size, const char* file_path)
 	{
-		std::ofstream os(file_path, std::ofstream::ate);
+		// Binary mode so data is written byte-for-byte (no CRLF translation); out|trunc replaces any existing file.
+		std::ofstream os(file_path, std::ios::binary | std::ios::out | std::ios::trunc);
 		if (os.good() == false)
 		{
 			return false;
 		}
 		os.write(data, data_size);
 		os.close();
+		return os.good();
 	}
 
 	void find_files_recursive_internal(std::filesystem::directory_iterator directory, std::vector<std::string>& return_paths, const std::vector<const char*>& extensions)
@@ -50,7 +56,7 @@ namespace se
 							if (strcmpi(file_extension.c_str(), extension) == 0)
 							{
 								return_paths.push_back(entry.path().string());
-								continue;
+								break; // Matched; don't add the same file again for another extension
 							}
 						}
 					}

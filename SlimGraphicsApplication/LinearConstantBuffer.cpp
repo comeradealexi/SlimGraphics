@@ -28,7 +28,7 @@ void SimpleLinearConstantBuffer::EndFrame()
 sg::ConstantBufferView SimpleLinearConstantBuffer::Allocate(sg::u32 size)
 {
 	size = sg::AlignUp(size, (sg::u32)sg::DefaultAlignment::CONSTANT_BUFFER_ALIGNMENT);
-	if (current_offset + size >= max_size)
+	if (current_offset + size > max_size)
 	{
 		seAssert(false, "Linear constant buffer cannot allocate anymore.");
 		return {};
@@ -40,8 +40,13 @@ sg::ConstantBufferView SimpleLinearConstantBuffer::Allocate(sg::u32 size)
 
 sg::ConstantBufferView SimpleLinearConstantBuffer::AllocateAndWrite(const void* mem, sg::u32 size)
 {
-	sg::u32 write_offet = current_offset;
+	const sg::u32 write_offet = current_offset;
+	const sg::u32 offset_before = current_offset;
 	sg::ConstantBufferView cbv = Allocate(size);
+	if (current_offset == offset_before)
+	{
+		return cbv; // Allocation failed; do not write outside this buffer's region of the upload heap
+	}
 	current_upload_heap->write_upload_memory(current_upload_heap_start_offset + write_offet, mem, size);
 	return cbv;
 }

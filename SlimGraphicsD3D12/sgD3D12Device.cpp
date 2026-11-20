@@ -179,10 +179,16 @@ namespace sg
 
             ComPtr<IDXGIAdapter1> hardware_adapter;
             GetHardwareAdapter(factory.Get(), &hardware_adapter, true, feature_level);
-			
+            seAssert(hardware_adapter != nullptr, "No D3D12 capable hardware adapter found");
+            if (hardware_adapter == nullptr)
+            {
+                MessageBoxA(nullptr, "No Direct3D 12 capable hardware adapter was found.", "Slim Graphics", MB_OK | MB_ICONERROR);
+                ExitProcess(1);
+            }
+
             //DXGI Info
             {
-				hardware_adapter->QueryInterface(IID_PPV_ARGS(&hardware_adapter_4));
+				CHECKHR(hardware_adapter->QueryInterface(IID_PPV_ARGS(&hardware_adapter_4)));
 
                 adapter_description = {};
 				CHECKHR(hardware_adapter_4->GetDesc3(&adapter_description));
@@ -203,8 +209,8 @@ namespace sg
 
 #if defined(_DEBUG)
 			{
+                // Requires Windows Developer Mode; failure is not fatal, so only log it.
                 HRESULT hr_power_state = device6->SetStablePowerState(true);
-                CHECKHR(hr_power_state);
 				seWriteLine("D3D12 SetStablePowerState: %s", hr_power_state == S_OK ? "ENABLED" : "FAILED");
 			}
 #endif
@@ -276,7 +282,9 @@ namespace sg
             init_info.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo* info, D3D12_CPU_DESCRIPTOR_HANDLE cpu_desc_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_desc_handle)
                 {
 					Device* device = (Device*)info->UserData;
-                    seAssert(false, "TODO");
+					DescriptorHeap& heap = *device->cbv_srv_uav_descriptor_heap_imgui;
+					const SIZE_T offset_bytes = cpu_desc_handle.ptr - heap.get_cpu_handle_heap_start().ptr;
+					heap.free(static_cast<u32>(offset_bytes / heap.get_increment_size()));
                 };
 
             // Custom ImGui Texture
@@ -585,7 +593,7 @@ namespace sg
             {
                 ComPtr<ID3D12DescriptorHeap> heap;
                 D3D12_DESCRIPTOR_HEAP_DESC cbvSrvHeapDesc = {};
-                cbvSrvHeapDesc.NumDescriptors = DESCRIPTOR_COUNT;
+                cbvSrvHeapDesc.NumDescriptors = COMMAND_LIST_DESCRIPTOR_COUNT;
                 cbvSrvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
                 cbvSrvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
                 CHECKHR(device->CreateDescriptorHeap(&cbvSrvHeapDesc, IID_PPV_ARGS(&heap)));
@@ -815,7 +823,13 @@ namespace sg
             ResourceCreateDesc resource_create_desc;
             se::g_ddsAllocatorOverrideFunction = [&](const D3D12_RESOURCE_DESC& resource_desc, ID3D12Resource** texture) -> HRESULT
                 {
-                    resource_create_desc.width = resource_desc.Width;
+                    switch (resource_desc.Dimension)
+                    {
+                    case D3D12_RESOURCE_DIMENSION_TEXTURE1D: resource_create_desc.dimension = ResourceDimension::Texture1D; break;
+                    case D3D12_RESOURCE_DIMENSION_TEXTURE3D: resource_create_desc.dimension = ResourceDimension::Texture3D; break;
+                    default: resource_create_desc.dimension = ResourceDimension::Texture2D; break;
+                    }
+                    resource_create_desc.width = (u32)resource_desc.Width;
                     resource_create_desc.height = resource_desc.Height;
                     resource_create_desc.depth = resource_desc.DepthOrArraySize;
                     resource_create_desc.mip_count = resource_desc.MipLevels;
@@ -830,47 +844,33 @@ namespace sg
                     return S_OK;
                 };
             std::vector<D3D12_SUBRESOURCE_DATA> sub_resource_data;
-            CHECKHR(DirectX::LoadDDSTextureFromMemory(device.Get(), (const std::byte*) dds_memory, dds_size, d3d12_texture.GetAddressOf(), sub_resource_data));
+            HRESULT hr_dds = DirectX::LoadDDSTextureFromMemory(device.Get(), (const std::byte*) dds_memory, dds_size, d3d12_texture.GetAddressOf(), sub_resource_data);
             se::g_ddsAllocatorOverrideFunction = nullptr;
+            CHECKHR(hr_dds);
+            if (FAILED(hr_dds) || !memory)
+            {
+                return nullptr;
+            }
 
 			SharedPtr<Texture> texture(new Texture(mem_size, false, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback, resource_create_desc));
             texture->memory = memory;
             texture->resource = d3d12_texture;
 
-            // Upload to GPU
-            u32 mip_index = 0;
-            for (const D3D12_SUBRESOURCE_DATA& mip : sub_resource_data)
-            {           
-                const void* mip_data = mip.pData;
-                u64 mip_size = mip.SlicePitch;
-                if ((mip.RowPitch % D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT) != 0)
+            // Upload to GPU. Subresources are ordered array slice major, then mip.
+            const u32 mip_count = std::max<u32>(1u, resource_create_desc.mip_count);
+            u32 subresource_index = 0;
+            for (const D3D12_SUBRESOURCE_DATA& sub_resource : sub_resource_data)
+            {
+                // 3D textures store 'depth' slices per subresource, each SlicePitch bytes apart.
+                u32 slice_count = 1;
+                if (resource_create_desc.dimension == ResourceDimension::Texture3D)
                 {
-                    // Row pitch must be D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, if not we must modify the data
-                    const u64 height = mip.SlicePitch / mip.RowPitch;
-                    u64 new_pitch = sg::AlignUp((u64)mip.RowPitch, (u64)D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
-                    u64 new_size = height * new_pitch;
-                    char* new_data = (char*)malloc(new_size);
-                    char* new_data_iter = new_data;
-                    const char* mip_data_iter = (const char*)mip.pData;
-                    for (size_t y = 0; y < height; y++)
-                    {
-                        memcpy(new_data_iter, mip_data_iter, mip.RowPitch);
-                        new_data_iter += new_pitch;
-                        mip_data_iter += mip.RowPitch;
-                    }
-                    mip_data = new_data;
-                    mip_size = new_size;
+                    const u32 mip_level = subresource_index % mip_count;
+                    slice_count = std::max<u32>(1u, resource_create_desc.depth >> mip_level);
                 }
-                UploadHeap::Offset offset = upload_heap.allocate_upload_memory(mip_size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
-                upload_heap.write_upload_memory(offset, mip_data, mip_size);
-                upload_heap.upload_to_texture(texture.get(), mip_index, offset, mip_size);
-
-                if (mip_data != mip.pData)
-                {
-                    free((void*)mip_data);
-                }
-
-                mip_index++;
+                const u32 rows_per_slice = (u32)(sub_resource.SlicePitch / sub_resource.RowPitch);
+                upload_heap.upload_texture_subresource(texture.get(), subresource_index, sub_resource.pData, (u32)sub_resource.RowPitch, rows_per_slice * slice_count);
+                subresource_index++;
             }
 
 			return texture;
@@ -914,8 +914,11 @@ namespace sg
             D3D12_RENDER_TARGET_VIEW_DESC* rtv_desc_ptr = format == DXGI_FORMAT_UNKNOWN ? (D3D12_RENDER_TARGET_VIEW_DESC*)nullptr : &rtv_desc;
             if (rtv_desc_ptr)
             {
+                seAssert(texture->resource_create_desc.dimension == ResourceDimension::Texture2D, "Only Texture2D RTV format overrides supported");
                 rtv_desc_ptr->Format = format;
-                seAssert(false, "Code path not texted and rtv_desc not filled out fully");
+                rtv_desc_ptr->ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
+                rtv_desc_ptr->Texture2D.MipSlice = 0;
+                rtv_desc_ptr->Texture2D.PlaneSlice = 0;
             }
 
 			device->CreateRenderTargetView(texture->resource.Get(), rtv_desc_ptr, rtv->rtv_handle);
@@ -924,7 +927,9 @@ namespace sg
 
 		void Device::free_render_target_view(RenderTargetView* rtv)
 		{
+            // The view destructor also frees its index, so invalidate it to avoid a double free.
             rtv_descriptor_heap->free(rtv->heap_index);
+            rtv->heap_index = DescriptorHeap::INVALID_HEAP_INDEX;
 		}
 
 		SharedPtr<DepthStencilView> Device::create_depth_stencil_view(SharedPtr<Texture>& texture, DXGI_FORMAT format /*= DXGI_FORMAT_UNKNOWN*/)
@@ -941,8 +946,11 @@ namespace sg
             D3D12_DEPTH_STENCIL_VIEW_DESC* dsv_desc_ptr = format == DXGI_FORMAT_UNKNOWN ? (D3D12_DEPTH_STENCIL_VIEW_DESC*)nullptr : &dsv_desc;
 			if (dsv_desc_ptr)
 			{
+                seAssert(texture->resource_create_desc.dimension == ResourceDimension::Texture2D, "Only Texture2D DSV format overrides supported");
                 dsv_desc_ptr->Format = format;
-				seAssert(false, "Code path not teted and rtv_desc not filled out fully");
+                dsv_desc_ptr->ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+                dsv_desc_ptr->Flags = D3D12_DSV_FLAG_NONE;
+                dsv_desc_ptr->Texture2D.MipSlice = 0;
 			}
 
 			device->CreateDepthStencilView(texture->resource.Get(), dsv_desc_ptr, dsv->dsv_handle);
@@ -952,7 +960,9 @@ namespace sg
 
 		void Device::free_depth_stencil_view(DepthStencilView* dsv)
 		{
-			rtv_descriptor_heap->free(dsv->heap_index);
+			// The view destructor also frees its index, so invalidate it to avoid a double free.
+			dsv_descriptor_heap->free(dsv->heap_index);
+			dsv->heap_index = DescriptorHeap::INVALID_HEAP_INDEX;
 		}
 
 		sg::ConstantBufferView Device::create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size)
@@ -991,7 +1001,9 @@ namespace sg
 				desc_uint.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 				desc_uint.Format = DXGI_FORMAT_R32_TYPELESS;
 				desc_uint.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-				desc_uint.Buffer.NumElements = (UINT)element_count / 4;
+				desc_uint.Buffer.FirstElement = 0;
+				desc_uint.Buffer.NumElements = (UINT)((element_count * element_size) / 4); // DXGI_FORMAT_R32_TYPELESS is 4 bytes
+				desc_uint.Buffer.StructureByteStride = 0;
 				desc_uint.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
 			}
 
@@ -1013,10 +1025,28 @@ namespace sg
             {
                 srv.desc.Format = DXGI_FORMAT_R32_FLOAT;
             }
-            srv.desc.ViewDimension = translate_srv(texture->resource_create_desc.dimension);
             srv.desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-            srv.desc.Texture2D.MostDetailedMip = top_mip;
-            srv.desc.Texture2D.MipLevels = mip_count; // texture->resource_create_desc.mip_count;
+            const ResourceCreateDesc& rcd = texture->resource_create_desc;
+            switch (rcd.dimension)
+            {
+            case ResourceDimension::Texture1D:
+                srv.desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
+                srv.desc.Texture1D.MostDetailedMip = top_mip;
+                srv.desc.Texture1D.MipLevels = mip_count;
+                break;
+            case ResourceDimension::Texture3D:
+                srv.desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
+                srv.desc.Texture3D.MostDetailedMip = top_mip;
+                srv.desc.Texture3D.MipLevels = mip_count;
+                break;
+            case ResourceDimension::Texture2D:
+            default:
+                // Shaders declare these as Texture2D, so array/cube resources are viewed as their first slice.
+                srv.desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                srv.desc.Texture2D.MostDetailedMip = top_mip;
+                srv.desc.Texture2D.MipLevels = mip_count;
+                break;
+            }
             return srv;
 		}
 
@@ -1315,7 +1345,7 @@ namespace sg
             {
                 ComPtr<ID3D12DescriptorHeap> heap;
                 D3D12_DESCRIPTOR_HEAP_DESC splrDesc = {};
-                splrDesc.NumDescriptors = DESCRIPTOR_COUNT;
+                splrDesc.NumDescriptors = SAMPLER_DESCRIPTOR_COUNT;
                 splrDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
                 splrDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
                 CHECKHR(device->CreateDescriptorHeap(&splrDesc, IID_PPV_ARGS(&heap)));

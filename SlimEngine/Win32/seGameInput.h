@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <unordered_map>
 #include <set>
+#include <mutex>
 class IGameInput;
 class IGameInputDevice;
 
@@ -28,6 +29,9 @@ namespace se
 		std::unordered_map<uint16_t, KeyStatus> active_keys;
 		uint32_t frame_counter = 0;
 		IGameInput* game_input = nullptr;
+		uint64_t device_callback_token = 0;
+		// Device callbacks arrive on a GameInput worker thread, so access to the keyboard set is guarded.
+		std::mutex keyboards_mutex;
 		std::set<IGameInputDevice*> keyboards;
 	};
 }

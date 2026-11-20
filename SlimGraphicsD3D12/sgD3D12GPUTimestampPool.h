@@ -29,7 +29,7 @@ namespace sg
 			double gpu_tick_delta = 0.0;
 			ComPtr<ID3D12QueryHeap> query_heap = nullptr;
 			ComPtr<ID3D12Resource> readback_buffer = nullptr;
-			std::atomic_uint32_t current_index;
+			std::atomic_uint32_t current_index = 0;
 			std::vector<u64> timestamps_copy;
 		};
 	}

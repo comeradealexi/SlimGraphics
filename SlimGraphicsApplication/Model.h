@@ -176,6 +176,7 @@ public:
 
 	void SetPipeline(sg::Ptr<sg::Pipeline> new_pipeline);
 	void Render(sg::CommandList* command_list, sg::ConstantBufferView& cbv_camera, sg::ConstantBufferView& cbv_model);
+	bool HasGeometry() const { return vb != nullptr && ib != nullptr; }
 	sg::VertexBufferView& GetVertexBufferView() { return vbv; }
 	sg::ShaderResourceView& GetVertexBufferSRV() { return vb_srv; }
 	sg::IndexBufferView& GetIndexBufferView() { return ibv; }

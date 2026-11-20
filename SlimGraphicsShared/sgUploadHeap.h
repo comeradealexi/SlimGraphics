@@ -18,10 +18,16 @@ namespace sg
 		void upload_to_texture(sg::Texture* dest_texture, Offset upload_heap_offset, sg::u32 size);
 		void upload_to_texture(sg::Texture* dest_texture, sg::u32 texture_mip_index, Offset upload_heap_offset, sg::u32 size);
 
+		// Copies tightly packed texture rows into upload memory using the row pitch the GPU copy expects
+		// (row size aligned to 256 bytes) and records the copy into the given subresource.
+		// tight_row_pitch: bytes per row (or per block row for compressed formats). row_count: total rows (block rows * depth slices).
+		void upload_texture_subresource(sg::Texture* dest_texture, sg::u32 subresource_index, const void* data, sg::u32 tight_row_pitch, sg::u32 row_count);
+
 		void end_frame();
 
 	private:
-		sg::u32 counter = 0;
+		// Starts at 1: fences are created with a completed value of 0, so signalling 0 would make the first wait a no-op.
+		sg::u32 counter = 1;
 		struct PerFrameData
 		{
 			void* mapped_gpu_memory = nullptr;

@@ -1,6 +1,7 @@
 #include "Camera.h"
 #include <imgui.h>
 #include <implot.h>
+#include <algorithm>
 
 using namespace DirectX;
 
@@ -11,6 +12,11 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 		shader_data.screen_dimensions_and_depth_info = XMFLOAT4A(width, height, min_depth_plane, max_depth_plane);
 
 		const XMVECTOR Up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+		// camera_rot_x tilts the view from straight up (0) to straight down (pi). Keep it away from both poles,
+		// where the look direction becomes parallel to Up and XMMatrixLookAtLH produces NaNs.
+		const float pitch_epsilon = 0.001f;
+		camera_rot_x = std::clamp(camera_rot_x, pitch_epsilon, XM_PI - pitch_epsilon);
 
 		direction = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 		direction = XMVector3Transform(direction, XMMatrixRotationRollPitchYaw(0.0f, camera_rot_y, camera_rot_x));
@@ -39,7 +45,7 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 		BoundingSphere::CreateFromFrustum(bounding_sphere, bounding_frustum);
 
 		shader_data.camera_position = { position.x, position.y, position.z, 0.0f };
-		XMStoreFloat4(&shader_data.camera_direction, XMVector3Normalize(XMVectorSubtract(Eye, At)));
+		XMStoreFloat4(&shader_data.camera_direction, XMVector3Normalize(XMVectorSubtract(At, Eye))); // Direction the camera is looking
 
 		//Process input now.
 		if (input.is_key_down(L'W'))

@@ -55,9 +55,8 @@ uint2 ThreadGroupTilingX(
     {
 		// Path taken only if the last tile has imperfect dimensions and CTAs from the last tile are launched. 
         uint X_dimension_of_last_tile = dipatchGridDim.x % maxTileWidth;
-#ifdef DXC_STATIC_DISPATCH_GRID_DIM
+        // Always guard against a zero width last tile (avoids a divide by zero below).
         X_dimension_of_last_tile = max(1, X_dimension_of_last_tile);
-#endif
         Local_CTA_ID_y_within_current_tile = Local_CTA_ID_within_current_tile / X_dimension_of_last_tile;
         Local_CTA_ID_x_within_current_tile = Local_CTA_ID_within_current_tile % X_dimension_of_last_tile;
     }
@@ -164,7 +163,7 @@ void main(uint3 group_id : SV_GroupID, uint3 group_thread_id : SV_GroupThreadID,
         out_colour = clamp(out_colour, post_process_data.colour_clamping.x.xxxx, post_process_data.colour_clamping.y.xxxx);
         if (post_process_data.colour_clamping.z > 0.0f)
         {
-            float diff = post_process_data.colour_clamping.y - post_process_data.colour_clamping.x;
+            float diff = max(post_process_data.colour_clamping.y - post_process_data.colour_clamping.x, 1e-6f); // Min == Max would divide by zero
             out_colour -= post_process_data.colour_clamping.x.xxxx;
             out_colour /= diff.xxxx;
         }

@@ -74,6 +74,11 @@ namespace sg
 
 		GPUStatisticPool::Index GPUStatisticPool::allocate_new_query()
 		{
+			seAssert(current_index < max_count, "GPUStatisticPool exhausted (max %u)", max_count);
+			if (current_index >= max_count)
+			{
+				return max_count - 1; // Reuse the last slot rather than writing outside the query heap
+			}
 			return current_index++;
 		}
 

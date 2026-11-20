@@ -11,6 +11,9 @@ namespace sg
 			friend class Device;
 		public:
 			Memory(MemoryType type_, D3D12MA::Allocation* alloc);
+			~Memory();
+			Memory(const Memory&) = delete;
+			Memory& operator=(const Memory&) = delete;
 			MemoryType get_type() const { return type; }
 		private:
 			const MemoryType type;

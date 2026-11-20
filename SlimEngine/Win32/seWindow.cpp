@@ -43,7 +43,6 @@ namespace se
 
 		case WM_DESTROY:
 			PostQuitMessage(0);
-			exit(0); //So bad Hack
 			break;
 
 			// Note that this tutorial does not handle resizing (WM_SIZE) requests,
@@ -164,10 +163,12 @@ namespace se
 
 		// Create window
 		g_hInst = hInstance;
+		// Use the same style for the size calculation and the window so the client area matches the requested size.
+		const DWORD window_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
 		RECT rc = { 0, 0, iWidth, iHeight };
-		AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
+		AdjustWindowRect(&rc, window_style, FALSE);
 		g_hWnd = CreateWindow(L"SimpleWindow", L"Alexander Houghton",
-			WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+			window_style,
 			CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, nullptr, nullptr, hInstance,
 			this);
 
@@ -226,6 +227,10 @@ namespace se
 		MSG msg = { 0 };
 		while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
+			if (msg.message == WM_QUIT)
+			{
+				quit_requested = true;
+			}
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}

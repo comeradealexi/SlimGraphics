@@ -9,8 +9,12 @@ namespace gdr
 {
 	inline const char* StringPathToFilename(std::string& str)
 	{
-		size_t slashpos = str.find_first_of('/');
-		slashpos = str.find_first_of('/', slashpos + 1);
+		// Skip the leading "../SlimGraphicsAssets/" style prefix (std::filesystem paths use either separator).
+		size_t slashpos = str.find_first_of("/\\");
+		if (slashpos != std::string::npos)
+		{
+			slashpos = str.find_first_of("/\\", slashpos + 1);
+		}
 		if (slashpos == std::string::npos) slashpos = 0;
 		else slashpos++;
 		return str.c_str() + slashpos;
@@ -28,6 +32,7 @@ scene_file_list = se::BasicFileIO::find_files_recursive("..\\SlimGraphicsAssets\
 	{
 		if (!ImGui::Begin("GDR Scene Editor"))
 		{
+			ImGui::End(); // End() must always be paired with Begin(), even when it returns false
 			return;
 		}
 
@@ -44,7 +49,7 @@ scene_file_list = se::BasicFileIO::find_files_recursive("..\\SlimGraphicsAssets\
 					if (ImGui::Selectable(StringPathToFilename(scene_file_list[n]), is_selected))
 					{
 						current_scene_file_index = n;
-						strcpy(file_path_buffer,scene_file_list[n].c_str());
+						strncpy_s(file_path_buffer, scene_file_list[n].c_str(), _TRUNCATE);
 					}
 
 					// Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
@@ -203,7 +208,9 @@ scene_file_list = se::BasicFileIO::find_files_recursive("..\\SlimGraphicsAssets\
 								else if (duplicate_selected_node)
 								{
 									duplicate_selected_node = false;
-									cur_node->children.push_back(*it);
+									// The copy's descendants still point at the original subtree, so rebuild the parent links.
+									SceneNode& duplicate = cur_node->children.emplace_back(*it);
+									set_parent_pointers(duplicate, cur_node);
 								}
 							}
 							else

@@ -68,6 +68,9 @@ private:
 private:
 	static constexpr sg::u32 MAX_TRIANGLES = 100000;
 	static constexpr sg::u32 UPLOAD_BUFFER_COUNT = 3;
+	static constexpr sg::u32 MAX_VERTICES = 3 * MAX_TRIANGLES;	// Must match the GPU vertex buffer size
+	static constexpr sg::u32 MAX_INDICES = 9 * MAX_TRIANGLES;	// Must match the GPU index buffer size
+	bool capacity_warning_shown = false;
 	sg::u32 buffer_index = 0;
 	std::array<sg::SharedPtr<sg::Buffer>, UPLOAD_BUFFER_COUNT> upload_buffers;
 	sg::SharedPtr<sg::Buffer> gpu_vertex_buffer;

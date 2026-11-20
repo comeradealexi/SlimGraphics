@@ -49,6 +49,7 @@ namespace gdr
 		b.set_uav(array_size, 1);
 
 		static constexpr uint32_t TILE_SIZE = 32;
+		seAssert(maximum_elements >= TILE_SIZE && (maximum_elements & (maximum_elements - 1)) == 0, "Sort size must be a power of two and at least one tile (%u)", TILE_SIZE);
 
 		// Local Sort
 		{
@@ -72,7 +73,6 @@ namespace gdr
 				{
 					global_merge_params = { k, j, 0, 0 };
 					ConstantBufferView cbv0 = cbuffer.AllocateAndWrite(global_merge_params);
-					cbv0 = cbuffer.AllocateAndWrite(global_merge_params);
 					b.set_cbv(cbv0, 0);
 
 					command_list.bind(b, PipelineType::Compute);

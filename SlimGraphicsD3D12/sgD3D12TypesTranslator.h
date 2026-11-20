@@ -79,6 +79,9 @@ namespace sg
 			switch (type)
 			{
 			case BufferType::Vertex:
+				// Vertex buffers can also be read through SRVs (e.g. by mesh shaders), so include the shader resource states.
+				state = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER | D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+				break;
 			case BufferType::Constant:
 				state = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
 				break;
@@ -319,9 +322,9 @@ namespace sg
 				case Blend::Operation::Add:
 					return D3D12_BLEND_OP_ADD;
 				case Blend::Operation::Subtract:
-					D3D12_BLEND_OP_SUBTRACT;
+					return D3D12_BLEND_OP_SUBTRACT;
 				case Blend::Operation::ReverseSubtract:
-					D3D12_BLEND_OP_REV_SUBTRACT;
+					return D3D12_BLEND_OP_REV_SUBTRACT;
 				case Blend::Operation::Min:
 					return D3D12_BLEND_OP_MIN;
 				case Blend::Operation::Max:

@@ -392,7 +392,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		ImGui::SameLine(); ImGui::Checkbox("GDR", &enable_gdr);
 		if (CurrentExpandedStatsWindow)
 		{
-			if (ImPlot::BeginPlot("GPU Implot", ImVec2(-1,0), ImPlotFlags_NoTitle));
+			if (ImPlot::BeginPlot("GPU Implot", ImVec2(-1,0), ImPlotFlags_NoTitle))
 			{				
 				//ImPlot::SetupAxes("", "", ImPlotAxisFlags_AutoFit);
 				ImPlot::SetNextLineStyle(ImVec4(247.0 / 255.0, 227 / 255.0, 121.0 / 255.0, 1.0));
@@ -568,7 +568,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			}
 			command_buffer->end_geometry_pass();
 
-			gdr_scene.generate_hzb(*command_buffer, depth_srv);
+			gdr_scene.generate_hzb(*command_buffer, depth_srv, *linear_cb);
 
 			SharedPtr<Texture> copy_to_swap_chain_target = final_render_target;
 			ShaderResourceView copy_to_swap_chain_target_view = final_srv;
@@ -610,7 +610,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		queue->submit_command_list(command_buffer.get());
 		current_frame_idx = device->present_swap_chain(queue.get());
 		queue->fence_signal(*fence, total_frame_idx);
-		queue->fence_wait_gpu(*fence, total_frame_idx);
 		queue->fence_wait_cpu(*fence, total_frame_idx);
 
 		//Timestamps
@@ -626,7 +625,24 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 		total_frame_idx++;
 		wnd->Poll();
+		if (wnd->quit_requested)
+		{
+			run = false;
+		}
 
 		cpu_timer.add_time(std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - cpu_start_time).count() * 1000000.0);
 	}
+
+	// Make sure the GPU is idle before anything it may still reference is destroyed.
+	queue->fence_signal(*fence, total_frame_idx);
+	queue->fence_wait_cpu(*fence, total_frame_idx);
+
+#if SG_PLATFORM_D3D12
+	ImGui_ImplDX12_Shutdown();
+#endif
+	ImGui_ImplWin32_Shutdown();
+	ImPlot::DestroyContext();
+	ImGui::DestroyContext();
+
+	return 0;
 }

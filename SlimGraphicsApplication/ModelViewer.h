@@ -16,7 +16,7 @@ public:
 	void Render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw);
 	void CreatePipeline();
 	void CreateModel(sg::Ptr<sg::UploadHeap>& upload_heap, const Camera& camera);
-	bool MeshPartVisible(const Camera& camera, DirectX::XMFLOAT3 position, Model::MeshPart& mesh_part, float scale);
+	bool MeshPartVisible(const Camera& camera, Model::MeshPart& mesh_part);
 
 private:
 	const DXGI_FORMAT render_target_format;

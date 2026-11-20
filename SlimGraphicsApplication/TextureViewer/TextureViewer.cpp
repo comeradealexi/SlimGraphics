@@ -2,6 +2,7 @@
 #include <imgui.h>
 #include "sgUtils.h"
 #include "Utils.h"
+#include <algorithm>
 
 using namespace sg;
 
@@ -37,6 +38,9 @@ void TextureViewer::imgui_update()
 		ImGui::InputInt("Target Width", (int*)&target_width);
 		ImGui::InputInt("Target Height", (int*)&target_height);
 		ImGui::EndDisabled();
+		// Guard against zero/negative (wrapped) sizes typed into the inputs.
+		target_width = std::clamp<int>((int)target_width, 1, 16384);
+		target_height = std::clamp<int>((int)target_height, 1, 16384);
 
 		if (view_texture)
 		{
@@ -56,11 +60,10 @@ void TextureViewer::imgui_update()
 				device->set_imgui_texture_viewer_data(imgui_texture_viewer, render_texture);
 			}
 
-			ImGui::Image((ImTextureID)imgui_texture_viewer.gpu_handle.ptr, ImVec2(imgui_texture_viewer.texture->resource_create_desc.width, imgui_texture_viewer.texture->resource_create_desc.height));
+			ImGui::Image((ImTextureID)imgui_texture_viewer.gpu_handle.ptr, ImVec2((float)imgui_texture_viewer.texture->resource_create_desc.width, (float)imgui_texture_viewer.texture->resource_create_desc.height));
 		}
-
-		ImGui::End();
 	}
+	ImGui::End(); // Must be called even when Begin() returns false (collapsed window)
 }
 
 void TextureViewer::render(sg::CommandList& command_list, SimpleLinearConstantBuffer& cbuffer)

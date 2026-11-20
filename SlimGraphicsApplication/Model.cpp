@@ -95,18 +95,63 @@ static DirectX::XMFLOAT3 Min(const DirectX::XMFLOAT3& a, DirectX::XMFLOAT3& b)
 	return o;
 }
 
+// Creates an RGBA8 texture with a full mip chain (box filtered on the CPU) and queues the upload of every mip.
+static SharedPtr<Texture> CreateTextureRGBA8WithMips(Device* device, UploadHeap* upload_heap, const uint8_t* pixels, u32 width, u32 height)
+{
+	u32 mip_count = 1;
+	for (u32 w = width, h = height; w > 1 || h > 1; w = std::max(1u, w / 2), h = std::max(1u, h / 2))
+	{
+		mip_count++;
+	}
+
+	ResourceCreateDesc rcd(width, height, DXGI_FORMAT_R8G8B8A8_UNORM);
+	rcd.mip_count = mip_count;
+	SharedPtr<Texture> texture = create_texture(*device, rcd);
+
+	std::vector<uint8_t> current(pixels, pixels + (size_t)width * height * 4);
+	u32 w = width;
+	u32 h = height;
+	for (u32 mip = 0; mip < mip_count; mip++)
+	{
+		upload_heap->upload_texture_subresource(texture.get(), mip, current.data(), w * 4, h);
+		if (mip + 1 == mip_count)
+		{
+			break;
+		}
+
+		const u32 nw = std::max(1u, w / 2);
+		const u32 nh = std::max(1u, h / 2);
+		std::vector<uint8_t> next((size_t)nw * nh * 4);
+		for (u32 y = 0; y < nh; y++)
+		{
+			for (u32 x = 0; x < nw; x++)
+			{
+				const u32 x0 = std::min(x * 2, w - 1), x1 = std::min(x * 2 + 1, w - 1);
+				const u32 y0 = std::min(y * 2, h - 1), y1 = std::min(y * 2 + 1, h - 1);
+				for (u32 c = 0; c < 4; c++)
+				{
+					const u32 sum = current[((size_t)y0 * w + x0) * 4 + c] + current[((size_t)y0 * w + x1) * 4 + c]
+						+ current[((size_t)y1 * w + x0) * 4 + c] + current[((size_t)y1 * w + x1) * 4 + c];
+					next[((size_t)y * nw + x) * 4 + c] = static_cast<uint8_t>((sum + 2) / 4);
+				}
+			}
+		}
+		current.swap(next);
+		w = nw;
+		h = nh;
+	}
+	return texture;
+}
+
 Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data, const Camera* camera) : init_data(_init_data)
 {
-	// Create the default texture
+	// Create the default texture (1x1 white)
 	{
 		const ResourceCreateDesc default_tex_desc(1, 1, DXGI_FORMAT_R8G8B8A8_UNORM);
 		default_texture = create_texture(*device, default_tex_desc);
 		default_texture_srv = device->create_shader_resource_view(default_texture);
-		UploadHeap::Offset offset = upload_heap->allocate_upload_memory(D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
-		char fullmem[D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT];
-		memset(fullmem, 0xff, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
-		upload_heap->write_upload_memory(offset, fullmem, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
-		upload_heap->upload_to_texture(default_texture.get(), offset, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT);
+		const uint8_t white[4] = { 0xff, 0xff, 0xff, 0xff };
+		upload_heap->upload_texture_subresource(default_texture.get(), 0, white, sizeof(white), 1);
 	}
 
 	Assimp::Importer ai_importer;
@@ -146,7 +191,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					v.Position = XMFLOAT3(&aMesh->mVertices[vert_idx].x);
 					v.Color = use_color ? XMFLOAT3(aMesh->mColors[0][vert_idx].r, aMesh->mColors[0][vert_idx].g, aMesh->mColors[0][vert_idx].b): XMFLOAT3(1.0f,1.0f,1.0f);
 					v.UV = aMesh->mTextureCoords[0] ? XMFLOAT2(&aMesh->mTextureCoords[0][vert_idx].x) : XMFLOAT2(0, 0);
-					v.Normal = XMFLOAT3(&aMesh->mNormals[vert_idx].x);
+					// Point/line meshes have no normals even with aiProcess_GenSmoothNormals.
+					v.Normal = aMesh->mNormals ? XMFLOAT3(&aMesh->mNormals[vert_idx].x) : XMFLOAT3(0, 0, 0);
 					v.Tangent = aMesh->mTangents ? XMFLOAT3(&aMesh->mTangents[vert_idx].x) : XMFLOAT3(0, 0, 0);
 					mesh.vertices.push_back(v);
 
@@ -333,8 +379,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 
 				mesh.draw_count = mesh.indices.size();
 
-				// Make meshlets
-				if (init_data.meshopt_meshlets && device->SupportsMeshShaders())
+				// Make meshlets (skip parts with no triangles, e.g. point/line meshes or fully simplified parts)
+				if (init_data.meshopt_meshlets && device->SupportsMeshShaders() && mesh.indices.size() >= 3 && mesh.vertices.size() > 0)
 				{
 					const size_t max_vertices = 64;
 					const size_t max_triangles = 124;
@@ -349,9 +395,12 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 						mesh.indices.size(), (float*) &mesh.vertices[0], mesh.vertices.size(), sizeof(Vertex), max_vertices, max_triangles, cone_weight);
 
 					// Trim excess of vectors
-					const meshopt_Meshlet& last = mesh_shader_data.meshlets[meshlet_count - 1];
-					mesh_shader_data.meshlet_vertices.resize(last.vertex_offset + last.vertex_count);
-					mesh_shader_data.meshlet_triangles.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3));
+					if (meshlet_count > 0)
+					{
+						const meshopt_Meshlet& last = mesh_shader_data.meshlets[meshlet_count - 1];
+						mesh_shader_data.meshlet_vertices.resize(last.vertex_offset + last.vertex_count);
+						mesh_shader_data.meshlet_triangles.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3));
+					}
 					mesh_shader_data.meshlets.resize(meshlet_count);
 
 					if (init_data.meshopt_meshlet_optimize)
@@ -408,6 +457,8 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 
 
 					// Create GPU Buffers
+					if (meshlet_count > 0)
+					{
 					{ // Meshlets
 						const size_t meshlet_byte_size = mesh_shader_data.meshlets.size() * sizeof(mesh_shader_data.meshlets[0]);
 						SharedPtr<Memory> ml_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, meshlet_byte_size);
@@ -470,6 +521,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 						upload_heap->write_upload_memory(upload_offset, gpu_cull_data.data(), meshlet_byte_size);
 						upload_heap->upload_to_buffer(mesh_shader_data.gpu_culldata.get(), 0, upload_offset, meshlet_byte_size);
 					}
+					}
 				}
 			}
 
@@ -499,7 +551,11 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 					for (auto& tex : textures_to_load)
 					{
 						aiString tex_path;
-						if (ai_material->GetTexture(tex.first, 0, &tex_path) == aiReturn_SUCCESS)
+						if (ai_material->GetTexture(tex.first, 0, &tex_path) == aiReturn_SUCCESS && tex_path.length > 0 && tex_path.C_Str()[0] == '*')
+						{
+							seWriteLine("Embedded textures are not supported, using default: %s", tex_path.C_Str());
+						}
+						else if (ai_material->GetTexture(tex.first, 0, &tex_path) == aiReturn_SUCCESS)
 						{
 							std::string texture_path = GetTexturePath(_init_data.file_path, tex_path.C_Str());
 							std::vector<uint8_t> texture_data = se::BasicFileIO::load_file(texture_path.c_str());
@@ -508,28 +564,24 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 								seWriteLine("Loading Texture: %s", texture_path.c_str());
 								if (StringEndsWith(texture_path, ".dds"))
 								{
-									tex.second = device->create_texture_from_dds(texture_data.data(), texture_data.size(), *upload_heap);
+									SharedPtr<Texture> dds_texture = device->create_texture_from_dds(texture_data.data(), texture_data.size(), *upload_heap);
+									if (dds_texture)
+									{
+										tex.second = dds_texture;
+									}
 								}
-								else if (StringEndsWith(texture_path, ".jpg") || StringEndsWith(texture_path, ".jpeg") || StringEndsWith(texture_path, ".bmp") || StringEndsWith(texture_path, ".tga") || StringEndsWith(texture_path, ".tif"))
+								else if (StringEndsWith(texture_path, ".jpg") || StringEndsWith(texture_path, ".jpeg") || StringEndsWith(texture_path, ".bmp") || StringEndsWith(texture_path, ".tga"))
 								{
 									int w, h, c;
-									void* raw_data = stbi_load_from_memory(texture_data.data(), texture_data.size(), &w, &h, &c, 4);
+									stbi_uc* raw_data = stbi_load_from_memory(texture_data.data(), (int)texture_data.size(), &w, &h, &c, 4);
 									if (raw_data)
 									{
-										int data_size = w * h * 4;
-										sg::ResourceCreateDesc rcd;
-										rcd.width = w;
-										rcd.height = h;
-										rcd.format = DXGI_FORMAT_R8G8B8A8_UNORM;
-										sg::SizeAndAlignment size_align = device->calculate_resource_size_alignment(rcd);
-										const sg::u64 res_size = device->CalculateResourceSize(w, h, 1, 0, rcd.format);
-										seAssert(res_size == data_size, "expecting sizes to match");
-										SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, size_align.size, size_align.alignment);
-										tex.second = device->create_texture(mem, size_align.size, rcd);
-										UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(size_align.size, size_align.alignment);
-										upload_heap->write_upload_memory(upload_offset, raw_data, data_size);
-										upload_heap->upload_to_texture(tex.second.get(), upload_offset, data_size);
+										tex.second = CreateTextureRGBA8WithMips(device, upload_heap, raw_data, (u32)w, (u32)h);
 										stbi_image_free(raw_data);
+									}
+									else
+									{
+										seWriteLine("Failed to decode texture: %s", texture_path.c_str());
 									}
 								}
 								else if (StringEndsWith(texture_path, ".png"))
@@ -539,19 +591,16 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 									std::vector<uint8_t> bitmap_data;
 									if (lodepng::decode(bitmap_data, w, h, texture_data) == 0)
 									{
-										sg::ResourceCreateDesc rcd;
-										rcd.width = w;
-										rcd.height = h;
-										rcd.format = DXGI_FORMAT_R8G8B8A8_UNORM;
-										sg::SizeAndAlignment size_align = device->calculate_resource_size_alignment(rcd);
-										const sg::u64 res_size = device->CalculateResourceSize(w, h, 1, 0, rcd.format);
-										seAssert(res_size == bitmap_data.size(), "expecting sizes to match");
-										SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Texture, size_align.size, size_align.alignment);
-										tex.second = device->create_texture(mem, size_align.size, rcd);
-										UploadHeap::Offset upload_offset = upload_heap->allocate_upload_memory(size_align.size, size_align.alignment);
-										upload_heap->write_upload_memory(upload_offset, bitmap_data.data(), bitmap_data.size());
-										upload_heap->upload_to_texture(tex.second.get(), upload_offset, bitmap_data.size());
+										tex.second = CreateTextureRGBA8WithMips(device, upload_heap, bitmap_data.data(), w, h);
 									}
+									else
+									{
+										seWriteLine("Failed to decode texture: %s", texture_path.c_str());
+									}
+								}
+								else
+								{
+									seWriteLine("Unsupported texture format, using default: %s", texture_path.c_str());
 								}
 							}
 							else
@@ -579,6 +628,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 			}
 
 			//Vertex Buffer
+			if (!vertices.empty())
 			{
 				const size_t vertex_byte_size = vertices.size() * sizeof(Vertex);
 				SharedPtr<Memory> vb_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, vertex_byte_size);
@@ -592,6 +642,7 @@ Model::Model(Device* device, UploadHeap* upload_heap, const InitData& _init_data
 			}
 
 			//Index Buffer
+			if (!indices.empty())
 			{
 				const size_t index_byte_size = indices.size() * sizeof(uint32_t);
 				SharedPtr<Memory> ib_mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, index_byte_size);

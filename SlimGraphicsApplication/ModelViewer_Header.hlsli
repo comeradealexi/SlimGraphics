@@ -181,7 +181,8 @@ bool IsVisibleFrustum(uint gid)
 {
     MeshletCullData cull_data = MeshletCullingDatas[gid];
     float4 sphere_pos = mul(float4(cull_data.spherepos_xyz_radius_w.xyz, 1.0), model.model_matrix);
-    float model_matrix_highest_scale = max(max(model.model_matrix[0][0], model.model_matrix[1][1]), model.model_matrix[2][2]);
+    // Largest axis scale = longest basis row (diagonal terms are wrong once the matrix contains rotation).
+    float model_matrix_highest_scale = sqrt(max(max(dot(model.model_matrix[0].xyz, model.model_matrix[0].xyz), dot(model.model_matrix[1].xyz, model.model_matrix[1].xyz)), dot(model.model_matrix[2].xyz, model.model_matrix[2].xyz)));
     sphere_pos.w = cull_data.spherepos_xyz_radius_w.w * model_matrix_highest_scale;
     if (IsVisible(sphere_pos) == false)
     {
@@ -218,6 +219,9 @@ struct Payload
 };
 // The groupshared payload data to export to dispatched mesh shader threadgroups
 groupshared Payload s_Payload;
+// Number of visible meshlets written to s_Payload. Compaction uses groupshared atomics rather than wave
+// intrinsics so it is correct for any wave size (a 32 thread group can span several waves on wave8/16 hardware).
+groupshared uint s_VisibleCount;
 
 [NumThreads(AS_GROUP_SIZE, 1, 1)]
 void ASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint gid : SV_GroupID)
@@ -227,10 +231,18 @@ void ASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint 
         InterlockedAdd(uav0[UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS], 1, original);
     }
 
-    bool visible = true;
+    if (gtid == 0)
+    {
+        s_VisibleCount = 0;
+        s_Payload.AmplificationID = (gid + 1) * 6; // To make the 0th element black colour
+    }
+    GroupMemoryBarrierWithGroupSync();
+
+    // Threads past the end of the meshlet list are never visible
+    bool visible = dtid < (uint)model.meshlet_count;
 
     // Check bounds of meshlet cull data resource
-    if (dtid < model.meshlet_count)
+    if (visible)
     {        
         if (visible && model.meshlet_culling.y != 0)
         {
@@ -244,21 +256,17 @@ void ASMain(uint gtid : SV_GroupThreadID, uint dtid : SV_DispatchThreadID, uint 
         }
     }
     
-    if (gtid == 0)
-    {
-        s_Payload.AmplificationID = (gid + 1) * 6; // To make the 0th element black colour
-    }
-    
     // Compact visible meshlets into the export payload array
     if (visible)
     {
-        uint index = WavePrefixCountBits(visible);
+        uint index;
+        InterlockedAdd(s_VisibleCount, 1, index);
         s_Payload.MeshletIndices[index] = dtid;
     }
+    GroupMemoryBarrierWithGroupSync();
     
-    // Dispatch the required number of MS threadgroups to render the visible meshlets
-    uint visibleCount = WaveActiveCountBits(visible);
-    DispatchMesh(visibleCount, 1, 1, s_Payload);
+    // Dispatch the required number of MS threadgroups to render the visible meshlets (group uniform value)
+    DispatchMesh(s_VisibleCount, 1, 1, s_Payload);
 }
 #endif
 

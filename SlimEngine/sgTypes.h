@@ -286,7 +286,7 @@ namespace sg
 		float mip_lod_bias = 0;
 		uint32_t max_anisotropy = 16;
 		ComparisonFunction comparison_func = ComparisonFunction::None;
-		float border_color[4];
+		float border_color[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		float min_lod = 0.0f;
 		float max_lod = 16.0f;
 	};

@@ -79,8 +79,13 @@ namespace sg
 			recording = false;
 		}
 
-		GPUTimestampPool::Index GPUTimestampPool::allocate_new_timestamp()
+			GPUTimestampPool::Index GPUTimestampPool::allocate_new_timestamp()
 		{
+			seAssert(current_index < max_timestamps, "GPUTimestampPool exhausted (max %u)", max_timestamps);
+			if (current_index >= max_timestamps)
+			{
+				return max_timestamps - 1; // Reuse the last slot rather than writing outside the query heap
+			}
 			return current_index++;
 		}
 
@@ -97,7 +102,13 @@ namespace sg
 		double GPUTimestampPool::collect_timestamp_us(Index idx)
 		{
 			u32 offset = idx * 2;
-			return static_cast<float>(1000000.0 * (gpu_tick_delta * (timestamps_copy[offset + 1] - timestamps_copy[offset + 0])));
+			const u64 begin = timestamps_copy[offset + 0];
+			const u64 end = timestamps_copy[offset + 1];
+			if (end < begin)
+			{
+				return 0.0;
+			}
+			return 1000000.0 * (gpu_tick_delta * static_cast<double>(end - begin));
 		}
 	}
 }

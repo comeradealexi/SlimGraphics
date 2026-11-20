@@ -137,6 +137,9 @@ namespace gdr
 	{
 		create_pipelines();
 
+		// Created once: create_pipelines() can be called again at runtime (pipeline option changes)
+		mesh_shader_indirect_arguments = device->create_indirect_arguments();
+
 		// Some defaults for debug
 		debug_data.shader_debug_data.use_frustum_culling = true;
 		debug_data.shader_debug_data.use_cone_culling = true;
@@ -195,8 +198,6 @@ namespace gdr
 				desc.compute_shader = sg::create_compute_shader(*device, get_shader_path(shaders[i][1]));
 				pipeline.build_indirect_arguments_pipeline = device->create_pipeline(desc, global_binding_desc);
 				seAssert(pipeline.build_indirect_arguments_pipeline != nullptr, "Failed to create pipeline");
-
-				mesh_shader_indirect_arguments = device->create_indirect_arguments();
 			}
 
 			// Mesh Shader
@@ -225,6 +226,7 @@ namespace gdr
 
 	void Scene::imgui()
 	{
+		// Note: ImGui::End() must be called whether or not Begin() returns true.
 		if (ImGui::Begin("GDR Scene"))
 		{
 			if (ImGui::CollapsingHeader("Debug Options", ImGuiTreeNodeFlags_DefaultOpen))
@@ -237,7 +239,7 @@ namespace gdr
 				ImGui::Checkbox("Use Frustum Culling", (bool*)&debug_data.shader_debug_data.use_frustum_culling);
 				ImGui::Checkbox("Use Cone Culling", (bool*)&debug_data.shader_debug_data.use_cone_culling);
 				ImGui::Text("Render Mode");
-				ImGui::Combo("Depth Comparison", (int*)&debug_data.shader_debug_data.debug_render_mode, "None\0Sort Order\0", 2);
+				ImGui::Combo("Debug Render Mode", (int*)&debug_data.shader_debug_data.debug_render_mode, "None\0Sort Order\0");
 				ImGui::Unindent();
 				ImGui::EndDisabled();
 			}
@@ -257,12 +259,11 @@ namespace gdr
 				render_options.recreate_pipelines |= ImGui::Checkbox("Depth Enable", &render_options.depth_enable);
 				render_options.recreate_pipelines |= ImGui::Checkbox("Depth Write", &render_options.depth_write);
 				render_options.recreate_pipelines |= ImGui::Combo("Cull Mode", &render_options.cull_mode, "None\0Front\0Back\0", 3);
-				render_options.recreate_pipelines |= ImGui::Combo("Depth Comparison", &render_options.depth_comparison, "None\0Never\0Less\0Equal\0LessEqual\0Greater\0NotEqual\0GreaterEqual\0Always", 9);
+				render_options.recreate_pipelines |= ImGui::Combo("Depth Comparison", &render_options.depth_comparison, "None\0Never\0Less\0Equal\0LessEqual\0Greater\0NotEqual\0GreaterEqual\0Always\0");
 				ImGui::Unindent();
 			}
-
-			ImGui::End();
 		}
+		ImGui::End();
 
 		if (ImGui::Begin("GDR Statistics"))
 		{
@@ -279,16 +280,15 @@ namespace gdr
 				}
 				ImGui::BeginDisabled(debug_data.shader_debug_data.debug_mode == 0);
 				ImGui::Indent();
-				ImGui::Text("Meshlets Culled (total):    %u/%u (%0.1f%%)", statistics.raw_feedback_data.meshlets_culled_total, statistics.total_meshlets, (static_cast<float>(statistics.raw_feedback_data.meshlets_culled_total) / static_cast<float>(statistics.total_meshlets)) * 100.0f);
+				const float culled_percent = statistics.total_meshlets > 0 ? (static_cast<float>(statistics.raw_feedback_data.meshlets_culled_total) / static_cast<float>(statistics.total_meshlets)) * 100.0f : 0.0f;
+				ImGui::Text("Meshlets Culled (total):    %u/%u (%0.1f%%)", statistics.raw_feedback_data.meshlets_culled_total, statistics.total_meshlets, culled_percent);
 				ImGui::Text("Meshlets Culled By Frustum: %u", statistics.raw_feedback_data.meshlets_cullled_by_frustum);
 				ImGui::Text("Meshlets Culled By Cone:    %u", statistics.raw_feedback_data.meshlets_culled_by_cone);				
 				ImGui::Unindent();
 				ImGui::EndDisabled();
 			}
-
-			ImGui::End();
 		}
-
+		ImGui::End();
 	}
 
 	void Scene::update(Ptr<UploadHeap>& upload_heap)
@@ -299,7 +299,7 @@ namespace gdr
 
 		if (render_options.recreate_pipelines)
 		{
-			create_pipelines();
+		create_pipelines();
 			render_options.recreate_pipelines = false;
 		}
 
@@ -324,7 +324,12 @@ namespace gdr
 			sg::u32 model_index = 0;
 			for (const auto& [model_name, model_list] : model_lists)
 			{
-				const ModelBuffers::ModelData& per_model_data = model_buffers.find_model(model_name);
+				const ModelBuffers::ModelData* per_model_data_ptr = model_buffers.find_model(model_name);
+				if (per_model_data_ptr == nullptr)
+				{
+					continue; // Model failed to load; its instances are skipped
+				}
+				const ModelBuffers::ModelData& per_model_data = *per_model_data_ptr;
 
 				statistics.total_instances += model_list.size();
 				statistics.total_mesh_parts += model_list.size() * per_model_data.mesh_parts.size();
@@ -332,6 +337,10 @@ namespace gdr
 				// TODO: Not ideal to treat each mesh part as its own instances, wastes space and data
 				for (const auto& mesh_part : per_model_data.mesh_parts)
 				{
+					if (mesh_part.meshlet_count == 0)
+					{
+						continue; // Nothing to render (and would divide by zero in the per-instance shader)
+					}
 					PerInstanceRenderInfo& instance_render_info = per_instance_render_list.emplace_back();
 					instance_render_info.instance_offset = model_buffers.instance_data.cpu_data.size();
 					instance_render_info.count = model_list.size();
@@ -350,6 +359,10 @@ namespace gdr
 				}
 				model_index++;
 			}
+		}
+
+		if (per_instance_render_list.size())
+		{
 			model_buffers.instance_data.create_and_upload_to_gpu(device, upload_heap);
 
 			// Because gpu_pre_process_instances_output is sorted with bitonic sort we must ensure that the size is a power of two
@@ -452,6 +465,7 @@ namespace gdr
 			command_list.bind(b, PipelineType::Compute);
 			command_list.dispatch(sg::AlignUp<uint32_t>(pre_process_cbuffer.meshlets_to_process_count, 32u) / 32u, 1, 1);
 		}
+		// The binding is reused below for the indirect argument build (the per-instance CBV is unused by that pass).
 
 		// Stage 1.5 - Build indirect arguments
 		command_list.set_pipeline(pipelines[debug_data.shader_debug_data.debug_mode].build_indirect_arguments_pipeline.get());
@@ -493,7 +507,8 @@ namespace gdr
 			v.Position = XMFLOAT3(&assimp_mesh->mVertices[vert_idx].x);
 			v.Color = /*use_color ? XMFLOAT3(assimp_mesh->mColors[0][vert_idx].r, assimp_mesh->mColors[0][vert_idx].g, assimp_mesh->mColors[0][vert_idx].b) :*/ XMFLOAT3(1.0f, 1.0f, 1.0f);
 			v.UV = assimp_mesh->mTextureCoords[0] ? XMFLOAT2(&assimp_mesh->mTextureCoords[0][vert_idx].x) : XMFLOAT2(0, 0);
-			v.Normal = XMFLOAT3(&assimp_mesh->mNormals[vert_idx].x);
+			// Point/line meshes have no normals even with aiProcess_GenSmoothNormals.
+			v.Normal = assimp_mesh->mNormals ? XMFLOAT3(&assimp_mesh->mNormals[vert_idx].x) : XMFLOAT3(0, 0, 0);
 			v.Tangent = assimp_mesh->mTangents ? XMFLOAT3(&assimp_mesh->mTangents[vert_idx].x) : XMFLOAT3(0, 0, 0);
 			vertices.push_back(v);
 		}
@@ -521,7 +536,7 @@ namespace gdr
 		return indices;
 	}
 
-	void Scene::load_model(std::string path, ShaderStructs::ModelData& gpu_model_data)
+	bool Scene::load_model(std::string path, ShaderStructs::ModelData& gpu_model_data)
 	{
 		Assimp::Importer ai_importer;
 		const int flags = aiProcess_Triangulate
@@ -533,9 +548,11 @@ namespace gdr
 			| aiProcess_ConvertToLeftHanded;
 
 		const aiScene* aScene = ai_importer.ReadFile(path.c_str(), flags); //By passing file path, allows assimp to auto load material files.
-		seAssert(aScene != nullptr, "Failed To Load Assimp Scene %s\n%s", path.c_str(), ai_importer.GetErrorString());
 		if (!aScene)
-			return;
+		{
+			seWriteLine("Failed To Load Assimp Scene %s\n%s", path.c_str(), ai_importer.GetErrorString());
+			return false;
+		}
 
 		ModelBuffers::ModelData& new_model = model_buffers.models.emplace_back();
 		new_model.name = path;
@@ -564,7 +581,8 @@ namespace gdr
 				// TODO
 			}
 
-			// Create meshlets
+			// Create meshlets (parts without triangles, e.g. point/line meshes, produce none)
+			if (indices.size() >= 3 && vertices.size() > 0)
 			{
 				const size_t max_vertices = 64;
 				const size_t max_triangles = 124;
@@ -583,9 +601,12 @@ namespace gdr
 					indices.size(), (float*)&vertices[0], vertices.size(), sizeof(Vertex), max_vertices, max_triangles, cone_weight);
 
 				// Trim excess of vectors
-				const meshopt_Meshlet& last = tmp_meshlets[meshlet_count - 1];
-				tmp_meshlet_vertices.resize(last.vertex_offset + last.vertex_count);
-				tmp_meshlet_triangles.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3)); // Align total to be multiple of 4
+				if (meshlet_count > 0)
+				{
+					const meshopt_Meshlet& last = tmp_meshlets[meshlet_count - 1];
+					tmp_meshlet_vertices.resize(last.vertex_offset + last.vertex_count);
+					tmp_meshlet_triangles.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3)); // Align total to be multiple of 4
+				}
 				tmp_meshlets.resize(meshlet_count);
 
 				// TODO: Add meshopt_optimizeMeshlet
@@ -644,10 +665,10 @@ namespace gdr
 						DirectX::BoundingBox aabb = {};
 						DirectX::BoundingOrientedBox obb = {};
 
-						for (size_t i = 0; i < meshlet.triangle_count; i++)
+						// Every vertex referenced by the meshlet's triangles is in its unique vertex list, so iterate that.
+						for (size_t i = 0; i < meshlet.vertex_count; i++)
 						{
-							const size_t triangle_index = tmp_meshlet_triangles[meshlet.triangle_offset + i];
-							size_t vertex_index = tmp_meshlet_vertices[meshlet.vertex_offset + triangle_index];
+							const size_t vertex_index = tmp_meshlet_vertices[meshlet.vertex_offset + i];
 							const Vertex& vertex = vertices[vertex_index];
 
 							bounding_box_max = Max(bounding_box_max, vertex.Position);
@@ -692,20 +713,32 @@ namespace gdr
 		}
 
 		ai_importer.FreeScene();
+		return true;
 	}
 
 	void Scene::load_gpu_data(SceneGraphTraverser& scene_graph, Ptr<UploadHeap>& upload_heap)
 	{
 		bool recreate_gpu_buffers = false;
 
-		if (scene_graph.model_instance_map.size() != model_buffers.models.size())
+		// Models that previously failed to import are not expected in model_buffers
+		size_t expected_model_count = 0;
+		for (auto& [model_string, model_list] : scene_graph.model_instance_map)
+		{
+			if (failed_model_paths.count(model_string) == 0) expected_model_count++;
+		}
+
+		if (expected_model_count != model_buffers.models.size())
 		{
 			recreate_gpu_buffers = true;
 		}
-		else 
+		else
 		{
-			for (auto& [model_string, model_list] : scene_graph.model_instance_map)
+		for (auto& [model_string, model_list] : scene_graph.model_instance_map)
 			{
+				if (failed_model_paths.count(model_string) != 0)
+				{
+					continue;
+				}
 				bool found_model = false;
 				for (auto& loaded_models : model_buffers.models)
 				{
@@ -732,18 +765,29 @@ namespace gdr
 		
 		for (auto& [model_string, model_list] : scene_graph.model_instance_map)
 		{
-			ShaderStructs::ModelData& model_gpu_data = model_buffers.model_data.cpu_data.emplace_back();
-			load_model(model_string, model_gpu_data);
+			if (failed_model_paths.count(model_string) != 0)
+			{
+				continue;
+			}
+			ShaderStructs::ModelData model_gpu_data = {};
+			if (load_model(model_string, model_gpu_data))
+			{
+				model_buffers.model_data.cpu_data.push_back(model_gpu_data);
+			}
+			else
+			{
+				failed_model_paths.insert(model_string);
+			}
 		}
 
 		// Upload all model data to GPU
 		model_buffers.create_and_upload_to_gpu(device, upload_heap);
 	}
 
-	void Scene::generate_hzb(sg::CommandList& command_list, sg::ShaderResourceView depth_view)
+	void Scene::generate_hzb(sg::CommandList& command_list, sg::ShaderResourceView depth_view, SimpleLinearConstantBuffer& cbuffer)
 	{
 		// Generate HZB
-		gpu_hzb.generate_hzb(device, command_list, depth_view);
+		gpu_hzb.generate_hzb(device, command_list, depth_view, cbuffer);
 	}
 
 	// Scene Graph Traverser
@@ -793,17 +837,16 @@ namespace gdr
 	}
 
 
-	const ModelBuffers::ModelData& ModelBuffers::find_model(std::string_view name)
+	const ModelBuffers::ModelData* ModelBuffers::find_model(std::string_view name)
 	{
 		for (const auto& model : models)
 		{
 			if (model.name == name)
 			{
-				return model;
+				return &model;
 			}
 		}
-		seAssert(false, "Failed to find model!");
-		return models[0];
+		return nullptr;
 	}
 
 	void ModelBuffers::create_and_upload_to_gpu(sg::SharedPtr<sg::Device>& device, sg::Ptr<sg::UploadHeap>& upload_heap)
