@@ -7,8 +7,7 @@
 #include "sgVulkanVertexBufferView.h"
 #include "sgVulkanIndexBufferView.h"
 #include "sgVulkanResourceState.h"
-
-namespace sg { namespace Vulkan { struct PipelineLayout; } }
+#include "sgVulkanPipeline.h"
 
 namespace sg
 {
@@ -27,6 +26,11 @@ namespace sg
 
 		// Records Vulkan commands behind the same interface as the D3D12 command list.
 		//
+		// Shaders are shader objects and all fixed function state is dynamic, so set_pipeline is a handful of state commands.
+		// Descriptors live in the device's descriptor heaps: each command list owns a region of the resource heap that SRV / UAV
+		// tables are written to (linearly, reset when recording restarts) and the table locations plus CBV addresses are passed
+		// to shaders as push data, mirroring D3D12 descriptor tables and root CBVs.
+		//
 		// The D3D12 style API lets copies, clears, dispatches and barriers happen inside a "geometry pass". Vulkan does not allow
 		// those inside a render pass instance, so dynamic rendering is begun lazily on the first draw and transparently ended
 		// ("suspended") before any such command, then begun again (with LOAD) for the next draw.
@@ -35,6 +39,7 @@ namespace sg
 			friend class Device;
 		public:
 			CommandList(Device& device, u32 queue_family);
+			~CommandList();
 			CommandList(const CommandList&) = delete;
 			CommandList& operator=(const CommandList&) = delete;
 
@@ -104,7 +109,13 @@ namespace sg
 			void suspend_rendering();
 			// Records all pending transitions (and optionally the pending UAV memory barrier) in one barrier batch
 			void flush_barriers(bool include_uav_barrier);
-			void flush_descriptors();
+			// Brings shader, dynamic state, descriptor heap and push data state up to date before a draw / dispatch
+			void flush_shader_state();
+			void bind_shaders();
+			void set_graphics_state();
+			void set_vertex_input();
+			void write_descriptor_tables();
+			void set_viewport_scissor();
 			void ensure_bindings_valid();
 			void mark_uavs_written();
 			// Switches the active statistics segment between vertex pipeline and mesh work
@@ -134,11 +145,23 @@ namespace sg
 			Pipeline* active_pipeline = nullptr;
 			Binding active_binding;
 			u64 binding_version = 0;
-			// Last pushed descriptor state per bind point (graphics, compute)
-			const PipelineLayout* pushed_layout[2] = {};
-			u64 pushed_version[2] = {};
-			bool pipeline_dirty = false;
+
+			// State that must be (re)recorded before the next draw / dispatch
+			bool heaps_dirty = true;
+			bool shaders_dirty = false;
+			bool vertex_input_dirty = true;
+			bool push_data_dirty = true;
 			bool viewport_dirty = true;
+			// Binding and pipeline the current descriptor tables were written for
+			u64 tables_binding_version = ~0ull;
+			const Pipeline* tables_pipeline = nullptr;
+			PushData push_data;
+			u64 vertex_buffer_stride = 0;
+
+			// This command list's region of the resource descriptor heap: [region_first_slot, region_first_slot + COMMAND_LIST_DESCRIPTOR_SLOTS)
+			u32 region_first_slot = 0;
+			u32 region_used_slots = 0;
+
 			bool uav_barrier_pending = false;
 			bool rendering = false;
 			PassState pass;

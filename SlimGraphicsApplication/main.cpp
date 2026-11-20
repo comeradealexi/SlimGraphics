@@ -278,6 +278,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		rcd.height = h;
 		rcd.format = back_buffer_format;
 		rcd.usage_flags = ResourceUsageFlags::RenderTarget | ResourceUsageFlags::UnorderedAccess;
+		rcd.optimised_clear_colour = { 0.0f, 1.0f, 0.0f, 1.0f }; // The colour both targets are cleared to each frame
 		final_render_target = create_texture(*device, rcd);
 		final_rtv = device->create_render_target_view(final_render_target);
 		final_srv = device->create_shader_resource_view(final_render_target);

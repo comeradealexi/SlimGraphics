@@ -345,6 +345,9 @@ namespace SlimShaderCompiler
                     // Vulkan 1.3: wave intrinsics, and mesh/amplification shaders compile to the cross-vendor SPV_EXT_mesh_shader
                     // (vulkan1.1 produced the NVIDIA-only SPV_NV_mesh_shader).
                     sb.Append("-fspv-target-env=vulkan1.3 ");
+                    // Lay buffers out exactly as D3D does (HLSL cbuffer packing, tightly packed structured buffers) so the same
+                    // C++ structures feed both backends. Needs the scalarBlockLayout feature, which the Vulkan device enables.
+                    sb.Append("-fvk-use-dx-layout ");
                 }
                 sb.Append("-Zi -Qembed_debug "); // TODO - Strip this out when compiling in release
                 sb.AppendFormat("-T {0} ", shader.profile);
@@ -381,14 +384,19 @@ namespace SlimShaderCompiler
                     all_success = false;
                     return;
                 }
+                // Drain both pipes while dxc runs: waiting for exit first deadlocks once dxc fills a pipe buffer (e.g. many errors)
+                Task<string> stdout_task = process.StandardOutput.ReadToEndAsync();
+                Task<string> stderr_task = process.StandardError.ReadToEndAsync();
                 process.WaitForExit();
+                string stdout_text = stdout_task.Result;
+                string stderr_text = stderr_task.Result;
                 if (process.ExitCode != 0)
                 {
                     string error_string = string.Format("Error: Shader Index {0}", index);
                     error_string += string.Format("\n\tShader compile failed with command line: {0} {1}", process.StartInfo.FileName, process.StartInfo.Arguments);
                     error_string += string.Format("\n\tWorking directory: {0}", process.StartInfo.WorkingDirectory);
-                    error_string += string.Format("\n\tstdout: {0}", process.StandardOutput.ReadToEnd());
-                    error_string += string.Format("\n\tstderr: {0}", process.StandardError.ReadToEnd());
+                    error_string += string.Format("\n\tstdout: {0}", stdout_text);
+                    error_string += string.Format("\n\tstderr: {0}", stderr_text);
 
                     Console.WriteLine(error_string);
                     all_success = false;

@@ -60,13 +60,21 @@ namespace sg
 			// State the texture rests in between uses (see ResourceState)
 			ResourceState get_read_resource_state() const { return swap_chain_buffer ? ResourceState::Present : ResourceState::Read; }
 
+			// View descriptions: sampling uses all (or the given) mips of the first layer/slice, storage a single mip,
+			// attachments mip 0
+			TextureViewKey make_shader_resource_view_key(u32 top_mip = 0, u32 mip_count = VK_REMAINING_MIP_LEVELS) const;
+			TextureViewKey make_unordered_access_view_key(u32 mip) const;
+			TextureViewKey make_attachment_view_key(DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN) const;
+			vk::ImageViewCreateInfo make_view_create_info(const TextureViewKey& key) const;
+
+			// VkImageView objects are only needed for attachments and ImGui; shaders use heap descriptors built from the
+			// view description (VK_EXT_descriptor_heap needs no view objects)
 			vk::ImageView get_view(const TextureViewKey& key);
-			// Default view for sampling: all (or the given) mips of the first layer/slice
-			vk::ImageView get_shader_resource_view(u32 top_mip = 0, u32 mip_count = VK_REMAINING_MIP_LEVELS);
-			// Single mip view for storage access
-			vk::ImageView get_unordered_access_view(u32 mip);
-			// Single mip view for attachment use
-			vk::ImageView get_attachment_view(DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN);
+			vk::ImageView get_shader_resource_view(u32 top_mip = 0, u32 mip_count = VK_REMAINING_MIP_LEVELS) { return get_view(make_shader_resource_view_key(top_mip, mip_count)); }
+			vk::ImageView get_attachment_view(DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN) { return get_view(make_attachment_view_key(format)); }
+
+			// Heap descriptor bytes for a sampled (eSampledImage) or storage (eStorageImage) view, written once and cached
+			const uint8_t* get_descriptor(const TextureViewKey& key, vk::DescriptorType type);
 
 			const ResourceCreateDesc resource_create_desc;
 
@@ -84,6 +92,8 @@ namespace sg
 			SharedPtr<Memory> memory;
 			vk::raii::Image image = nullptr;
 			std::unordered_map<TextureViewKey, vk::raii::ImageView, TextureViewKeyHash> views; // Destroyed before the image
+			std::unordered_map<TextureViewKey, std::vector<uint8_t>, TextureViewKeyHash> sampled_descriptors;
+			std::unordered_map<TextureViewKey, std::vector<uint8_t>, TextureViewKeyHash> storage_descriptors;
 		};
 	}
 }

@@ -16,6 +16,8 @@ namespace sg
 			Buffer& operator=(const Buffer&) = delete;
 
 			vk::Buffer get() const { return *buffer; }
+			// Used for push address CBVs and buffer descriptors (VK_EXT_descriptor_heap works with device addresses)
+			vk::DeviceAddress get_device_address() const { return device_address; }
 			BufferType get_type() const { return type; }
 			MemoryType get_memory_type() const;
 			size_t get_size_bytes() const { return size_bytes; }
@@ -37,6 +39,7 @@ namespace sg
 			const bool cpu_readable;
 			SharedPtr<Memory> memory;
 			vk::raii::Buffer buffer = nullptr; // Destroyed before 'memory' (reverse declaration order)
+			vk::DeviceAddress device_address = 0;
 		};
 	}
 }

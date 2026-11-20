@@ -4,17 +4,16 @@
 #include "sgVulkanMemory.h"
 #include "sgVulkanShader.h"
 #include "sgVulkanResourceState.h"
+#include "sgVulkanDescriptorHeap.h"
+#include <memory>
 #include <mutex>
 #include <string>
-#include <unordered_map>
 
 namespace sg
 {
 	class UploadHeap;
 	namespace Vulkan
 	{
-		struct PipelineLayout;
-
 		struct ImGuiTextureViewer
 		{
 			SharedPtr<Texture> texture;
@@ -24,6 +23,8 @@ namespace sg
 			u64 imgui_id() const { return reinterpret_cast<u64>(descriptor_set); }
 		};
 
+		// Vulkan 1.4 device using shader objects (VK_EXT_shader_object), descriptor heaps (VK_EXT_descriptor_heap) and dynamic
+		// rendering. There are no pipelines, pipeline layouts, descriptor sets or descriptor pools in the renderer.
 		class Device
 		{
 		public:
@@ -117,8 +118,22 @@ namespace sg
 			const vk::raii::Queue& get_queue() const { return queue; }
 			VmaAllocator get_allocator() const { return allocator; }
 			vk::PipelineStageFlags2 get_shader_stages() const { return shader_stages; }
-			bool supports_null_descriptors() const { return null_descriptors_supported; }
-			vk::Sampler get_sampler(u32 index) const { return index < samplers.size() ? *samplers[index].sampler : vk::Sampler(); }
+			bool supports_geometry_shaders() const { return geometry_shaders_supported; }
+			bool supports_logic_ops() const { return logic_op_supported; }
+
+			// Descriptor heaps. Every resource heap descriptor occupies one slot of get_descriptor_slot_size() bytes.
+			const DescriptorHeap& get_resource_heap() const { return *resource_heap; }
+			const DescriptorHeap& get_sampler_heap() const { return *sampler_heap; }
+			u32 get_descriptor_slot_size() const { return descriptor_slot_size; }
+			// Command lists each own a region of the resource heap that their descriptor tables are allocated from
+			static constexpr u32 COMMAND_LIST_DESCRIPTOR_SLOTS = 65536;
+			u32 allocate_descriptor_region();
+			void free_descriptor_region(u32 first_slot);
+			void write_image_descriptor(void* destination, vk::DescriptorType type, const vk::ImageViewCreateInfo& view, vk::ImageLayout layout);
+			void write_buffer_descriptors(u32 count, const vk::DescriptorType* types, const vk::DeviceAddressRangeEXT* ranges, void* const* destinations);
+			// Valid stand-ins for bindings a shader uses but the application did not set (D3D12 tolerates these when not read)
+			vk::DeviceAddress get_null_constant_buffer_address() const;
+			const uint8_t* get_null_descriptor(vk::DescriptorType type) const;
 
 			// New images start in VK_IMAGE_LAYOUT_UNDEFINED. Their first transition (to their resting state) is recorded at the
 			// start of the next queue submission, so it happens before any command that uses them.
@@ -130,8 +145,14 @@ namespace sg
 			void create_instance();
 			void select_physical_device();
 			void create_logical_device();
-			SharedPtr<PipelineLayout> get_pipeline_layout(std::initializer_list<const Shader*> shaders);
-			vk::raii::Sampler create_sampler(const sg::SamplerDesc& desc);
+			void create_descriptor_heaps();
+			void create_descriptor_mapping();
+			void create_null_descriptors();
+			void write_samplers();
+			vk::SamplerCreateInfo make_sampler_create_info(const sg::SamplerDesc& desc) const;
+			// Creates (linked when more than one) shader objects for the given stages, in pipeline order
+			void create_shader_objects(Pipeline& pipeline, std::initializer_list<const Shader*> shaders, bool mesh_without_task);
+			void set_graphics_state(Pipeline& pipeline, const Rasterizer::Desc& rasterizer, const DepthStencil::Desc& depth_stencil, const Blend::Desc& blend, u32 render_target_count);
 
 			// Swap chain
 			void create_swap_chain_resources(vk::SwapchainKHR old_swap_chain);
@@ -148,15 +169,14 @@ namespace sg
 			vk::raii::Queue queue = nullptr;
 			u32 queue_family = 0;
 			VmaAllocator allocator = VK_NULL_HANDLE;
-			vk::raii::PipelineCache pipeline_cache = nullptr;
 
 			// Capabilities
 			vk::PhysicalDeviceProperties properties;
-			u32 max_push_descriptors = 0;
+			vk::PhysicalDeviceDescriptorHeapPropertiesEXT heap_properties;
 			bool mesh_shaders_supported = false;
 			bool mesh_shader_queries_supported = false;
-			bool null_descriptors_supported = false;
-			bool memory_budget_supported = false;
+			bool geometry_shaders_supported = false;
+			bool logic_op_supported = false;
 			bool wave_ops_supported = false;
 			u32 wave_lane_count_min = 0;
 			u32 wave_lane_count_max = 0;
@@ -166,13 +186,23 @@ namespace sg
 			u32 texture_memory_type_bits = 0;
 			u32 target_memory_type_bits = 0;
 
-			std::unordered_map<std::string, SharedPtr<PipelineLayout>> pipeline_layouts;
+			// Descriptor heaps
+			std::unique_ptr<DescriptorHeap> resource_heap;
+			std::unique_ptr<DescriptorHeap> sampler_heap;
+			u32 descriptor_slot_size = 0;
+			std::mutex descriptor_region_mutex;
+			std::vector<u32> free_descriptor_regions;
+			std::vector<VkDescriptorSetAndBindingMappingEXT> descriptor_mappings; // Shared by every shader
+			VkShaderDescriptorSetAndBindingMappingInfoEXT descriptor_mapping_info = {};
+			SharedPtr<Buffer> null_buffer;
+			SharedPtr<Texture> null_texture;
+			std::vector<uint8_t> null_sampled_image_descriptor;
+			std::vector<uint8_t> null_storage_buffer_descriptor;
 
 			struct SamplerInfo
 			{
 				std::string name;
 				sg::SamplerDesc sampler_desc;
-				vk::raii::Sampler sampler = nullptr;
 			};
 			std::vector<SamplerInfo> samplers;
 
@@ -180,7 +210,6 @@ namespace sg
 			std::vector<vk::ImageMemoryBarrier2> pending_initial_transitions;
 
 			// Swap chain
-			HWND swap_chain_hwnd = nullptr;
 			CommandQueue* present_queue = nullptr;
 			vk::raii::SurfaceKHR surface = nullptr;
 			vk::raii::SwapchainKHR swap_chain = nullptr;
@@ -196,7 +225,7 @@ namespace sg
 			std::vector<vk::raii::Semaphore> present_semaphores;
 			SharedPtr<Texture> minimised_back_buffer; // Rendered to instead of swap chain images while the window has no area
 
-			// ImGui
+			// ImGui (its Vulkan backend uses its own pipelines and descriptor sets)
 			bool imgui_initialised = false;
 			VkFormat imgui_colour_format = VK_FORMAT_UNDEFINED; // Referenced by ImGui's pipeline rendering info
 			vk::raii::Sampler imgui_sampler = nullptr;

@@ -41,7 +41,7 @@ namespace sg
 			current_index = 0;
 		}
 
-		void GPUTimestampPool::end_frame(CommandList* command_list)
+		void GPUTimestampPool::end_frame(CommandList*)
 		{
 			seAssert(recording, "Recording should be true");
 			recording = false;

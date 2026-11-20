@@ -96,21 +96,13 @@ namespace sg
             *ppAdapter = adapter.Detach();
         }
         
-        void d3d12_message_callback(D3D12_MESSAGE_CATEGORY Category, D3D12_MESSAGE_SEVERITY Severity, D3D12_MESSAGE_ID ID, LPCSTR pDescription, void* pContext)
+        // Debug layer messages are written to the engine debug output (and SE_LOG_FILE when set)
+        void d3d12_message_callback(D3D12_MESSAGE_CATEGORY, D3D12_MESSAGE_SEVERITY Severity, D3D12_MESSAGE_ID ID, LPCSTR pDescription, void*)
         {
-            if (Severity == D3D12_MESSAGE_SEVERITY_WARNING)
+            const char* level = Severity == D3D12_MESSAGE_SEVERITY_WARNING ? "WARNING" : (Severity == D3D12_MESSAGE_SEVERITY_CORRUPTION ? "CORRUPTION" : "ERROR");
+            if (Severity <= D3D12_MESSAGE_SEVERITY_WARNING)
             {
-            	// Causes a crash on exit due to deconstruct order
-				//static std::unordered_set<D3D12_MESSAGE_ID> observed_messages;
-                //if (observed_messages.find(ID) == observed_messages.end())
-                //{
-                //    observed_messages.insert(ID);
-                //}
-            }
-            else
-            {
-
-				//__debugbreak();
+                seWriteLine("[D3D12 %s] %s (message id %d)", level, pDescription, static_cast<int>(ID));
             }
         }
 
@@ -131,9 +123,19 @@ namespace sg
                     //D3D12_MESSAGE_SEVERITY_MESSAGE,
                 };
                 NewFilter.AllowList.NumSeverities = _countof(Severities);
-                NewFilter.AllowList.pSeverityList = Severities;                
-                pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, true);
-                pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, true);
+                NewFilter.AllowList.pSeverityList = Severities;
+                // ImGui's DX12 multi-viewport backend waits on fence value 0 before a secondary viewport's first frame
+                // (harmless; the engine itself never waits on 0)
+                D3D12_MESSAGE_ID DeniedIds[] =
+                {
+                    D3D12_MESSAGE_ID_FENCE_ZERO_WAIT,
+                };
+                NewFilter.DenyList.NumIDs = _countof(DeniedIds);
+                NewFilter.DenyList.pIDList = DeniedIds;                
+                // Only break into an attached debugger; without one the message is still logged by the callback
+                const BOOL break_on_errors = IsDebuggerPresent();
+                pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, break_on_errors);
+                pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, break_on_errors);
                 pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, false);
                 pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_INFO, false);
                 DWORD dword = 0;
@@ -807,6 +809,25 @@ namespace sg
 		}
 
 
+		namespace
+		{
+			// Optimised clear values need a typed format
+			bool is_typeless_format(DXGI_FORMAT format)
+			{
+				switch (format)
+				{
+				case DXGI_FORMAT_R32G32B32A32_TYPELESS: case DXGI_FORMAT_R32G32B32_TYPELESS: case DXGI_FORMAT_R16G16B16A16_TYPELESS:
+				case DXGI_FORMAT_R32G32_TYPELESS: case DXGI_FORMAT_R32G8X24_TYPELESS: case DXGI_FORMAT_R10G10B10A2_TYPELESS:
+				case DXGI_FORMAT_R8G8B8A8_TYPELESS: case DXGI_FORMAT_R16G16_TYPELESS: case DXGI_FORMAT_R32_TYPELESS:
+				case DXGI_FORMAT_R24G8_TYPELESS: case DXGI_FORMAT_R8G8_TYPELESS: case DXGI_FORMAT_R16_TYPELESS: case DXGI_FORMAT_R8_TYPELESS:
+				case DXGI_FORMAT_B8G8R8A8_TYPELESS: case DXGI_FORMAT_B8G8R8X8_TYPELESS:
+					return true;
+				default:
+					return false;
+				}
+			}
+		}
+
 		se::SharedPtr<sg::D3D12::Texture> Device::create_texture(SharedPtr<Memory> memory, u32 size, const ResourceCreateDesc& resource_desc)
 		{
 			D3D12_RESOURCE_DESC d3d12_desc = create_dx12_resource_desc(resource_desc);
@@ -814,7 +835,24 @@ namespace sg
 			D3D12MA::Allocation* d3d12_alloc = memory->alloc;
 			const D3D12_RESOURCE_STATES resource_state = get_d3d12_resource_read_state(BufferType::Texture);
 			ComPtr<ID3D12Resource> d3d12_texture;
-			CHECKHR(device6->CreatePlacedResource(d3d12_alloc->GetHeap(), d3d12_alloc->GetOffset(), &d3d12_desc, resource_state, nullptr, IID_PPV_ARGS(d3d12_texture.GetAddressOf())));
+
+			// Render and depth targets get an optimised clear value (clears with that value are fastest)
+			D3D12_CLEAR_VALUE clear_value = {};
+			const D3D12_CLEAR_VALUE* optimised_clear_value = nullptr;
+			if ((d3d12_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL) && !is_typeless_format(resource_desc.format))
+			{
+				clear_value.Format = resource_desc.format;
+				clear_value.DepthStencil.Depth = resource_desc.optimised_clear_depth;
+				clear_value.DepthStencil.Stencil = resource_desc.optimised_clear_stencil;
+				optimised_clear_value = &clear_value;
+			}
+			else if ((d3d12_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET) && !is_typeless_format(resource_desc.format))
+			{
+				clear_value.Format = resource_desc.format;
+				memcpy(clear_value.Color, resource_desc.optimised_clear_colour.data(), sizeof(clear_value.Color));
+				optimised_clear_value = &clear_value;
+			}
+			CHECKHR(device6->CreatePlacedResource(d3d12_alloc->GetHeap(), d3d12_alloc->GetOffset(), &d3d12_desc, resource_state, optimised_clear_value, IID_PPV_ARGS(d3d12_texture.GetAddressOf())));
 
             bool uav_access = (resource_desc.usage_flags & ResourceUsageFlags::UnorderedAccess) == ResourceUsageFlags::UnorderedAccess;
 			SharedPtr<Texture> buffer(new Texture(size, uav_access, memory->get_type() == MemoryType::Upload, memory->get_type() == MemoryType::Readback, resource_desc));

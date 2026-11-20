@@ -49,22 +49,36 @@ struct VS_INPUT
     float3 normals : NORMAL;
 };
 
+// Vertex shader output read by the geometry shader
 struct VS_OUTPUT
 {
     float4 position : SV_POSITION;
     float3 colour : COLOR0;
     float2 uvs : TEXCOORD0;
     float3 normals : NORMAL;
-    
+
 #ifdef MESH_SHADER
     uint MeshletIndex : COLOR1;
 #endif
-    
+
     noperspective float3 world_position : COLOR2;
 };
 
-struct PS_INPUT : VS_OUTPUT
+// VS_OUTPUT plus prim_id. Deliberately not derived from VS_OUTPUT: DXC's SPIR-V backend drops writes to inherited members
+// of mesh shader output vertices, so the Vulkan mesh shader paths would output no geometry.
+struct PS_INPUT
 {
+    float4 position : SV_POSITION;
+    float3 colour : COLOR0;
+    float2 uvs : TEXCOORD0;
+    float3 normals : NORMAL;
+
+#ifdef MESH_SHADER
+    uint MeshletIndex : COLOR1;
+#endif
+
+    noperspective float3 world_position : COLOR2;
+
 #if defined(GEOMETRY_SHADER) || defined(MESH_SHADER)
     uint prim_id : nointerpolate;
 #endif

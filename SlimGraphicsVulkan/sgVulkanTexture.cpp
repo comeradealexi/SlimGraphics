@@ -34,6 +34,17 @@ namespace sg
 			return resource_create_desc.dimension == ResourceDimension::Texture3D ? 1u : std::max(1u, resource_create_desc.depth);
 		}
 
+		vk::ImageViewCreateInfo Texture::make_view_create_info(const TextureViewKey& key) const
+		{
+			vk::ImageViewCreateInfo create_info({}, image_handle, key.type, key.format, {}, vk::ImageSubresourceRange(key.aspect, key.base_mip, key.mip_count, key.base_layer, key.layer_count));
+			if (resource_create_desc.format == DXGI_FORMAT_A8_UNORM)
+			{
+				// DXGI A8 maps to R8; expose it in the alpha channel like D3D does
+				create_info.components = vk::ComponentMapping(vk::ComponentSwizzle::eZero, vk::ComponentSwizzle::eZero, vk::ComponentSwizzle::eZero, vk::ComponentSwizzle::eR);
+			}
+			return create_info;
+		}
+
 		vk::ImageView Texture::get_view(const TextureViewKey& key)
 		{
 			auto it = views.find(key);
@@ -41,18 +52,25 @@ namespace sg
 			{
 				return *it->second;
 			}
-
-			vk::ImageViewCreateInfo create_info({}, image_handle, key.type, key.format, {}, vk::ImageSubresourceRange(key.aspect, key.base_mip, key.mip_count, key.base_layer, key.layer_count));
-			if (resource_create_desc.format == DXGI_FORMAT_A8_UNORM)
-			{
-				// DXGI A8 maps to R8; expose it in the alpha channel like D3D does
-				create_info.components = vk::ComponentMapping(vk::ComponentSwizzle::eZero, vk::ComponentSwizzle::eZero, vk::ComponentSwizzle::eZero, vk::ComponentSwizzle::eR);
-			}
-			auto inserted = views.emplace(key, vk::raii::ImageView(owner.get_device(), create_info));
+			auto inserted = views.emplace(key, vk::raii::ImageView(owner.get_device(), make_view_create_info(key)));
 			return *inserted.first->second;
 		}
 
-		vk::ImageView Texture::get_shader_resource_view(u32 top_mip, u32 mip_count)
+		const uint8_t* Texture::get_descriptor(const TextureViewKey& key, vk::DescriptorType type)
+		{
+			auto& cache = type == vk::DescriptorType::eStorageImage ? storage_descriptors : sampled_descriptors;
+			auto it = cache.find(key);
+			if (it == cache.end())
+			{
+				std::vector<uint8_t> bytes(owner.get_descriptor_slot_size());
+				const vk::ImageLayout layout = type == vk::DescriptorType::eStorageImage ? vk::ImageLayout::eGeneral : vk::ImageLayout::eReadOnlyOptimal;
+				owner.write_image_descriptor(bytes.data(), type, make_view_create_info(key), layout);
+				it = cache.emplace(key, std::move(bytes)).first;
+			}
+			return it->second.data();
+		}
+
+		TextureViewKey Texture::make_shader_resource_view_key(u32 top_mip, u32 mip_count) const
 		{
 			TextureViewKey key;
 			switch (resource_create_desc.dimension)
@@ -66,10 +84,10 @@ namespace sg
 			key.aspect = (aspect & vk::ImageAspectFlagBits::eDepth) ? vk::ImageAspectFlags(vk::ImageAspectFlagBits::eDepth) : aspect;
 			key.base_mip = top_mip;
 			key.mip_count = mip_count == static_cast<u32>(-1) ? VK_REMAINING_MIP_LEVELS : mip_count;
-			return get_view(key);
+			return key;
 		}
 
-		vk::ImageView Texture::get_unordered_access_view(u32 mip)
+		TextureViewKey Texture::make_unordered_access_view_key(u32 mip) const
 		{
 			TextureViewKey key;
 			key.type = resource_create_desc.dimension == ResourceDimension::Texture3D ? vk::ImageViewType::e3D : vk::ImageViewType::e2D;
@@ -77,10 +95,10 @@ namespace sg
 			key.aspect = aspect;
 			key.base_mip = mip;
 			key.mip_count = 1;
-			return get_view(key);
+			return key;
 		}
 
-		vk::ImageView Texture::get_attachment_view(DXGI_FORMAT format)
+		TextureViewKey Texture::make_attachment_view_key(DXGI_FORMAT format) const
 		{
 			TextureViewKey key;
 			key.type = vk::ImageViewType::e2D;
@@ -88,12 +106,14 @@ namespace sg
 			key.aspect = aspect;
 			key.base_mip = 0;
 			key.mip_count = 1;
-			return get_view(key);
+			return key;
 		}
 
 		void Texture::set_external_image(vk::Image external_image, bool is_swap_chain_image)
 		{
 			views.clear();
+			sampled_descriptors.clear();
+			storage_descriptors.clear();
 			image_handle = external_image;
 			swap_chain_buffer = is_swap_chain_image;
 		}

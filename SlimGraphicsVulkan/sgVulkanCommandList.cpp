@@ -13,11 +13,7 @@ namespace sg
 		namespace
 		{
 			constexpr u32 kTextureRowPitchAlignment = 256; // Matches UploadHeap::upload_texture_subresource / D3D12_TEXTURE_DATA_PITCH_ALIGNMENT
-
-			u32 bind_point_index(vk::PipelineBindPoint bind_point)
-			{
-				return bind_point == vk::PipelineBindPoint::eCompute ? 1u : 0u;
-			}
+			constexpr u32 kMaxColourAttachments = 8;
 		}
 
 		CommandList::CommandList(Device& device_, u32 queue_family) : device(device_), shader_stages(device_.get_shader_stages())
@@ -26,6 +22,12 @@ namespace sg
 			command_pool = vk::raii::CommandPool(vk_device, vk::CommandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eTransient, queue_family));
 			vk::raii::CommandBuffers buffers(vk_device, vk::CommandBufferAllocateInfo(*command_pool, vk::CommandBufferLevel::ePrimary, 1));
 			command_buffer = std::move(buffers[0]);
+			region_first_slot = device.allocate_descriptor_region();
+		}
+
+		CommandList::~CommandList()
+		{
+			device.free_descriptor_region(region_first_slot);
 		}
 
 		void CommandList::start_recording()
@@ -39,9 +41,16 @@ namespace sg
 			active_pipeline = nullptr;
 			active_binding = Binding();
 			binding_version = 0;
-			pushed_layout[0] = pushed_layout[1] = nullptr;
-			pipeline_dirty = false;
+			heaps_dirty = true;
+			shaders_dirty = false;
+			vertex_input_dirty = true;
+			push_data_dirty = true;
 			viewport_dirty = true;
+			tables_binding_version = ~0ull;
+			tables_pipeline = nullptr;
+			push_data = PushData();
+			vertex_buffer_stride = 0;
+			region_used_slots = 0; // The GPU finished reading the descriptors written by the previous recording
 			uav_barrier_pending = false;
 			rendering = false;
 			pass = PassState();
@@ -67,14 +76,18 @@ namespace sg
 
 		void CommandList::set_pipeline(Pipeline* pipeline)
 		{
-			seAssert(pipeline != nullptr && *pipeline->pipeline, "Invalid pipeline");
-			command_buffer.bindPipeline(pipeline->get_bind_point(), *pipeline->pipeline);
+			seAssert(pipeline != nullptr && !pipeline->shaders.empty(), "Invalid pipeline");
+			if (pipeline == active_pipeline && !shaders_dirty)
+			{
+				return;
+			}
 			active_pipeline = pipeline;
-			pipeline_dirty = false;
+			bind_shaders();
 		}
 
-		void CommandList::bind(Binding& bind, PipelineType type)
+		void CommandList::bind(Binding& bind, PipelineType)
 		{
+			// Graphics and compute share one set of push data / descriptor tables, written for whichever shaders are bound
 			// Transition UAVs that are no longer bound back to their read state and newly bound ones to UNORDERED_ACCESS.
 			// Work on unique resources so a resource that stays bound (in another slot or via another mip view) is untouched.
 			struct ResourceRef
@@ -147,9 +160,13 @@ namespace sg
 			const vk::Buffer buffer = view.buffer_resource->get();
 			const vk::DeviceSize offset = view.offset;
 			const vk::DeviceSize size = view.size;
-			const vk::DeviceSize stride = view.stride;
-			// Stride is dynamic state, as in D3D12 vertex buffer views
-			command_buffer.bindVertexBuffers2(0, buffer, offset, size, stride);
+			command_buffer.bindVertexBuffers2(0, buffer, offset, size, {});
+			// The stride is part of the vertex input state (vkCmdSetVertexInputEXT), as in D3D12 vertex buffer views
+			if (view.stride != vertex_buffer_stride)
+			{
+				vertex_buffer_stride = view.stride;
+				vertex_input_dirty = true;
+			}
 		}
 
 		void CommandList::bind_index_buffer(IndexBufferView view)
@@ -164,7 +181,7 @@ namespace sg
 			update_statistics_mode(false);
 			flush_barriers(!rendering);
 			ensure_rendering();
-			flush_descriptors();
+			flush_shader_state();
 			command_buffer.draw(vertex_count_per_instance, instance_count, start_vertex_location, start_instance_location);
 			mark_uavs_written();
 		}
@@ -175,7 +192,7 @@ namespace sg
 			update_statistics_mode(false);
 			flush_barriers(!rendering);
 			ensure_rendering();
-			flush_descriptors();
+			flush_shader_state();
 			command_buffer.drawIndexed(index_count_per_instance, instance_count, start_index_location, base_vertex_location, start_instance_location);
 			mark_uavs_written();
 		}
@@ -251,7 +268,7 @@ namespace sg
 			ensure_bindings_valid();
 			suspend_rendering();
 			flush_barriers(true);
-			flush_descriptors();
+			flush_shader_state();
 			command_buffer.dispatch(x, y, z);
 			mark_uavs_written();
 		}
@@ -262,7 +279,7 @@ namespace sg
 			update_statistics_mode(true);
 			flush_barriers(!rendering);
 			ensure_rendering();
-			flush_descriptors();
+			flush_shader_state();
 			command_buffer.drawMeshTasksEXT(x, y, z);
 			mark_uavs_written();
 		}
@@ -278,7 +295,7 @@ namespace sg
 			transition(buffer, state, ResourceState::IndirectArgument);
 			flush_barriers(true);
 			ensure_rendering();
-			flush_descriptors();
+			flush_shader_state();
 			command_buffer.drawMeshTasksIndirectEXT(buffer->get(), 0, 1, sizeof(VkDrawMeshTasksIndirectCommandEXT));
 			transition(buffer, ResourceState::IndirectArgument, state);
 			mark_uavs_written();
@@ -293,8 +310,9 @@ namespace sg
 			clear_buffer_uint(uav, srv, bits);
 		}
 
-		void CommandList::clear_buffer_uint(UnorderedAccessView& uav, ShaderResourceView& srv, sg::u32 value)
+		void CommandList::clear_buffer_uint(UnorderedAccessView& uav, ShaderResourceView&, sg::u32 value)
 		{
+			// The SRV is only needed by D3D12 (ClearUnorderedAccessViewUint takes a CPU descriptor); vkCmdFillBuffer needs neither
 			seAssert(uav.buffer_resource, "clear_buffer_uint requires a buffer UAV");
 			Buffer* buffer = uav.buffer_resource.get();
 			retain(uav.buffer_resource);
@@ -596,26 +614,17 @@ namespace sg
 
 			command_buffer.beginRendering(rendering_info);
 			rendering = true;
-
-			if (viewport_dirty)
-			{
-				command_buffer.setViewport(0, pass.viewport);
-				command_buffer.setScissor(0, pass.scissor);
-				viewport_dirty = false;
-			}
 		}
 
 		void CommandList::invalidate_state()
 		{
-			pushed_layout[0] = pushed_layout[1] = nullptr;
-			pipeline_dirty = active_pipeline != nullptr;
+			// Third party rendering (ImGui) binds its own pipeline (overwriting dynamic state) and descriptor sets / push
+			// constants, which invalidate descriptor heap and push data state
+			heaps_dirty = true;
+			push_data_dirty = true;
+			shaders_dirty = active_pipeline != nullptr;
+			vertex_input_dirty = true;
 			viewport_dirty = true;
-			if (rendering && pass.active)
-			{
-				command_buffer.setViewport(0, pass.viewport);
-				command_buffer.setScissor(0, pass.scissor);
-				viewport_dirty = false;
-			}
 		}
 
 		void CommandList::suspend_rendering()
@@ -670,107 +679,295 @@ namespace sg
 				static_cast<u32>(buffer_barriers.size()), buffer_barriers.data(), static_cast<u32>(image_barriers.size()), image_barriers.data()));
 		}
 
-		void CommandList::flush_descriptors()
+		void CommandList::bind_shaders()
+		{
+			const Pipeline& p = *active_pipeline;
+			if (p.get_bind_point() == vk::PipelineBindPoint::eCompute)
+			{
+				const vk::ShaderStageFlagBits stage = vk::ShaderStageFlagBits::eCompute;
+				const vk::ShaderEXT shader = *p.shaders[0];
+				command_buffer.bindShadersEXT(stage, shader);
+			}
+			else
+			{
+				// Every graphics stage the device supports is bound, with VK_NULL_HANDLE for stages the pipeline does not use
+				std::array<vk::ShaderStageFlagBits, 5> stages;
+				std::array<vk::ShaderEXT, 5> shaders;
+				u32 count = 0;
+				auto add_stage = [&](vk::ShaderStageFlagBits stage)
+					{
+						stages[count] = stage;
+						shaders[count] = VK_NULL_HANDLE;
+						for (size_t i = 0; i < p.stages.size(); i++)
+						{
+							if (p.stages[i] == stage) shaders[count] = *p.shaders[i];
+						}
+						count++;
+					};
+				add_stage(vk::ShaderStageFlagBits::eVertex);
+				add_stage(vk::ShaderStageFlagBits::eFragment);
+				if (device.supports_geometry_shaders()) add_stage(vk::ShaderStageFlagBits::eGeometry);
+				if (device.SupportsMeshShaders())
+				{
+					add_stage(vk::ShaderStageFlagBits::eTaskEXT);
+					add_stage(vk::ShaderStageFlagBits::eMeshEXT);
+				}
+				command_buffer.bindShadersEXT(vk::ArrayProxy<const vk::ShaderStageFlagBits>(count, stages.data()), vk::ArrayProxy<const vk::ShaderEXT>(count, shaders.data()));
+				set_graphics_state();
+				vertex_input_dirty = true;
+			}
+			shaders_dirty = false;
+		}
+
+		void CommandList::set_graphics_state()
+		{
+			// With shader objects every piece of fixed function state a draw depends on is dynamic and must be set
+			const Pipeline& p = *active_pipeline;
+			command_buffer.setRasterizerDiscardEnable(VK_FALSE);
+			command_buffer.setPrimitiveTopology(p.topology);
+			command_buffer.setPrimitiveRestartEnable(VK_FALSE);
+			command_buffer.setPolygonModeEXT(p.polygon_mode);
+			command_buffer.setCullMode(p.cull_mode);
+			command_buffer.setFrontFace(p.front_face);
+			command_buffer.setLineWidth(1.0f);
+			command_buffer.setDepthBiasEnable(VK_FALSE);
+			command_buffer.setRasterizationSamplesEXT(vk::SampleCountFlagBits::e1);
+			const vk::SampleMask sample_mask = 0xFFFFFFFFu;
+			command_buffer.setSampleMaskEXT(vk::SampleCountFlagBits::e1, sample_mask);
+			command_buffer.setAlphaToCoverageEnableEXT(p.alpha_to_coverage);
+
+			command_buffer.setDepthTestEnable(p.depth_test);
+			command_buffer.setDepthWriteEnable(p.depth_write);
+			command_buffer.setDepthCompareOp(p.depth_compare);
+			command_buffer.setDepthBoundsTestEnable(VK_FALSE);
+			command_buffer.setStencilTestEnable(p.stencil_test);
+			if (p.stencil_test)
+			{
+				const vk::StencilOpState& f = p.stencil_front;
+				const vk::StencilOpState& b = p.stencil_back;
+				command_buffer.setStencilOp(vk::StencilFaceFlagBits::eFront, f.failOp, f.passOp, f.depthFailOp, f.compareOp);
+				command_buffer.setStencilOp(vk::StencilFaceFlagBits::eBack, b.failOp, b.passOp, b.depthFailOp, b.compareOp);
+				command_buffer.setStencilCompareMask(vk::StencilFaceFlagBits::eFrontAndBack, f.compareMask);
+				command_buffer.setStencilWriteMask(vk::StencilFaceFlagBits::eFrontAndBack, f.writeMask);
+				command_buffer.setStencilReference(vk::StencilFaceFlagBits::eFrontAndBack, 0); // D3D12's default OMSetStencilRef
+			}
+
+			if (device.supports_logic_ops())
+			{
+				command_buffer.setLogicOpEnableEXT(p.logic_op_enable);
+				if (p.logic_op_enable) command_buffer.setLogicOpEXT(p.logic_op);
+			}
+
+			// Blend state for every possible attachment (beyond the pipeline's render targets: blending off, all channels written)
+			std::array<vk::Bool32, kMaxColourAttachments> blend_enables;
+			std::array<vk::ColorBlendEquationEXT, kMaxColourAttachments> blend_equations;
+			std::array<vk::ColorComponentFlags, kMaxColourAttachments> write_masks;
+			const vk::ColorBlendEquationEXT no_blend(vk::BlendFactor::eOne, vk::BlendFactor::eZero, vk::BlendOp::eAdd, vk::BlendFactor::eOne, vk::BlendFactor::eZero, vk::BlendOp::eAdd);
+			const vk::ColorComponentFlags all_channels = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+			for (u32 i = 0; i < kMaxColourAttachments; i++)
+			{
+				const bool used = i < p.render_target_count;
+				blend_enables[i] = used ? p.blend_enables[i] : VK_FALSE;
+				blend_equations[i] = used ? p.blend_equations[i] : no_blend;
+				write_masks[i] = used ? p.write_masks[i] : all_channels;
+			}
+			command_buffer.setColorBlendEnableEXT(0, blend_enables);
+			command_buffer.setColorBlendEquationEXT(0, blend_equations);
+			command_buffer.setColorWriteMaskEXT(0, write_masks);
+			command_buffer.setBlendConstants({ 1.0f, 1.0f, 1.0f, 1.0f }); // D3D12's default blend factor
+		}
+
+		void CommandList::set_vertex_input()
+		{
+			// Only slot 0 is used (bind_vertex_buffer binds one vertex buffer, like the D3D12 backend)
+			const Pipeline& p = *active_pipeline;
+			std::array<vk::VertexInputAttributeDescription2EXT, InputLayout::Desc::MAX_ELEMENTS> attributes;
+			u32 attribute_count = 0;
+			vk::VertexInputBindingDescription2EXT binding(0, static_cast<u32>(vertex_buffer_stride), vk::VertexInputRate::eVertex, 1);
+			for (const Pipeline::VertexAttribute& a : p.vertex_attributes)
+			{
+				seAssert(a.slot == 0, "Only vertex buffer slot 0 is supported");
+				seAssert(attribute_count == 0 || binding.inputRate == a.rate, "Mixed per vertex / per instance elements in one vertex buffer");
+				binding.inputRate = a.rate;
+				attributes[attribute_count++] = vk::VertexInputAttributeDescription2EXT(a.location, 0, a.format, a.offset);
+			}
+			command_buffer.setVertexInputEXT(vk::ArrayProxy<const vk::VertexInputBindingDescription2EXT>(attribute_count > 0 ? 1u : 0u, &binding),
+				vk::ArrayProxy<const vk::VertexInputAttributeDescription2EXT>(attribute_count, attributes.data()));
+			vertex_input_dirty = false;
+		}
+
+		void CommandList::set_viewport_scissor()
+		{
+			command_buffer.setViewportWithCount(pass.viewport);
+			command_buffer.setScissorWithCount(pass.scissor);
+			viewport_dirty = false;
+		}
+
+		void CommandList::write_descriptor_tables()
+		{
+			// Writes the SRV and UAV tables the active shaders read into this command list's heap region. Texture descriptors
+			// are copied from the textures' caches and buffer descriptors written in one batch; unset entries the shaders use
+			// get stand-ins.
+			const Pipeline& p = *active_pipeline;
+			tables_binding_version = binding_version;
+			tables_pipeline = active_pipeline;
+			const u32 table_slots = p.srv_table_size + p.uav_table_size;
+			if (table_slots == 0)
+			{
+				return;
+			}
+			seAssert(region_used_slots + table_slots <= Device::COMMAND_LIST_DESCRIPTOR_SLOTS, "Command list descriptor heap region exhausted");
+			if (region_used_slots + table_slots > Device::COMMAND_LIST_DESCRIPTOR_SLOTS)
+			{
+				return;
+			}
+			const u32 first_slot = region_first_slot + region_used_slots;
+			region_used_slots += table_slots;
+			push_data.srv_table_slot = first_slot;
+			push_data.uav_table_slot = first_slot + p.srv_table_size;
+			push_data_dirty = true;
+
+			const u32 slot_size = device.get_descriptor_slot_size();
+			uint8_t* const heap = device.get_resource_heap().get_mapped_data();
+			std::array<vk::DescriptorType, BindingShift::END> buffer_types;
+			std::array<vk::DeviceAddressRangeEXT, BindingShift::END> buffer_ranges;
+			std::array<void*, BindingShift::END> buffer_destinations;
+			u32 buffer_count = 0;
+
+			for (const Pipeline::DescriptorUse& use : p.descriptor_uses)
+			{
+				const bool is_srv = use.binding >= BindingShift::SRV && use.binding < BindingShift::SAMPLER;
+				const bool is_uav = use.binding >= BindingShift::UAV;
+				if (!is_srv && !is_uav)
+				{
+					continue; // CBVs are push addresses, samplers are global
+				}
+				const u32 index = use.binding - (is_srv ? BindingShift::SRV : BindingShift::UAV);
+				const u32 slot = is_srv ? push_data.srv_table_slot + index : push_data.uav_table_slot + index;
+				uint8_t* destination = heap + static_cast<size_t>(slot) * slot_size;
+
+				Texture* texture = nullptr;
+				Buffer* buffer = nullptr;
+				u64 range = 0;
+				TextureViewKey view_key;
+				if (is_srv)
+				{
+					ShaderResourceView& srv = active_binding.srvs[index];
+					if (srv.texture_resource)
+					{
+						texture = srv.texture_resource.get();
+						view_key = texture->make_shader_resource_view_key(srv.top_mip, srv.mip_count);
+					}
+					buffer = srv.buffer_resource.get();
+					range = srv.element_size * srv.element_count;
+				}
+				else
+				{
+					UnorderedAccessView& uav = active_binding.uavs[index];
+					if (uav.texture_resource)
+					{
+						texture = uav.texture_resource.get();
+						view_key = texture->make_unordered_access_view_key(uav.mip_level);
+					}
+					buffer = uav.buffer_resource.get();
+					range = uav.get_size_bytes();
+				}
+
+				switch (use.type)
+				{
+				case vk::DescriptorType::eSampledImage:
+				case vk::DescriptorType::eStorageImage:
+				{
+					seAssert(texture || !buffer, "Shader binding %u expects a texture but a buffer is bound", use.binding);
+					const uint8_t* source = texture ? texture->get_descriptor(view_key, use.type) : device.get_null_descriptor(use.type);
+					seAssert(source != nullptr, "No resource bound for shader binding %u", use.binding);
+					if (source) memcpy(destination, source, slot_size);
+					break;
+				}
+				case vk::DescriptorType::eStorageBuffer:
+					seAssert(buffer || !texture, "Shader binding %u expects a buffer but a texture is bound", use.binding);
+					if (buffer)
+					{
+						buffer_types[buffer_count] = vk::DescriptorType::eStorageBuffer;
+						const u64 size = (range > 0 && range < buffer->get_size_bytes()) ? range : buffer->get_size_bytes();
+						buffer_ranges[buffer_count] = vk::DeviceAddressRangeEXT(buffer->get_device_address(), size);
+						buffer_destinations[buffer_count] = destination;
+						buffer_count++;
+					}
+					else
+					{
+						memcpy(destination, device.get_null_descriptor(vk::DescriptorType::eStorageBuffer), slot_size);
+					}
+					break;
+				default:
+					seAssert(false, "Unsupported descriptor type %i for shader binding %u", static_cast<int>(use.type), use.binding);
+					break;
+				}
+			}
+
+			if (buffer_count > 0)
+			{
+				device.write_buffer_descriptors(buffer_count, buffer_types.data(), buffer_ranges.data(), buffer_destinations.data());
+			}
+		}
+
+		void CommandList::flush_shader_state()
 		{
 			if (!active_pipeline)
 			{
 				return;
 			}
-			if (pipeline_dirty)
+
+			if (heaps_dirty)
 			{
-				command_buffer.bindPipeline(active_pipeline->get_bind_point(), *active_pipeline->pipeline);
-				pipeline_dirty = false;
+				command_buffer.bindResourceHeapEXT(device.get_resource_heap().get_bind_info());
+				command_buffer.bindSamplerHeapEXT(device.get_sampler_heap().get_bind_info());
+				heaps_dirty = false;
+				push_data_dirty = true;
+			}
+			if (shaders_dirty)
+			{
+				bind_shaders();
+			}
+			if (active_pipeline->get_bind_point() == vk::PipelineBindPoint::eGraphics)
+			{
+				if (vertex_input_dirty && active_pipeline->has_vertex_shader)
+				{
+					set_vertex_input();
+				}
+				if (viewport_dirty && pass.active)
+				{
+					set_viewport_scissor();
+				}
 			}
 
-			const PipelineLayout* layout = active_pipeline->layout.get();
-			const u32 bp = bind_point_index(active_pipeline->get_bind_point());
-			if (pushed_layout[bp] == layout && pushed_version[bp] == binding_version)
+			if (tables_binding_version != binding_version || tables_pipeline != active_pipeline)
 			{
-				return; // Pushed descriptors are still valid (same layout object, same binding)
-			}
-			pushed_layout[bp] = layout;
-			pushed_version[bp] = binding_version;
-			if (layout->bindings.empty())
-			{
-				return;
+				write_descriptor_tables();
 			}
 
-			std::array<vk::DescriptorImageInfo, BindingShift::END> image_infos;
-			std::array<vk::DescriptorBufferInfo, BindingShift::END> buffer_infos;
-			std::array<vk::WriteDescriptorSet, BindingShift::END> writes;
-			u32 write_count = 0;
-			const bool null_descriptors = device.supports_null_descriptors();
-
-			for (const PipelineLayout::Binding& b : layout->bindings)
+			// Constant buffers are device addresses, with a stand-in for registers the shaders use but the application left unset
+			for (u32 i = 0; i < PushData::MAX_CBVS; i++)
 			{
-				vk::DescriptorImageInfo& image_info = image_infos[write_count];
-				vk::DescriptorBufferInfo& buffer_info = buffer_infos[write_count];
-				image_info = vk::DescriptorImageInfo();
-				buffer_info = vk::DescriptorBufferInfo(VK_NULL_HANDLE, 0, VK_WHOLE_SIZE);
-				bool valid = false;
-
-				if (b.binding < BindingShift::SRV)
+				vk::DeviceAddress address = active_binding.cbvs[i].address;
+				if (address == 0)
 				{
-					const ConstantBufferView& cbv = active_binding.cbvs[b.binding - BindingShift::CBV];
-					if (cbv.buffer)
-					{
-						buffer_info = vk::DescriptorBufferInfo(cbv.buffer, cbv.offset, cbv.size);
-						valid = true;
-					}
+					const bool used = std::any_of(active_pipeline->descriptor_uses.begin(), active_pipeline->descriptor_uses.end(),
+						[i](const Pipeline::DescriptorUse& u) { return u.binding == BindingShift::CBV + i; });
+					address = used ? device.get_null_constant_buffer_address() : 0;
 				}
-				else if (b.binding < BindingShift::SAMPLER)
+				if (push_data.cbv_addresses[i] != address)
 				{
-					ShaderResourceView& srv = active_binding.srvs[b.binding - BindingShift::SRV];
-					if (srv.texture_resource)
-					{
-						image_info = vk::DescriptorImageInfo(VK_NULL_HANDLE, srv.texture_resource->get_shader_resource_view(srv.top_mip, srv.mip_count), vk::ImageLayout::eReadOnlyOptimal);
-						valid = true;
-					}
-					else if (srv.buffer_resource)
-					{
-						const u64 range = srv.element_size * srv.element_count;
-						buffer_info = vk::DescriptorBufferInfo(srv.buffer_resource->get(), 0, range ? range : VK_WHOLE_SIZE);
-						valid = true;
-					}
+					push_data.cbv_addresses[i] = address;
+					push_data_dirty = true;
 				}
-				else if (b.binding < BindingShift::UAV)
-				{
-					const vk::Sampler sampler = device.get_sampler(b.binding - BindingShift::SAMPLER);
-					image_info = vk::DescriptorImageInfo(sampler, VK_NULL_HANDLE, vk::ImageLayout::eUndefined);
-					valid = sampler != VK_NULL_HANDLE;
-				}
-				else
-				{
-					UnorderedAccessView& uav = active_binding.uavs[b.binding - BindingShift::UAV];
-					if (uav.texture_resource)
-					{
-						image_info = vk::DescriptorImageInfo(VK_NULL_HANDLE, uav.texture_resource->get_unordered_access_view(uav.mip_level), vk::ImageLayout::eGeneral);
-						valid = true;
-					}
-					else if (uav.buffer_resource)
-					{
-						const u64 range = uav.get_size_bytes();
-						buffer_info = vk::DescriptorBufferInfo(uav.buffer_resource->get(), 0, range ? range : VK_WHOLE_SIZE);
-						valid = true;
-					}
-				}
-
-				if (!valid)
-				{
-					// D3D12 tolerates unset descriptors the shader never reads; with nullDescriptor Vulkan can match that
-					seAssert(null_descriptors, "No resource bound for shader binding %u", b.binding);
-					if (!null_descriptors)
-					{
-						continue;
-					}
-				}
-
-				const bool is_image = b.type == vk::DescriptorType::eSampledImage || b.type == vk::DescriptorType::eStorageImage || b.type == vk::DescriptorType::eSampler;
-				writes[write_count] = vk::WriteDescriptorSet(VK_NULL_HANDLE, b.binding, 0, 1, b.type, is_image ? &image_info : nullptr, is_image ? nullptr : &buffer_info);
-				write_count++;
 			}
 
-			command_buffer.pushDescriptorSetKHR(active_pipeline->get_bind_point(), *layout->layout, 0, vk::ArrayProxy<const vk::WriteDescriptorSet>(write_count, writes.data()));
+			if (push_data_dirty)
+			{
+				command_buffer.pushDataEXT(vk::PushDataInfoEXT(0, vk::HostAddressRangeConstEXT(&push_data, sizeof(push_data))));
+				push_data_dirty = false;
+			}
 		}
 
 		void CommandList::ensure_bindings_valid()

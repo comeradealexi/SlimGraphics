@@ -163,6 +163,12 @@ namespace sg
 		ResourceUsageFlags usage_flags = ResourceUsageFlags::None;
 		ResourceDimension dimension = ResourceDimension::Texture2D;
 		bool try_alignment_4kb = true;
+
+		// Values that clears of a render / depth target are optimised for (the D3D12 optimised clear value). Clearing to other
+		// values works but may be slower. Ignored by the Vulkan backend.
+		float4 optimised_clear_colour = { 0.0f, 0.0f, 0.0f, 0.0f };
+		float optimised_clear_depth = 1.0f;
+		u8 optimised_clear_stencil = 0;
 	};
 
 	struct TextureRegion
