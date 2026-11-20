@@ -56,7 +56,7 @@
     ]
   },
   {
-  "input_file": "GPUDrivenRendering/gdrHZB.hlsl",
+    "input_file": "GPUDrivenRendering/gdrHZB.hlsl",
     "shaders": [
       {
         "profile": "cs_6_5",
@@ -64,6 +64,16 @@
         "name": "GDR_BuildHZB"
       }
     ]
-
+  },
+  {
+    "input_file": "GPUDrivenRendering/gdrHZB.hlsl",
+    "shaders": [
+      {
+        "profile": "cs_6_5",
+        "entrypoint": "build_hzb",
+        "defines": [ "FIRST_SAMPLE_FROM_DEPTH_SRV" ],
+        "name": "GDR_BuildHZB_SRV"
+      }
+    ]
   }
 ]

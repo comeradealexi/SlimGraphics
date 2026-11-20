@@ -28,7 +28,8 @@ namespace gdr
 		sg::SharedPtr<sg::Texture> get_texture() const { return hzb_texture; }
 
 	private:
-		sg::SharedPtr<sg::Pipeline> hzb_pipeline;
+		sg::SharedPtr<sg::Pipeline> hzb_pipeline_first_sample_is_depth; // Samples SRV
+		sg::SharedPtr<sg::Pipeline> hzb_pipeline_stage2;
 		sg::SharedPtr<sg::Texture> hzb_texture;
 	};
 }

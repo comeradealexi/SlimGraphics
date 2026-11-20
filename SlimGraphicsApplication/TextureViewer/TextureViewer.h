@@ -31,4 +31,6 @@ public:
 	sg::SharedPtr<sg::RenderTargetView> render_target_view;
 
 	sg::SharedPtr<sg::Pipeline> pipeline;
+
+	int view_mip = 0;
 };

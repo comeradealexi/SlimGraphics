@@ -104,7 +104,7 @@ namespace sg
 
 			ConstantBufferView create_constant_buffer_view(Buffer* buffer, u64 offset, u64 size);
 			ShaderResourceView create_shader_resource_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count);
-			ShaderResourceView create_shader_resource_view(SharedPtr<Texture> texture);
+			ShaderResourceView create_shader_resource_view(SharedPtr<Texture> texture, u32 top_mip = 0, u32 mip_count = -1);
 			UnorderedAccessView create_unordered_access_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count);
 			UnorderedAccessView create_unordered_access_view(SharedPtr<Texture> texture, u32 mip_level = 0);
 			VertexBufferView create_vertex_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, u64 stride);

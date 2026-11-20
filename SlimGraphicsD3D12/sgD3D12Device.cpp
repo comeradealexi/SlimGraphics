@@ -1003,7 +1003,7 @@ namespace sg
 		}
 
 
-		sg::D3D12::ShaderResourceView Device::create_shader_resource_view(SharedPtr<Texture> texture)
+		sg::D3D12::ShaderResourceView Device::create_shader_resource_view(SharedPtr<Texture> texture, u32 top_mip, u32 mip_count)
 		{
 			ShaderResourceView srv;
             srv.texture_resource = texture;
@@ -1015,7 +1015,8 @@ namespace sg
             }
             srv.desc.ViewDimension = translate_srv(texture->resource_create_desc.dimension);
             srv.desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-            srv.desc.Texture2D.MipLevels = texture->resource_create_desc.mip_count;
+            srv.desc.Texture2D.MostDetailedMip = top_mip;
+            srv.desc.Texture2D.MipLevels = mip_count; // texture->resource_create_desc.mip_count;
             return srv;
 		}
 

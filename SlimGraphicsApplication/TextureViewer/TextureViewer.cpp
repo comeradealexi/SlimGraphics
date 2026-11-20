@@ -40,6 +40,8 @@ void TextureViewer::imgui_update()
 
 		if (view_texture)
 		{
+			ImGui::SliderInt("Top Mip", &view_mip, 0, view_texture->resource_create_desc.mip_count - 1);
+
 			if (resize_target_to_texture)
 			{
 				target_width = view_texture->resource_create_desc.width;
@@ -65,6 +67,8 @@ void TextureViewer::render(sg::CommandList& command_list, SimpleLinearConstantBu
 {
 	if (view_texture && render_texture)
 	{
+		view_texture_srv = device->create_shader_resource_view(view_texture, view_mip);
+
 		Viewport vp;
 		vp.width = (u32)target_width;
 		vp.height = (u32)target_height;
