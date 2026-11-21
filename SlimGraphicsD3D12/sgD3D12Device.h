@@ -194,7 +194,8 @@ namespace sg
 			u32 bindless_high_water = 0;						// One past the highest allocated bindless descriptor
 			u32 bindless_version = 0;
 			std::vector<SharedPtr<Buffer>> bindless_resources;	// Keeps each allocated descriptor's resource alive
-			ComPtr<ID3D12Device5> device5;
+			ComPtr<ID3D12Device5> device5;					// Ray tracing interface (see raytracing_device)
+			ID3D12Device5* raytracing_device();
 
 			ImGuiTextureViewer imgui_texture_viewer;
 

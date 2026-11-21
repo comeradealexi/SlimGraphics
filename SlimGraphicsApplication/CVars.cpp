@@ -1,16 +1,16 @@
 #include "CVars.h"
 #include <imgui.h>
 #include <algorithm>
-#include <cstdlib>
-#include <map>
 #include <cctype>
+#include <cstdio>
+#include <cstdlib>
 
 namespace
 {
 	struct Registry
 	{
 		std::vector<CVarBase*> cvars;
-		uint32_t change_counts[32] = {};
+		uint32_t change_counts[32] = {};	// Per flag bit; the last one counts every change
 	};
 
 	// Function local so cvars constructed during static initialisation of any translation unit find it
@@ -20,43 +20,28 @@ namespace
 		return r;
 	}
 
+	bool has_prefix(const CVarBase& cvar, const std::string& prefix)
+	{
+		return cvar.get_name().compare(0, prefix.size(), prefix) == 0;
+	}
+
 	bool contains_case_insensitive(const std::string& text, const char* filter)
 	{
-		if (filter == nullptr || filter[0] == '\0')
-		{
-			return true;
-		}
 		const std::string f(filter);
-		auto it = std::search(text.begin(), text.end(), f.begin(), f.end(), [](char a, char b) { return std::tolower((unsigned char)a) == std::tolower((unsigned char)b); });
-		return it != text.end();
+		return std::search(text.begin(), text.end(), f.begin(), f.end(), [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b)); }) != text.end();
 	}
 
-	// Description tooltip and right click reset shared by every cvar widget
-	bool item_extras(CVarBase& cvar)
+	// Parses the whole string as a number
+	template <typename T>
+	bool parse_number(const std::string& text, T (*convert)(const char*, char**), T& out)
 	{
-		bool changed = false;
-		if (ImGui::IsItemHovered() && !cvar.get_description().empty())
-		{
-			ImGui::SetTooltip("%s\n(%s)", cvar.get_description().c_str(), cvar.get_name().c_str());
-		}
-		if (ImGui::BeginPopupContextItem(cvar.get_name().c_str()))
-		{
-			if (ImGui::MenuItem("Reset to default"))
-			{
-				cvar.reset();
-				changed = true;
-			}
-			ImGui::EndPopup();
-		}
-		return changed;
+		char* end = nullptr;
+		out = convert(text.c_str(), &end);
+		return end != text.c_str() && *end == '\0';
 	}
 
-	// The label shown: the last part of the name
-	const char* short_label(const std::string& name)
-	{
-		const size_t dot = name.find_last_of('.');
-		return dot == std::string::npos ? name.c_str() : name.c_str() + dot + 1;
-	}
+	long to_long(const char* s, char** end) { return std::strtol(s, end, 10); }
+	float to_float(const char* s, char** end) { return std::strtof(s, end); }
 }
 
 CVarBase::CVarBase(const char* name_, const char* category_, const char* description_, uint32_t flags_) : name(name_), category(category_), description(description_), flags(flags_)
@@ -66,216 +51,203 @@ CVarBase::CVarBase(const char* name_, const char* category_, const char* descrip
 
 void CVarBase::changed()
 {
-	for (uint32_t bit = 0; bit < 32; bit++)
+	for (uint32_t bit = 0; bit < 31; bit++)
 	{
-		if (flags & (1u << bit))
-		{
-			registry().change_counts[bit]++;
-		}
+		registry().change_counts[bit] += (flags >> bit) & 1;
 	}
-	registry().change_counts[31]++; // Any change
+	registry().change_counts[31]++;
+}
+
+// The widget with its label (the last part of the name), a description tooltip and a right click reset
+bool CVarBase::imgui()
+{
+	ImGui::PushID(this);
+	const size_t dot = name.find_last_of('.');
+	bool changed_value = widget(dot == std::string::npos ? name.c_str() : name.c_str() + dot + 1);
+	if (ImGui::IsItemHovered() && !description.empty())
+	{
+		ImGui::SetTooltip("%s\n(%s)", description.c_str(), name.c_str());
+	}
+	if (ImGui::BeginPopupContextItem(name.c_str()))
+	{
+		if (ImGui::MenuItem("Reset to default"))
+		{
+			reset();
+			changed_value = true;
+		}
+		ImGui::EndPopup();
+	}
+	ImGui::PopID();
+	return changed_value;
 }
 
 // --- Bool
 
-CVarBool::CVarBool(const char* name, const char* category, const char* description, bool default_value_, uint32_t flags) : CVarBase(name, category, description, flags), value(default_value_), default_value(default_value_) {}
-
-void CVarBool::set(bool v)
-{
-	if (v != value)
-	{
-		value = v;
-		changed();
-	}
-}
-
-bool CVarBool::imgui()
+bool CVarBool::widget(const char* label)
 {
 	bool v = value;
-	ImGui::PushID(this);
-	bool c = ImGui::Checkbox(short_label(get_name()), &v);
-	if (c) set(v);
-	c |= item_extras(*this);
-	ImGui::PopID();
+	const bool c = ImGui::Checkbox(label, &v);
+	set(v);
 	return c;
 }
 
 bool CVarBool::set_json(const nlohmann::json& v)
 {
-	if (v.is_boolean()) { set(v.get<bool>()); return true; }
-	if (v.is_number_integer()) { set(v.get<int>() != 0); return true; }
-	return false;
+	if (!v.is_boolean() && !v.is_number_integer())
+	{
+		return false;
+	}
+	set(v.is_boolean() ? v.get<bool>() : v.get<int>() != 0);
+	return true;
 }
 
 bool CVarBool::set_string(const std::string& v)
 {
-	if (v == "1" || v == "true") { set(true); return true; }
-	if (v == "0" || v == "false") { set(false); return true; }
-	return false;
+	const bool on = v == "1" || v == "true";
+	if (!on && v != "0" && v != "false")
+	{
+		return false;
+	}
+	set(on);
+	return true;
 }
 
 // --- Int
 
-CVarInt::CVarInt(const char* name, const char* category, const char* description, int default_value_, int min_value_, int max_value_, uint32_t flags)
-	: CVarBase(name, category, description, flags), value(default_value_), default_value(default_value_), min_value(min_value_), max_value(max_value_) {}
-
-CVarInt::CVarInt(const char* name, const char* category, const char* description, int default_value_, std::vector<std::string> options_, uint32_t flags)
-	: CVarBase(name, category, description, flags), value(default_value_), default_value(default_value_), min_value(0), max_value(static_cast<int>(options_.size()) - 1), options(std::move(options_)) {}
-
-void CVarInt::set(int v)
+bool CVarInt::sanitise(int& v) const
 {
 	v = std::clamp(v, min_value, max_value);
-	if (v != value)
-	{
-		value = v;
-		changed();
-	}
+	return true;
 }
 
-bool CVarInt::imgui()
+bool CVarInt::widget(const char* label)
 {
 	int v = value;
 	bool c = false;
-	ImGui::PushID(this);
-	if (!options.empty())
+	if (options.empty())
 	{
-		if (ImGui::BeginCombo(short_label(get_name()), options[value].c_str()))
+		c = ImGui::SliderInt(label, &v, min_value, max_value);
+	}
+	else if (ImGui::BeginCombo(label, options[value].c_str()))
+	{
+		for (int i = 0; i < static_cast<int>(options.size()); i++)
 		{
-			for (int i = 0; i < (int)options.size(); i++)
+			if (ImGui::Selectable(options[i].c_str(), i == value))
 			{
-				if (ImGui::Selectable(options[i].c_str(), i == value))
-				{
-					v = i;
-					c = true;
-				}
+				v = i;
+				c = true;
 			}
-			ImGui::EndCombo();
 		}
+		ImGui::EndCombo();
 	}
-	else
-	{
-		c = ImGui::SliderInt(short_label(get_name()), &v, min_value, max_value);
-	}
-	if (c) set(v);
-	c |= item_extras(*this);
-	ImGui::PopID();
+	set(v);
 	return c;
+}
+
+bool CVarInt::set_option(const std::string& option)
+{
+	auto it = std::find(options.begin(), options.end(), option);
+	if (it == options.end())
+	{
+		return false;
+	}
+	set(static_cast<int>(it - options.begin()));
+	return true;
 }
 
 bool CVarInt::set_json(const nlohmann::json& v)
 {
-	if (v.is_number_integer()) { set(v.get<int>()); return true; }
-	if (v.is_string() && !options.empty())
+	if (v.is_string())
 	{
-		auto it = std::find(options.begin(), options.end(), v.get<std::string>());
-		if (it == options.end()) return false;
-		set(static_cast<int>(it - options.begin()));
-		return true;
+		return set_option(v.get<std::string>());
 	}
-	return false;
+	if (!v.is_number_integer())
+	{
+		return false;
+	}
+	set(v.get<int>());
+	return true;
 }
 
 nlohmann::json CVarInt::get_json() const
 {
-	if (!options.empty()) return options[value];
-	return value;
+	return options.empty() ? nlohmann::json(value) : nlohmann::json(options[value]);
 }
 
 bool CVarInt::set_string(const std::string& v)
 {
-	if (!options.empty())
+	long parsed = 0;
+	if (set_option(v))
 	{
-		auto it = std::find(options.begin(), options.end(), v);
-		if (it != options.end()) { set(static_cast<int>(it - options.begin())); return true; }
+		return true;
 	}
-	char* end = nullptr;
-	const long parsed = std::strtol(v.c_str(), &end, 10);
-	if (end == v.c_str() || *end != '\0') return false;
+	if (!parse_number(v, to_long, parsed))
+	{
+		return false;
+	}
 	set(static_cast<int>(parsed));
 	return true;
 }
 
 // --- Float
 
-CVarFloat::CVarFloat(const char* name, const char* category, const char* description, float default_value_, float min_value_, float max_value_, uint32_t flags)
-	: CVarBase(name, category, description, flags), value(default_value_), default_value(default_value_), min_value(min_value_), max_value(max_value_) {}
-
-void CVarFloat::set(float v)
-{
-	// Sliders clamp; typed values (ctrl+click, JSON, command line) may go beyond the slider range but stay finite
-	if (!(v == v)) return;
-	if (v != value)
-	{
-		value = v;
-		changed();
-	}
-}
-
-bool CVarFloat::imgui()
+bool CVarFloat::widget(const char* label)
 {
 	float v = value;
-	ImGui::PushID(this);
-	const ImGuiSliderFlags slider_flags = (get_flags() & CVarLogScale) ? ImGuiSliderFlags_Logarithmic : ImGuiSliderFlags_None;
-	bool c = ImGui::SliderFloat(short_label(get_name()), &v, min_value, max_value, "%.4g", slider_flags);
-	if (c) set(v);
-	c |= item_extras(*this);
-	ImGui::PopID();
+	const bool c = ImGui::SliderFloat(label, &v, min_value, max_value, "%.4g", (get_flags() & CVarLogScale) ? ImGuiSliderFlags_Logarithmic : ImGuiSliderFlags_None);
+	set(v);
 	return c;
 }
 
 bool CVarFloat::set_json(const nlohmann::json& v)
 {
-	if (!v.is_number()) return false;
+	if (!v.is_number())
+	{
+		return false;
+	}
 	set(v.get<float>());
 	return true;
 }
 
 bool CVarFloat::set_string(const std::string& v)
 {
-	char* end = nullptr;
-	const float parsed = std::strtof(v.c_str(), &end);
-	if (end == v.c_str() || *end != '\0') return false;
+	float parsed = 0.0f;
+	if (!parse_number(v, to_float, parsed))
+	{
+		return false;
+	}
 	set(parsed);
 	return true;
 }
 
 // --- Float3
 
-CVarFloat3::CVarFloat3(const char* name, const char* category, const char* description, float x, float y, float z, bool colour_, uint32_t flags)
-	: CVarBase(name, category, description, flags), value{ x, y, z }, default_value{ x, y, z }, colour(colour_) {}
-
-void CVarFloat3::set(float x, float y, float z)
+bool CVarFloat3::widget(const char* label)
 {
-	if (x != value[0] || y != value[1] || z != value[2])
-	{
-		value[0] = x; value[1] = y; value[2] = z;
-		changed();
-	}
-}
-
-bool CVarFloat3::imgui()
-{
-	float v[3] = { value[0], value[1], value[2] };
-	ImGui::PushID(this);
-	bool c = colour ? ImGui::ColorEdit3(short_label(get_name()), v, ImGuiColorEditFlags_Float) : ImGui::DragFloat3(short_label(get_name()), v, 0.01f);
-	if (c) set(v[0], v[1], v[2]);
-	c |= item_extras(*this);
-	ImGui::PopID();
+	std::array<float, 3> v = value;
+	const bool c = colour ? ImGui::ColorEdit3(label, v.data(), ImGuiColorEditFlags_Float) : ImGui::DragFloat3(label, v.data(), 0.01f);
+	set(v);
 	return c;
 }
 
 bool CVarFloat3::set_json(const nlohmann::json& v)
 {
-	if (!v.is_array() || v.size() != 3 || !v[0].is_number() || !v[1].is_number() || !v[2].is_number()) return false;
-	set(v[0].get<float>(), v[1].get<float>(), v[2].get<float>());
+	if (!v.is_array() || v.size() != 3 || !std::all_of(v.begin(), v.end(), [](const nlohmann::json& x) { return x.is_number(); }))
+	{
+		return false;
+	}
+	set({ v[0].get<float>(), v[1].get<float>(), v[2].get<float>() });
 	return true;
 }
 
 bool CVarFloat3::set_string(const std::string& v)
 {
-	float x, y, z;
-	if (sscanf_s(v.c_str(), "%f,%f,%f", &x, &y, &z) != 3) return false;
-	set(x, y, z);
+	std::array<float, 3> parsed = {};
+	if (sscanf_s(v.c_str(), "%f,%f,%f", &parsed[0], &parsed[1], &parsed[2]) != 3)
+	{
+		return false;
+	}
+	set(parsed);
 	return true;
 }
 
@@ -283,28 +255,40 @@ bool CVarFloat3::set_string(const std::string& v)
 
 namespace CVars
 {
-	const std::vector<CVarBase*>& all()
-	{
-		return registry().cvars;
-	}
-
 	CVarBase* find(const std::string& name)
 	{
-		for (CVarBase* cvar : registry().cvars)
-		{
-			if (cvar->get_name() == name) return cvar;
-		}
-		return nullptr;
+		auto it = std::find_if(registry().cvars.begin(), registry().cvars.end(), [&](const CVarBase* cvar) { return cvar->get_name() == name; });
+		return it != registry().cvars.end() ? *it : nullptr;
 	}
 
 	uint32_t get_change_count(uint32_t flag)
 	{
-		uint32_t bit = 31;
-		for (uint32_t i = 0; i < 31; i++)
+		for (uint32_t bit = 0; bit < 31; bit++)
 		{
-			if (flag == (1u << i)) bit = i;
+			if (flag == (1u << bit))
+			{
+				return registry().change_counts[bit];
+			}
 		}
-		return registry().change_counts[bit];
+		return registry().change_counts[31];
+	}
+
+	// Sets one cvar from JSON or a command line value, describing what went wrong in 'error'
+	template <typename Value, typename Describe>
+	bool set_cvar(const std::string& name, const Value& value, bool (CVarBase::*setter)(const Value&), Describe describe, std::string& error)
+	{
+		CVarBase* cvar = find(name);
+		if (cvar == nullptr)
+		{
+			error = "unknown cvar '" + name + "'";
+			return false;
+		}
+		if (!(cvar->*setter)(value))
+		{
+			error = "cvar '" + name + "' cannot be set to " + describe(value);
+			return false;
+		}
+		return true;
 	}
 
 	bool apply_json(const nlohmann::json& values, std::string& error)
@@ -316,27 +300,12 @@ namespace CVars
 		}
 		for (const auto& [name, value] : values.items())
 		{
-			CVarBase* cvar = find(name);
-			if (cvar == nullptr)
+			if (!set_cvar(name, value, &CVarBase::set_json, [](const nlohmann::json& v) { return v.dump(); }, error))
 			{
-				error = "unknown cvar '" + name + "'";
-				return false;
-			}
-			if (!cvar->set_json(value))
-			{
-				error = "cvar '" + name + "' cannot be set to " + value.dump();
 				return false;
 			}
 		}
 		return true;
-	}
-
-	void reset_all(const std::string& prefix)
-	{
-		for (CVarBase* cvar : registry().cvars)
-		{
-			if (cvar->get_name().compare(0, prefix.size(), prefix) == 0) cvar->reset();
-		}
 	}
 
 	bool apply_assignment(const std::string& assignment, std::string& error)
@@ -347,27 +316,29 @@ namespace CVars
 			error = "expected name=value, got '" + assignment + "'";
 			return false;
 		}
-		const std::string name = assignment.substr(0, equals);
-		CVarBase* cvar = find(name);
-		if (cvar == nullptr)
+		return set_cvar(assignment.substr(0, equals), assignment.substr(equals + 1), &CVarBase::set_string, [](const std::string& v) { return "'" + v + "'"; }, error);
+	}
+
+	void reset_all(const std::string& prefix)
+	{
+		for (CVarBase* cvar : registry().cvars)
 		{
-			error = "unknown cvar '" + name + "'";
-			return false;
+			if (has_prefix(*cvar, prefix))
+			{
+				cvar->reset();
+			}
 		}
-		if (!cvar->set_string(assignment.substr(equals + 1)))
-		{
-			error = "cvar '" + name + "' cannot be set to '" + assignment.substr(equals + 1) + "'";
-			return false;
-		}
-		return true;
 	}
 
 	nlohmann::json changed_json(const std::string& prefix)
 	{
 		nlohmann::json j = nlohmann::json::object();
-		for (CVarBase* cvar : registry().cvars)
+		for (const CVarBase* cvar : registry().cvars)
 		{
-			if (cvar->get_name().compare(0, prefix.size(), prefix) == 0 && !cvar->is_default()) j[cvar->get_name()] = cvar->get_json();
+			if (has_prefix(*cvar, prefix) && !cvar->is_default())
+			{
+				j[cvar->get_name()] = cvar->get_json();
+			}
 		}
 		return j;
 	}
@@ -394,35 +365,29 @@ namespace CVars
 				ImGui::SetTooltip("Copies every changed cvar as JSON (for test plans and -cvar switches)");
 			}
 
-			// Categories in order of first appearance
-			std::vector<std::string> categories;
+			// The cvars shown, grouped by category in order of first appearance
+			std::vector<std::pair<std::string, std::vector<CVarBase*>>> categories;
 			for (CVarBase* cvar : registry().cvars)
 			{
-				if (cvar->get_name().compare(0, prefix.size(), prefix) != 0) continue;
-				if (std::find(categories.begin(), categories.end(), cvar->get_category()) == categories.end()) categories.push_back(cvar->get_category());
-			}
-			const bool filtering = filter[0] != '\0';
-			for (const std::string& category : categories)
-			{
-				bool any = false;
-				for (CVarBase* cvar : registry().cvars)
+				if (!has_prefix(*cvar, prefix) || !(contains_case_insensitive(cvar->get_name(), filter) || contains_case_insensitive(cvar->get_description(), filter)))
 				{
-					if (cvar->get_category() == category && cvar->get_name().compare(0, prefix.size(), prefix) == 0 &&
-						(contains_case_insensitive(cvar->get_name(), filter) || contains_case_insensitive(cvar->get_description(), filter)))
-					{
-						any = true;
-						break;
-					}
+					continue;
 				}
-				if (!any) continue;
-				if (filtering) ImGui::SetNextItemOpen(true);
+				auto it = std::find_if(categories.begin(), categories.end(), [&](const auto& c) { return c.first == cvar->get_category(); });
+				(it != categories.end() ? it->second : categories.emplace_back(cvar->get_category(), std::vector<CVarBase*>()).second).push_back(cvar);
+			}
+			for (const auto& [category, cvars] : categories)
+			{
+				if (filter[0] != '\0')
+				{
+					ImGui::SetNextItemOpen(true);
+				}
 				if (ImGui::CollapsingHeader(category.c_str()))
 				{
 					ImGui::PushItemWidth(-200.0f);
-					for (CVarBase* cvar : registry().cvars)
+					for (CVarBase* cvar : cvars)
 					{
-						if (cvar->get_category() != category || cvar->get_name().compare(0, prefix.size(), prefix) != 0) continue;
-						if (!contains_case_insensitive(cvar->get_name(), filter) && !contains_case_insensitive(cvar->get_description(), filter)) continue;
+						// Changed values stand out
 						const bool modified = !cvar->is_default();
 						if (modified) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.85f, 0.4f, 1.0f));
 						cvar->imgui();

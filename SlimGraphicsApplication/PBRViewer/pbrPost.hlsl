@@ -1,38 +1,31 @@
-// Temporal anti-aliasing, the exposure histogram and tone mapping.
-// Render targets are read through bindless descriptors (pass.u0 holds their indices).
+// Temporal anti-aliasing, the exposure histogram and tone mapping. Images are read through their bindless indices. Debug
+// views of data skip all three.
 
 #include "pbrCommon.hlsli"
 
-cbuffer PostConstants : register(b1)
+bool IsDataView()
 {
-    PassConstants pass;
-};
-
-Texture2D<float4> Target(uint index)
-{
-    return ResourceDescriptorHeap[index];
-}
-
-// Debug views of data skip exposure, tone mapping and temporal filtering
-bool IsDataView(uint view)
-{
-    return view != PBR_DEBUG_NONE && view != PBR_DEBUG_DIRECT && view != PBR_DEBUG_INDIRECT && view != PBR_DEBUG_DIFFUSE && view != PBR_DEBUG_SPECULAR &&
-        view != PBR_DEBUG_DIFFUSE_RAW && view != PBR_DEBUG_SPECULAR_RAW && view != PBR_DEBUG_EMISSIVE && view != PBR_DEBUG_WHITE_FURNACE && view != PBR_DEBUG_RADIANCE_CACHE;
+    return frame.debug_view >= PBR_DEBUG_FIRST_DATA_VIEW;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// TAA: pass.u0 = (current colour, history, motion, depth), pass.u1.x = history valid, f0.x = blend, f0.y = clip gamma
+// TAA
 
+ConstantBuffer<TAAConstants> taa_pass : register(b1);
 RWTexture2D<float4> TAAOutput : register(u0);
 
-float3 RGBToYCoCg(float3 c)
+// Exposed colour in YCoCg, tone mapped (fireflies do not stretch the clipping box), and back
+float3 ToClipSpace(float3 c)
 {
-    return float3(0.25f * c.r + 0.5f * c.g + 0.25f * c.b, 0.5f * c.r - 0.5f * c.b, -0.25f * c.r + 0.5f * c.g - 0.25f * c.b);
+    c *= frame.exposure;
+    float3 ycocg = float3(0.25f * c.r + 0.5f * c.g + 0.25f * c.b, 0.5f * c.r - 0.5f * c.b, -0.25f * c.r + 0.5f * c.g - 0.25f * c.b);
+    return ycocg / (1.0f + ycocg.x);
 }
 
-float3 YCoCgToRGB(float3 c)
+float3 FromClipSpace(float3 c)
 {
-    return float3(c.x + c.y - c.z, c.x + c.z, c.x - c.y - c.z);
+    c /= max(1.0f - c.x, 1e-4f);
+    return max(float3(c.x + c.y - c.z, c.x + c.z, c.x - c.y - c.z) / frame.exposure, 0.0f);
 }
 
 // Catmull-Rom history sample from 5 bilinear taps (sharper than bilinear, less blur over time)
@@ -62,31 +55,30 @@ float3 SampleHistoryCatmullRom(Texture2D<float4> history, float2 uv)
 void taa(uint3 dtid : SV_DispatchThreadID)
 {
     uint2 pixel = dtid.xy;
-    if (any(pixel >= (uint2)frame.resolution))
+    if (!IsOnScreen(pixel))
     {
         return;
     }
-    Texture2D<float4> current = Target(pass.u0.x);
+    Texture2D<float4> current = BindlessTarget(taa_pass.colour);
     float3 colour = current[pixel].rgb;
-    if (pass.u1.x == 0 || IsDataView(frame.debug_view))
+    if (taa_pass.history_valid == 0 || IsDataView())
     {
         TAAOutput[pixel] = float4(colour, 1.0f);
         return;
     }
 
     // Motion of the nearest surface in the neighbourhood (keeps edges of moving objects clean)
-    Texture2D<float> depth = ResourceDescriptorHeap[pass.u0.w];
+    Texture2D<float> depth = ResourceDescriptorHeap[taa_pass.depth];
     int2 nearest = (int2)pixel;
     float nearest_depth = 0.0f;
-    // Neighbourhood statistics in YCoCg, with tone mapped weights (fireflies do not stretch the clipping box)
+    // Neighbourhood statistics in the clipping space
     float3 m1 = 0.0f, m2 = 0.0f;
     for (int y = -1; y <= 1; y++)
     {
         for (int x = -1; x <= 1; x++)
         {
             int2 p = clamp((int2)pixel + int2(x, y), 0, (int2)frame.resolution - 1);
-            float3 c = RGBToYCoCg(current[p].rgb * frame.exposure);
-            c /= 1.0f + c.x;
+            float3 c = ToClipSpace(current[p].rgb);
             m1 += c;
             m2 += c * c;
             float d = depth[p];
@@ -97,46 +89,31 @@ void taa(uint3 dtid : SV_DispatchThreadID)
             }
         }
     }
-    Texture2D<float2> motion_texture = ResourceDescriptorHeap[pass.u0.z];
-    float2 motion = motion_texture[nearest];
-    float2 previous_uv = (pixel + 0.5f) * frame.inverse_resolution - motion;
+    Texture2D<float2> motion = ResourceDescriptorHeap[taa_pass.motion];
+    float2 previous_uv = PixelCentreUV(pixel) - motion[nearest];
     if (any(previous_uv < 0.0f) || any(previous_uv > 1.0f))
     {
         TAAOutput[pixel] = float4(colour, 1.0f);
         return;
     }
-    float3 history = SampleHistoryCatmullRom(Target(pass.u0.y), previous_uv);
-
-    float3 mean = m1 / 9.0f;
-    float3 sigma = sqrt(max(m2 / 9.0f - mean * mean, 0.0f));
-    float3 box_min = mean - pass.f0.y * sigma;
-    float3 box_max = mean + pass.f0.y * sigma;
-    float3 history_ycocg = RGBToYCoCg(history * frame.exposure);
-    history_ycocg /= 1.0f + history_ycocg.x;
-    // Clip towards the box centre (variance clipping)
-    float3 centre = 0.5f * (box_max + box_min);
-    float3 extent = 0.5f * (box_max - box_min) + 1e-5f;
-    float3 offset = history_ycocg - centre;
+    // Variance clipping: the history is pulled towards the centre of the neighbourhood's box
+    float3 centre = m1 / 9.0f;
+    float3 extent = taa_pass.clip_gamma * sqrt(max(m2 / 9.0f - centre * centre, 0.0f)) + 1e-5f;
+    float3 offset = ToClipSpace(SampleHistoryCatmullRom(BindlessTarget(taa_pass.history), previous_uv)) - centre;
     float3 units = abs(offset / extent);
-    float max_unit = max(units.x, max(units.y, units.z));
-    if (max_unit > 1.0f)
-    {
-        history_ycocg = centre + offset / max_unit;
-    }
-    history_ycocg /= max(1.0f - history_ycocg.x, 1e-4f);
-    history = max(YCoCgToRGB(history_ycocg) / frame.exposure, 0.0f);
+    float3 history = FromClipSpace(centre + offset / max(max(units.x, max(units.y, units.z)), 1.0f));
 
     // Luminance weighted blend (anti flicker)
-    float3 colour_mapped = colour * frame.exposure;
-    float w_current = pass.f0.x / (1.0f + Luminance(colour_mapped));
-    float w_history = (1.0f - pass.f0.x) / (1.0f + Luminance(history * frame.exposure));
+    float w_current = taa_pass.blend / (1.0f + Luminance(colour * frame.exposure));
+    float w_history = (1.0f - taa_pass.blend) / (1.0f + Luminance(history * frame.exposure));
     float3 result = (colour * w_current + history * w_history) / (w_current + w_history);
     TAAOutput[pixel] = float4(result, 1.0f);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Exposure histogram: pass.u0.x = colour, f0 = (min log2 luminance, log2 luminance range); 256 bins, read back by the CPU
+// Exposure histogram (256 bins of log2 luminance, read back by the CPU) and tone mapping
 
+ConstantBuffer<ToneMapConstants> tone_map_pass : register(b1);
 RWStructuredBuffer<uint> Histogram : register(u1);
 groupshared uint s_histogram[256];
 
@@ -145,25 +122,15 @@ void histogram(uint3 dtid : SV_DispatchThreadID, uint gindex : SV_GroupIndex)
 {
     s_histogram[gindex] = 0;
     GroupMemoryBarrierWithGroupSync();
-    if (all(dtid.xy < (uint2)frame.resolution))
+    if (IsOnScreen(dtid.xy))
     {
-        float l = Luminance(Target(pass.u0.x)[dtid.xy].rgb);
-        if (l > 1e-8f)
-        {
-            uint bin = (uint)clamp((log2(l) - pass.f0.x) / pass.f0.y * 254.0f + 1.0f, 1.0f, 255.0f);
-            InterlockedAdd(s_histogram[bin], 1);
-        }
-        else
-        {
-            InterlockedAdd(s_histogram[0], 1);
-        }
+        float l = Luminance(BindlessTarget(tone_map_pass.colour)[dtid.xy].rgb);
+        uint bin = l > 1e-8f ? (uint)clamp((log2(l) - PBR_HISTOGRAM_MIN_LOG2) / PBR_HISTOGRAM_RANGE_LOG2 * 254.0f + 1.0f, 1.0f, 255.0f) : 0;
+        InterlockedAdd(s_histogram[bin], 1);
     }
     GroupMemoryBarrierWithGroupSync();
     InterlockedAdd(Histogram[gindex], s_histogram[gindex]);
 }
-
-// ---------------------------------------------------------------------------------------------------------------------
-// Tone mapping: pass.u0.x = colour, u1.x = operator, f0.x = dither strength
 
 RWTexture2D<float4> DisplayOutput : register(u2);
 
@@ -223,18 +190,18 @@ float3 KhronosPBRNeutral(float3 c)
 void tonemap(uint3 dtid : SV_DispatchThreadID)
 {
     uint2 pixel = dtid.xy;
-    if (any(pixel >= (uint2)frame.resolution))
+    if (!IsOnScreen(pixel))
     {
         return;
     }
-    float3 c = Target(pass.u0.x)[pixel].rgb;
-    if (IsDataView(frame.debug_view))
+    float3 c = BindlessTarget(tone_map_pass.colour)[pixel].rgb;
+    if (IsDataView())
     {
         DisplayOutput[pixel] = float4(LinearToSRGB(saturate(c)), 1.0f);
         return;
     }
     c *= frame.exposure;
-    switch (pass.u1.x)
+    switch (tone_map_pass.tone_mapper)
     {
     case 0: c = saturate(c); break;
     case 1: c = c / (1.0f + Luminance(c)); break;
@@ -244,8 +211,8 @@ void tonemap(uint3 dtid : SV_DispatchThreadID)
     }
     float3 display = LinearToSRGB(c);
     // Triangular dither of one 8 bit step (no banding in skies and soft gradients)
-    uint h = PCGHash(pixel.x + PCGHash(pixel.y + PCGHash(frame.frame_index)));
+    uint h = PixelHash(pixel, frame.frame_index);
     float2 u = float2(h & 0xFFFF, h >> 16) / 65535.0f;
-    display += (u.x + u.y - 1.0f) * pass.f0.x / 255.0f;
+    display += (u.x + u.y - 1.0f) * tone_map_pass.dither / 255.0f;
     DisplayOutput[pixel] = float4(saturate(display), 1.0f);
 }

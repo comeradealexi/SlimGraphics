@@ -334,23 +334,6 @@ namespace sg
 			transition(buffer, ResourceState::CopyDest, state);
 		}
 
-		void CommandList::clear_texture_float(UnorderedAccessView& uav, float4 value)
-		{
-			seAssert(uav.texture_resource, "clear_texture_float requires a texture UAV");
-			Texture* texture = uav.texture_resource.get();
-			retain(uav.texture_resource);
-
-			const ResourceState state = get_current_state(texture);
-			transition(texture, state, ResourceState::CopyDest);
-			prepare_transfer();
-
-			const vk::ClearColorValue colour(std::array<float, 4>{ value[0], value[1], value[2], value[3] });
-			const vk::ImageSubresourceRange range(texture->get_aspect(), uav.mip_level, 1, 0, texture->get_layer_count());
-			command_buffer.clearColorImage(texture->get(), vk::ImageLayout::eTransferDstOptimal, colour, range);
-
-			transition(texture, ResourceState::CopyDest, state);
-		}
-
 		void CommandList::copy_buffer_to_buffer(Buffer* dest, Buffer* source)
 		{
 			seAssert(dest && source, "no valid buffers");

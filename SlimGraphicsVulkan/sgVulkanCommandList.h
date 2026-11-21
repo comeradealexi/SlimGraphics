@@ -66,8 +66,6 @@ namespace sg
 
 			void clear_buffer_float(UnorderedAccessView& uav, ShaderResourceView& srv, float value);
 			void clear_buffer_uint(UnorderedAccessView& uav, ShaderResourceView& srv, sg::u32 value);
-			// Clears a texture UAV's mip (every layer) to a value
-			void clear_texture_float(UnorderedAccessView& uav, float4 value);
 
 			// Ray tracing is not implemented by the Vulkan backend yet (Device::supports_raytracing() is false)
 			void build_bottom_level_acceleration_structure(const Raytracing::GeometryDesc*, u32, Buffer*, Buffer*, u64 = 0) { seAssert(false, "Vulkan ray tracing is not implemented"); }

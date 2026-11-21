@@ -8,7 +8,7 @@
 #include "sgD3D12TypesTranslator.h"
 #include "sgUtils.h"
 
-// Hardware ray tracing (acceleration structures for inline ray queries), bindless descriptors and texture clears.
+// Hardware ray tracing (acceleration structures for inline ray queries) and bindless descriptors.
 // Kept apart from sgD3D12Device.cpp / sgD3D12CommandList.cpp, which predate them.
 
 namespace sg
@@ -17,36 +17,36 @@ namespace sg
 	{
 		namespace
 		{
-			std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> translate_geometries(const Raytracing::GeometryDesc* geometries, u32 geometry_count)
+			D3D12_RAYTRACING_GEOMETRY_DESC translate_geometry(const Raytracing::GeometryDesc& g)
 			{
-				std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> out(geometry_count);
-				for (u32 i = 0; i < geometry_count; i++)
-				{
-					const Raytracing::GeometryDesc& g = geometries[i];
-					D3D12_RAYTRACING_GEOMETRY_DESC& d = out[i];
-					d = {};
-					d.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-					d.Flags = g.opaque ? D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
-					d.Triangles.VertexFormat = g.vertex_format;
-					d.Triangles.VertexCount = g.vertex_count;
-					d.Triangles.VertexBuffer.StrideInBytes = g.vertex_stride;
-					// Address queries only: works for buffers without the descriptor (prebuild info passes null buffers)
-					d.Triangles.VertexBuffer.StartAddress = g.vertex_buffer ? g.vertex_buffer->get()->GetGPUVirtualAddress() + g.vertex_offset : 0;
-					d.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
-					d.Triangles.IndexCount = g.index_count;
-					d.Triangles.IndexBuffer = g.index_buffer ? g.index_buffer->get()->GetGPUVirtualAddress() + g.index_offset : 0;
-				}
-				return out;
+				D3D12_RAYTRACING_GEOMETRY_DESC d = {};
+				d.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+				d.Flags = g.opaque ? D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE : D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
+				d.Triangles.VertexFormat = g.vertex_format;
+				d.Triangles.VertexCount = g.vertex_count;
+				d.Triangles.VertexBuffer.StrideInBytes = g.vertex_stride;
+				// Prebuild queries pass no buffers: only the sizes and formats matter
+				d.Triangles.VertexBuffer.StartAddress = g.vertex_buffer ? g.vertex_buffer->get()->GetGPUVirtualAddress() + g.vertex_offset : 0;
+				d.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;
+				d.Triangles.IndexCount = g.index_count;
+				d.Triangles.IndexBuffer = g.index_buffer ? g.index_buffer->get()->GetGPUVirtualAddress() + g.index_offset : 0;
+				return d;
 			}
 
-			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS bottom_level_inputs(const std::vector<D3D12_RAYTRACING_GEOMETRY_DESC>& geometries)
+			// The geometry descs must outlive the inputs (they are referenced, not copied)
+			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS bottom_level_inputs(const Raytracing::GeometryDesc* geometries, u32 geometry_count, std::vector<D3D12_RAYTRACING_GEOMETRY_DESC>& storage)
 			{
+				storage.clear();
+				for (u32 i = 0; i < geometry_count; i++)
+				{
+					storage.push_back(translate_geometry(geometries[i]));
+				}
 				D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS inputs = {};
 				inputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
 				inputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
-				inputs.NumDescs = static_cast<UINT>(geometries.size());
+				inputs.NumDescs = geometry_count;
 				inputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-				inputs.pGeometryDescs = geometries.data();
+				inputs.pGeometryDescs = storage.data();
 				return inputs;
 			}
 
@@ -91,23 +91,24 @@ namespace sg
 			return features.RaytracingTier() >= D3D12_RAYTRACING_TIER_1_1;
 		}
 
-		Raytracing::PrebuildInfo Device::get_bottom_level_prebuild_info(const Raytracing::GeometryDesc* geometries, u32 geometry_count)
+		ID3D12Device5* Device::raytracing_device()
 		{
 			if (!device5)
 			{
 				CHECKHR(device.As(&device5));
 			}
-			const std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> d3d12_geometries = translate_geometries(geometries, geometry_count);
-			return prebuild_info(device5.Get(), bottom_level_inputs(d3d12_geometries));
+			return device5.Get();
+		}
+
+		Raytracing::PrebuildInfo Device::get_bottom_level_prebuild_info(const Raytracing::GeometryDesc* geometries, u32 geometry_count)
+		{
+			std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> storage;
+			return prebuild_info(raytracing_device(), bottom_level_inputs(geometries, geometry_count, storage));
 		}
 
 		Raytracing::PrebuildInfo Device::get_top_level_prebuild_info(u32 instance_count)
 		{
-			if (!device5)
-			{
-				CHECKHR(device.As(&device5));
-			}
-			return prebuild_info(device5.Get(), top_level_inputs(instance_count, 0));
+			return prebuild_info(raytracing_device(), top_level_inputs(instance_count, 0));
 		}
 
 		u64 Device::get_gpu_address(Buffer* buffer)
@@ -177,66 +178,35 @@ namespace sg
 			bindless_version++;
 		}
 
-		void CommandList::build_bottom_level_acceleration_structure(const Raytracing::GeometryDesc* geometries, u32 geometry_count, Buffer* dest, Buffer* scratch, u64 dest_offset)
+		void CommandList::build_acceleration_structure(const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& inputs, Buffer* dest, u64 dest_offset, Buffer* scratch)
 		{
 			seAssert(dest && dest->get_type() == BufferType::AccelerationStructure, "Destination must be an acceleration structure buffer");
 			seAssert(scratch && scratch->get_type() == BufferType::GeneralDataBuffer, "Scratch must be a general data buffer with UAV access");
-			const std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> d3d12_geometries = translate_geometries(geometries, geometry_count);
-
-			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
-			desc.Inputs = bottom_level_inputs(d3d12_geometries);
 			seAssert(dest_offset % D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT == 0, "Acceleration structures start at 256 byte boundaries");
+			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
+			desc.Inputs = inputs;
 			desc.DestAccelerationStructureData = dest->get()->GetGPUVirtualAddress() + dest_offset;
 			desc.ScratchAccelerationStructureData = scratch->get()->GetGPUVirtualAddress();
 
 			const D3D12_RESOURCE_STATES scratch_state = get_current_state(scratch);
 			transition(scratch, scratch_state, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 			command_list->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
+			// The next build reuses the scratch buffer and may read this structure (a TLAS reads its BLASes)
 			const CD3DX12_RESOURCE_BARRIER barriers[2] = { CD3DX12_RESOURCE_BARRIER::UAV(dest->get().Get()), CD3DX12_RESOURCE_BARRIER::UAV(scratch->get().Get()) };
 			command_list->ResourceBarrier(2, barriers);
 			transition(scratch, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, scratch_state);
+		}
+
+		void CommandList::build_bottom_level_acceleration_structure(const Raytracing::GeometryDesc* geometries, u32 geometry_count, Buffer* dest, Buffer* scratch, u64 dest_offset)
+		{
+			std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> storage;
+			build_acceleration_structure(bottom_level_inputs(geometries, geometry_count, storage), dest, dest_offset, scratch);
 		}
 
 		void CommandList::build_top_level_acceleration_structure(Buffer* instances, u32 instance_count, Buffer* dest, Buffer* scratch)
 		{
-			seAssert(dest && dest->get_type() == BufferType::AccelerationStructure, "Destination must be an acceleration structure buffer");
-			seAssert(scratch && scratch->get_type() == BufferType::GeneralDataBuffer, "Scratch must be a general data buffer with UAV access");
 			seAssert(instances != nullptr, "No instance buffer");
-
-			D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC desc = {};
-			desc.Inputs = top_level_inputs(instance_count, instances->get()->GetGPUVirtualAddress());
-			desc.DestAccelerationStructureData = dest->get()->GetGPUVirtualAddress();
-			desc.ScratchAccelerationStructureData = scratch->get()->GetGPUVirtualAddress();
-
-			const D3D12_RESOURCE_STATES scratch_state = get_current_state(scratch);
-			transition(scratch, scratch_state, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-			command_list->BuildRaytracingAccelerationStructure(&desc, 0, nullptr);
-			const CD3DX12_RESOURCE_BARRIER barriers[2] = { CD3DX12_RESOURCE_BARRIER::UAV(dest->get().Get()), CD3DX12_RESOURCE_BARRIER::UAV(scratch->get().Get()) };
-			command_list->ResourceBarrier(2, barriers);
-			transition(scratch, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, scratch_state);
-		}
-
-		void CommandList::clear_texture_float(UnorderedAccessView& uav, float4 value)
-		{
-			seAssert(uav.texture_resource, "clear_texture_float requires a texture UAV");
-			ID3D12Resource* resource = uav.texture_resource->get().Get();
-
-			seAssert(descriptor_heap_index + 1 <= descriptor_heap_maximum, "maximum descriptor bindings exceeded");
-			CD3DX12_GPU_DESCRIPTOR_HANDLE dest_gpu(descriptor_heap->GetGPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
-			CD3DX12_CPU_DESCRIPTOR_HANDLE dest_cpu(descriptor_heap->GetCPUDescriptorHandleForHeapStart(), descriptor_heap_index, descriptor_heap_increment);
-			descriptor_heap_index++;
-			device->CreateUnorderedAccessView(resource, nullptr, &uav.desc, dest_cpu);
-			// Only read during the clear, so the one non shader visible slot is reused (as clear_buffer_uint does)
-			CD3DX12_CPU_DESCRIPTOR_HANDLE cpu_handle(non_shader_descriptor_heap->GetCPUDescriptorHandleForHeapStart(), 0, descriptor_heap_increment);
-			device->CreateUnorderedAccessView(resource, nullptr, &uav.desc, cpu_handle);
-
-			const D3D12_RESOURCE_STATES current_state = get_current_state(uav.texture_resource.get());
-			transition(uav.texture_resource.get(), current_state, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-			const CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::UAV(resource);
-			command_list->ResourceBarrier(1, &barrier);
-			command_list->ClearUnorderedAccessViewFloat(dest_gpu, cpu_handle, resource, value.data(), 0, nullptr);
-			command_list->ResourceBarrier(1, &barrier);
-			transition(uav.texture_resource.get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, current_state);
+			build_acceleration_structure(top_level_inputs(instance_count, instances->get()->GetGPUVirtualAddress()), dest, 0, scratch);
 		}
 	}
 }

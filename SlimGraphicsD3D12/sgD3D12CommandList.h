@@ -62,9 +62,6 @@ namespace sg
 			// 'instances' holds instance_count Raytracing::InstanceDesc and rests in its read state
 			void build_top_level_acceleration_structure(Buffer* instances, u32 instance_count, Buffer* dest, Buffer* scratch);
 
-			// Clears a texture UAV (all of the view's mip) to a value, e.g. history and accumulation targets
-			void clear_texture_float(UnorderedAccessView& uav, float4 value);
-
 			void clear_buffer_float(UnorderedAccessView& uav, ShaderResourceView& srv, float value);
 			void clear_buffer_uint(UnorderedAccessView& uav, ShaderResourceView& srv, sg::u32 value);
 
@@ -88,6 +85,8 @@ namespace sg
 			void ensure_bindings_valid();
 			D3D12_RESOURCE_STATES get_current_state(Buffer* buffer);
 			void transition(Buffer* buffer, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
+			// Records an acceleration structure build into dest (at dest_offset), with the scratch buffer in UAV state
+			void build_acceleration_structure(const D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& inputs, Buffer* dest, u64 dest_offset, Buffer* scratch);
 
 			ComPtr<ID3D12GraphicsCommandList6> command_list;
 			ComPtr<ID3D12CommandAllocator> command_allocator;

@@ -194,11 +194,18 @@ powershell -ExecutionPolicy Bypass -File Tools\validate.ps1 -Extended  # + D3D12
 - Camera tracks: each preset names a track file (`PBRViewer\CameraTracks\*.json`, the GDR `CameraTrack` format, metres)
   or orbits the scene's bounds. While the viewer is enabled its track replaces the GDR scene's in the Slim Graphics
   window's Camera Track player, `-camera_track` and test `{"track_time": T}` cameras. The PBR Viewer window's Camera
-  Track header edits and saves them ("Add point at camera"). Check edited tracks with captures along them: top down
+  Track header (`pbr::SceneCameraTrack`) edits and saves them ("Add point at camera"). Check edited tracks with captures along them: top down
   `pbr.debug_view` Albedo views (a camera `near` plane above the floor cuts roofs off interiors) make good maps.
-- Every setting is a `pbr.*` cvar (window "PBR Settings"); debug views (`pbr.debug_view`) show G-buffer channels, raw and
-  denoised signals, history length, HZB and ids. Statistics and pass timings are in the "PBR Viewer" window, and test
-  cases log them (`pbr_gpu_ms`, `pbr_ms_<pass>`; timings vary a lot between runs, Debug runs at stable, low clocks).
+- Every setting is a `pbr.*` cvar (window "PBR Settings"); debug views (`pbr.debug_view`) show lighting signals (raw and
+  denoised, the radiance cache) and data (G-buffer channels, history length, HZB, ids); `PBR_DEBUG_*` keeps the lighting
+  views before `PBR_DEBUG_FIRST_DATA_VIEW`, and the cvar's options follow that order. Statistics and pass timings are in
+  the "PBR Viewer" window, and test cases log them (`pbr_gpu_ms`, `pbr_ms_<pass>`; timings vary a lot between runs,
+  Debug runs at stable, low clocks).
+- Code layout: every pass has a typed constant buffer in `pbrShaderStructures.h` (`LightingConstants`, `DenoiseConstants`,
+  ...) shared with its shader. `Renderer` records through `dispatch` / `dispatch_screen` / `timed` with a `Binding` of
+  inputs (t10..t15) and outputs (u0..u7); the scene (t0..t8) and sky (t9) are bound for every pass. Shared shader code:
+  `pbrCommon.hlsli` (bindings, packing, sampling, camera) and `pbrSurface.hlsli` (materials, BRDF, ray queries, lights).
+  Settings that change the image call `reset_history()` through `CVarResetHistory`.
 - Alpha tested geometry (foliage) dominates ray cost: every candidate hit interrupts traversal. Real time rays stop alpha
   testing after `pbr.light.alpha_tests_shadow` / `alpha_tests_indirect` candidates (the rest count as solid; the path
   tracer tests all), and candidate tests only fetch texture coordinates (`Mesh::uv_density` gives the texture level).

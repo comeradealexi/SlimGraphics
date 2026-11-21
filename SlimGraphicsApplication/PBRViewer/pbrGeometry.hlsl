@@ -14,10 +14,7 @@
 
 #include "pbrSurface.hlsli"
 
-cbuffer GeometryConstants : register(b1)
-{
-    GeometryPassConstants pass;
-};
+ConstantBuffer<GeometryPassConstants> pass : register(b1);
 
 RWStructuredBuffer<uint2> Tasks : register(u0);             // x = instance, y = first meshlet | drawn early flag << 31
 RWStructuredBuffer<uint> TaskCounts : register(u1);         // One per bucket
@@ -31,6 +28,24 @@ Texture2D<float> HZB : register(t10);                       // Late phase: farth
 void AddStatistic(uint index, uint value)
 {
     InterlockedAdd(CullStatistics[index], value);
+}
+
+// Last frame's visibility of an instance's meshlet (bit 'bit' of the meshlet visibility array), and this frame's
+bool MeshletWasVisible(uint bit)
+{
+    return (MeshletVisibility[bit >> 5] & (1u << (bit & 31))) != 0;
+}
+
+void SetMeshletVisible(uint bit, bool visible)
+{
+    if (visible)
+    {
+        InterlockedOr(MeshletVisibility[bit >> 5], 1u << (bit & 31));
+    }
+    else
+    {
+        InterlockedAnd(MeshletVisibility[bit >> 5], ~(1u << (bit & 31)));
+    }
 }
 
 bool SphereInFrustum(float4 sphere)
@@ -50,6 +65,15 @@ bool SphereInFrustum(float4 sphere)
     return true;
 }
 
+// The tangents to a circle (centre c = (lateral, depth), radius r) from the eye: the range of lateral / depth it covers
+float2 ProjectedSphereRange(float2 c, float r)
+{
+    float2 v = float2(sqrt(dot(c, c) - r * r), r);
+    float2 lo = mul(c, float2x2(v.x, v.y, -v.y, v.x));
+    float2 hi = mul(c, float2x2(v.x, -v.y, v.y, v.x));
+    return float2(lo.x / lo.y, hi.x / hi.y);
+}
+
 // Whether a world space sphere is hidden behind the HZB (conservative: false when unsure)
 bool SphereOccluded(float4 sphere)
 {
@@ -64,26 +88,15 @@ bool SphereOccluded(float4 sphere)
     {
         return false; // Crosses the near plane
     }
-    // Screen space bounds of the projected sphere (Mara and McGuire, "2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere")
-    float p00 = frame.projection._11;
-    float p11 = frame.projection._22;
-    float2 cx = float2(c.x, c.z);
-    float2 vx = float2(sqrt(dot(cx, cx) - r * r), r);
-    float2 minx = mul(cx, float2x2(vx.x, vx.y, -vx.y, vx.x));
-    float2 maxx = mul(cx, float2x2(vx.x, -vx.y, vx.y, vx.x));
-    float2 cy = float2(c.y, c.z);
-    float2 vy = float2(sqrt(dot(cy, cy) - r * r), r);
-    float2 miny = mul(cy, float2x2(vy.x, vy.y, -vy.y, vy.x));
-    float2 maxy = mul(cy, float2x2(vy.x, -vy.y, vy.y, vy.x));
-    // NDC x, y -> UV (y down)
-    float4 aabb = float4(minx.x / minx.y * p00, maxy.x / maxy.y * p11, maxx.x / maxx.y * p00, miny.x / miny.y * p11);
-    aabb = aabb.xwzy * float4(0.5f, -0.5f, 0.5f, -0.5f) + 0.5f; // (min u, min v, max u, max v)
-    aabb = saturate(aabb);
+    // Screen space bounds of the projected sphere (Mara and McGuire, "2D Polyhedral Bounds of a Clipped, Perspective-Projected
+    // 3D Sphere"), NDC x and y -> UV (y down): (min u, min v, max u, max v)
+    float2 x_range = ProjectedSphereRange(c.xz, r) * frame.projection._11;
+    float2 y_range = ProjectedSphereRange(c.yz, r) * frame.projection._22;
+    float4 aabb = saturate(float4(x_range.x, y_range.y, x_range.y, y_range.x) * float4(0.5f, -0.5f, 0.5f, -0.5f) + 0.5f);
     float2 size = (aabb.zw - aabb.xy) * frame.hzb_size;
     float level = ceil(log2(max(max(size.x, size.y), 1.0f)));
     level = min(level, (float)frame.hzb_mip_count - 1.0f);
     // The four texels covering the bounds at that level hold the farthest depth around it
-    float2 texel = exp2(level) / frame.hzb_size;
     float d0 = HZB.SampleLevel(PointClampSampler, aabb.xy, level);
     float d1 = HZB.SampleLevel(PointClampSampler, float2(aabb.z, aabb.y), level);
     float d2 = HZB.SampleLevel(PointClampSampler, float2(aabb.x, aabb.w), level);
@@ -96,7 +109,7 @@ bool SphereOccluded(float4 sphere)
 
 float4 TransformSphere(float4 sphere, float4x4 world)
 {
-    float3 centre = mul(float4(sphere.xyz, 1.0f), world).xyz;
+    float3 centre = TransformPoint(sphere.xyz, world);
     float scale = sqrt(max(max(dot(world[0].xyz, world[0].xyz), dot(world[1].xyz, world[1].xyz)), dot(world[2].xyz, world[2].xyz)));
     return float4(centre, sphere.w * scale);
 }
@@ -208,7 +221,7 @@ void as_main(uint gtid : SV_GroupThreadID, uint3 gid : SV_GroupID)
     if (visible)
     {
         Meshlet meshlet = Meshlets[meshlet_index];
-        bool was_visible = !occlusion || (MeshletVisibility[bit >> 5] & (1u << (bit & 31))) != 0;
+        bool was_visible = !occlusion || MeshletWasVisible(bit);
         if (pass.phase == PBR_PHASE_EARLY && !was_visible)
         {
             visible = false;
@@ -225,7 +238,7 @@ void as_main(uint gtid : SV_GroupThreadID, uint3 gid : SV_GroupID)
             // Normal cone (only for single sided geometry)
             if (!culled && HasFlag(PBR_FLAG_CONE_CULLING) && (instance.flags & PBR_INSTANCE_BUCKET_MASK) == PBR_BUCKET_OPAQUE && meshlet.cone_apex.w < 1.0f)
             {
-                float3 apex = mul(float4(meshlet.cone_apex.xyz, 1.0f), instance.world).xyz;
+                float3 apex = TransformPoint(meshlet.cone_apex.xyz, instance.world);
                 float3 axis = normalize(mul(meshlet.cone_axis.xyz, (float3x3)instance.world));
                 if ((instance.flags & PBR_INSTANCE_MIRRORED) != 0)
                 {
@@ -245,15 +258,7 @@ void as_main(uint gtid : SV_GroupThreadID, uint3 gid : SV_GroupID)
                     AddStatistic(PBR_STAT_MESHLETS_OCCLUSION_CULLED, 1);
                 }
                 bool now_visible = !culled && !occluded;
-                // Visibility for the next frame's early phase
-                if (now_visible)
-                {
-                    InterlockedOr(MeshletVisibility[bit >> 5], 1u << (bit & 31));
-                }
-                else
-                {
-                    InterlockedAnd(MeshletVisibility[bit >> 5], ~(1u << (bit & 31)));
-                }
+                SetMeshletVisible(bit, now_visible); // For the next frame's early phase
                 // Drawn already by the early phase
                 visible = now_visible && !(instance_drawn_early && was_visible);
             }
@@ -315,9 +320,8 @@ void ms_main(uint gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, in payload Pa
     if (gtid < meshlet.vertex_count)
     {
         Vertex v = Vertices[MeshletVertices[meshlet.vertex_offset + gtid]];
-        float4 world = mul(float4(v.position, 1.0f), instance.world);
         VertexOutput o;
-        o.position = mul(world, frame.view_projection);
+        o.position = mul(float4(TransformPoint(v.position, instance.world), 1.0f), frame.view_projection);
 #ifdef PBR_SHADER_MASKED
         o.uv = v.uv;
 #endif
@@ -325,8 +329,7 @@ void ms_main(uint gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, in payload Pa
     }
     if (gtid < meshlet.triangle_count)
     {
-        uint packed = MeshletTriangles[meshlet.triangle_offset + gtid];
-        uint3 t = uint3(packed & 0xFF, (packed >> 8) & 0xFF, (packed >> 16) & 0xFF);
+        uint3 t = UnpackMeshletTriangle(MeshletTriangles[meshlet.triangle_offset + gtid]);
         // Mirrored instances reverse the winding; restore it so back face culling keeps the right side
         tris[gtid] = (instance.flags & PBR_INSTANCE_MIRRORED) ? t.xzy : t;
         PrimitiveOutput p;
@@ -384,14 +387,13 @@ void build_hzb_first(uint3 dtid : SV_DispatchThreadID)
 [numthreads(8, 8, 1)]
 void build_hzb_down(uint3 dtid : SV_DispatchThreadID)
 {
-    uint2 size = max((uint2)frame.hzb_size >> pass.phase, 1u); // 'phase' holds the destination level
+    uint2 size = max((uint2)frame.hzb_size >> pass.hzb_level, 1u);
     if (any(dtid.xy >= size))
     {
         return;
     }
-    uint2 source_size = max((uint2)frame.hzb_size >> (pass.phase - 1), 1u);
+    uint2 source_size = max((uint2)frame.hzb_size >> (pass.hzb_level - 1), 1u);
     uint2 s = min(dtid.xy * 2, source_size - 1);
     uint2 s1 = min(dtid.xy * 2 + 1, source_size - 1);
-    float d = min(min(HZBSource[s], HZBSource[uint2(s1.x, s.y)]), min(HZBSource[uint2(s.x, s1.y)], HZBSource[s1]));
-    HZBDestination[dtid.xy] = d;
+    HZBDestination[dtid.xy] = min(min(HZBSource[s], HZBSource[uint2(s1.x, s.y)]), min(HZBSource[uint2(s.x, s1.y)], HZBSource[s1]));
 }

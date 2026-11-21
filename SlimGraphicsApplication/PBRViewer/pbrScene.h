@@ -4,7 +4,7 @@
 #include "pbrShaderStructures.h"
 #include "LinearConstantBuffer.h"
 #include <DirectXMath.h>
-#include <atomic>
+#include <cfloat>
 #include <future>
 #include <memory>
 #include <string>
@@ -26,6 +26,21 @@ namespace pbr
 		const char* camera_track;			// Camera track file (gdr::CameraTrack JSON, metres) or null: an orbit around the bounds
 	};
 	const std::vector<ScenePreset>& scene_presets();
+	const ScenePreset* find_scene_preset(const std::string& name);
+
+	// An axis aligned box (empty until extended)
+	struct Bounds
+	{
+		DirectX::XMFLOAT3 min = { FLT_MAX, FLT_MAX, FLT_MAX };
+		DirectX::XMFLOAT3 max = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+
+		void extend(const DirectX::XMFLOAT3& p);
+		void extend(const Bounds& b) { extend(b.min); extend(b.max); }
+		DirectX::XMFLOAT3 centre() const { return { (min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f, (min.z + max.z) * 0.5f }; }
+		DirectX::XMFLOAT3 size() const { return { max.x - min.x, max.y - min.y, max.z - min.z }; }
+		float radius() const;				// Of the bounding sphere around centre()
+		Bounds transformed(DirectX::FXMMATRIX world) const;	// Bounds of the transformed box
+	};
 
 	// A scene of meshes, materials and instances imported with assimp, uploaded for mesh shading (meshlets) and ray tracing
 	// (one bottom level acceleration structure per mesh, one top level structure of every instance).
@@ -46,6 +61,7 @@ namespace pbr
 
 		State get_state() const { return state; }
 		bool is_ready() const { return state == State::Ready; }
+		bool is_loaded(const std::string& file) const { return path == file && state != State::Empty && state != State::Failed; }
 		std::string get_status() const;
 		const std::string& get_path() const { return path; }
 		const ScenePreset* get_preset() const { return preset; }
@@ -68,17 +84,9 @@ namespace pbr
 			float import_seconds = 0.0f;
 		};
 		const Statistics& get_statistics() const { return statistics; }
-
-		// Scene bounds (world space, metres)
-		const DirectX::XMFLOAT3& get_bounds_min() const { return bounds_min; }
-		const DirectX::XMFLOAT3& get_bounds_max() const { return bounds_max; }
-		// The model file's first camera (world space, metres), when it has one
-		bool get_file_camera(DirectX::XMFLOAT3& position, DirectX::XMFLOAT3& target) const
-		{
-			position = file_camera_position;
-			target = file_camera_target;
-			return has_file_camera;
-		}
+		const Bounds& get_bounds() const { return bounds; }	// World space, metres
+		// The view the scene opens with: the preset's, else the model file's first camera (world space, metres)
+		bool get_start_camera(DirectX::XMFLOAT3& position, DirectX::XMFLOAT3& target) const;
 
 		// GPU data (valid when ready)
 		struct Views
@@ -100,24 +108,26 @@ namespace pbr
 		// The largest number of amplification tasks (PBR_TASK_MESHLETS meshlet chunks) any frame can produce
 		sg::u32 get_max_tasks() const { return max_tasks; }
 		// Emissive triangle light sampling (gpu::EmissiveTriangle alias table)
-		sg::u32 get_emissive_triangle_count() const { return emissive_triangle_count; }
+		sg::u32 get_emissive_triangle_count() const { return statistics.emissive_triangles; }
 		float get_emissive_weight() const { return emissive_weight; }
 
 	private:
-		struct ImportedScene;
 		struct Texture;
+		struct ImportedScene;
+		struct Importer;
 
 		static std::shared_ptr<ImportedScene> import(std::string path, ScenePreset preset, bool has_preset);
-		void begin_upload(sg::Ptr<sg::UploadHeap>& upload_heap);
+		void begin_upload();
+		bool upload_pending_buffers(sg::Ptr<sg::UploadHeap>& upload_heap);
 		bool upload_textures(sg::Ptr<sg::UploadHeap>& upload_heap);
 		void analyse_alpha(sg::CommandList& command_list, SimpleLinearConstantBuffer& cbuffer);
 		void finish_alpha_analysis();
 		void build_acceleration_structures(sg::CommandList& command_list, sg::Ptr<sg::UploadHeap>& upload_heap);
 		void release();
 
+		// A GPU buffer of 'data', uploaded within the per frame budget (see upload_pending_buffers)
 		template <typename T>
 		sg::SharedPtr<sg::Buffer> create_buffer(const std::vector<T>& data, sg::ShaderResourceView& srv);
-		bool upload_pending_buffers(sg::Ptr<sg::UploadHeap>& upload_heap);
 
 		sg::SharedPtr<sg::Device> device;
 		State state = State::Empty;
@@ -127,8 +137,7 @@ namespace pbr
 		std::shared_ptr<ImportedScene> imported;
 		std::string error;
 		Statistics statistics;
-		DirectX::XMFLOAT3 bounds_min = { 0, 0, 0 };
-		DirectX::XMFLOAT3 bounds_max = { 0, 0, 0 };
+		Bounds bounds;
 		bool has_file_camera = false;
 		DirectX::XMFLOAT3 file_camera_position = { 0, 0, 0 };
 		DirectX::XMFLOAT3 file_camera_target = { 0, 0, 1 };
@@ -136,10 +145,8 @@ namespace pbr
 		Views views;
 		sg::u32 meshlet_visibility_bits = 0;
 		sg::u32 max_tasks = 0;
-		sg::u32 emissive_triangle_count = 0;
 		float emissive_weight = 0.0f;
 
-		// Buffers whose data is uploaded in pieces within the per frame budget
 		struct PendingUpload
 		{
 			sg::SharedPtr<sg::Buffer> buffer;
@@ -161,7 +168,6 @@ namespace pbr
 
 		std::vector<gpu::Material> materials;
 		std::vector<gpu::Instance> instances;
-		sg::SharedPtr<sg::Buffer> material_buffer;
 		sg::SharedPtr<sg::Pipeline> alpha_analysis_pipeline;
 		sg::SharedPtr<sg::Buffer> alpha_counts;
 		sg::SharedPtr<sg::Buffer> alpha_readback;
@@ -183,4 +189,7 @@ namespace pbr
 		sg::SharedPtr<sg::Buffer> scratch;
 		size_t next_blas = 0;
 	};
+
+	// A buffer padded to a multiple of 256 bytes (constant and structured buffer views, acceleration structures)
+	sg::SharedPtr<sg::Buffer> create_padded_buffer(sg::Device& device, size_t bytes, sg::BufferType type, bool unordered_access);
 }
