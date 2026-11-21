@@ -1097,9 +1097,16 @@ namespace sg
                 srv.desc.Texture3D.MostDetailedMip = top_mip;
                 srv.desc.Texture3D.MipLevels = mip_count;
                 break;
+            case ResourceDimension::Texture2DArray:
+                srv.desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+                srv.desc.Texture2DArray.MostDetailedMip = top_mip;
+                srv.desc.Texture2DArray.MipLevels = mip_count;
+                srv.desc.Texture2DArray.FirstArraySlice = 0;
+                srv.desc.Texture2DArray.ArraySize = rcd.depth;
+                break;
             case ResourceDimension::Texture2D:
             default:
-                // Shaders declare these as Texture2D, so array/cube resources are viewed as their first slice.
+                // Shaders declare these as Texture2D, so other multi slice resources are viewed as their first slice.
                 srv.desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
                 srv.desc.Texture2D.MostDetailedMip = top_mip;
                 srv.desc.Texture2D.MipLevels = mip_count;

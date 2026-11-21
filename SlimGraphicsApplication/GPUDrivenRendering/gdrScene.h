@@ -17,6 +17,8 @@
 #include "gdrModel.h"
 #include "gdrSort.h"
 #include "gdrHZB.h"
+#include "gdrMaterials.h"
+#include "gdrTerrain.h"
 
 namespace gdr
 {
@@ -138,6 +140,10 @@ namespace gdr
 		GPUBuffer<Vertex>  vertex_data;
 		GPUBuffer<sg::u32> meshlet_vertex_index;
 		GPUBuffer<sg::u32> meshlet_primitive_index; // Packed Data - 1 tri per u32
+		GPUBuffer<ShaderStructs::TerrainData> terrain_data;
+		GPUBuffer<float> terrain_heights;			// Height grids of every terrain (TerrainData::height_offset)
+		MaterialTextures material_textures;			// Texture array slices referenced by material_data
+		bool has_alpha_test = false;				// Any material is alpha tested (selects the pixel shader with discard)
 
 		// GPU Write Only Buffers
 		GPUBuffer<ShaderStructs::PerInstanceProcessingData_Output> gpu_pre_process_instances_output;
@@ -185,7 +191,17 @@ namespace gdr
 			const SceneNode* scene_node = nullptr;
 		};
 
+		// Instances per model name (terrains appear under terrain_model_name(desc))
 		std::map<std::string, std::vector<InstanceData>> model_instance_map;
+		// Terrain description of each terrain model name
+		std::map<std::string, const TerrainDesc*> terrains;
+
+		struct LightInstance
+		{
+			DirectX::XMMATRIX world_matrix;
+			const LightDesc* light = nullptr;
+		};
+		std::vector<LightInstance> lights;
 
 		void process_scene_graph(SceneNode& root_node);
 	};
@@ -200,14 +216,15 @@ namespace gdr
 		void update(Ptr<UploadHeap>& upload_heap);
 		void render(sg::CommandList& command_list, const Camera& camera, sg::ConstantBufferView& cbv_camera, sg::Ptr<sg::UploadHeap>& upload_heap, SimpleLinearConstantBuffer& cbuffer, DebugDraw& debug_draw, sg::ShaderResourceView depth_view);
 		bool load_model(std::string path, ShaderStructs::ModelData& gpu_model_data);
+		bool load_terrain(const std::string& name, const TerrainDesc& desc);
 		void load_gpu_data(SceneGraphTraverser& scene_graph, Ptr<UploadHeap>& upload_heap);
 
 		void generate_hzb(sg::CommandList& command_list, sg::ShaderResourceView depth_view, SimpleLinearConstantBuffer& cbuffer);
 
-		// Replaces the scene graph (and camera track) with the contents of a scene file (models load on the next update)
+		// Replaces the scene graph (and camera track, environment) with the contents of a scene file (models load on the next update)
 		bool load_scene(const char* file_path)
 		{
-			if (!deserialise(root_scene_node, camera_track, file_path))
+			if (!deserialise(root_scene_node, properties, file_path))
 			{
 				return false;
 			}
@@ -215,15 +232,15 @@ namespace gdr
 			return true;
 		}
 
-		// Empties the scene graph (and camera track)
+		// Empties the scene graph (and camera track, environment)
 		void clear_scene()
 		{
 			root_scene_node = SceneNode();
-			camera_track = CameraTrack();
+			properties = SceneProperties();
 			scene_load_count++;
 		}
 
-		const CameraTrack& get_camera_track() const { return camera_track; }
+		const CameraTrack& get_camera_track() const { return properties.camera_track; }
 
 		// Automated tests (see TestRunner): applies debug / sorting / pipeline settings, resetting those not given
 		void apply_test_settings(const nlohmann::json& settings);
@@ -233,6 +250,9 @@ namespace gdr
 			sg::u32 total_instances;
 			sg::u32 total_mesh_parts;
 			sg::u32 total_meshlets;
+			sg::u32 total_lights;
+			sg::u32 texture_slices;
+			sg::u32 terrain_tiles;		// Terrain meshlets per frame (over all terrain instances)
 
 			ShaderStructs::DebugFeedbackData raw_feedback_data = {};
 		};
@@ -245,8 +265,10 @@ namespace gdr
 		sg::SharedPtr<sg::Texture> get_hzb_texture() const { return gpu_hzb.get_texture(); }
 
 	private:
+		void update_lighting(const SceneGraphTraverser& scene_graph, Ptr<UploadHeap>& upload_heap);
+
 		SceneNode root_scene_node;
-		CameraTrack camera_track;
+		SceneProperties properties;
 		sg::u32 scene_load_count = 0;
 		Editor editor;
 
@@ -256,6 +278,10 @@ namespace gdr
 		HZB gpu_hzb;
 
 		ModelBuffers model_buffers;
+		// Lighting, rebuilt every frame from the scene graph's light components and the scene environment
+		GPUBuffer<ShaderStructs::LightData> light_data;
+		GPUBuffer<ShaderStructs::EnvironmentData> environment_data;
+		bool reported_light_limit = false;
 		// Model paths that failed to import; skipped so a bad path does not trigger a reload every frame.
 		std::set<std::string> failed_model_paths;
 		struct PerInstanceRenderInfo
@@ -279,6 +305,7 @@ namespace gdr
 			sg::SharedPtr<sg::Pipeline> per_instance_compute_pipeline;
 			sg::SharedPtr<sg::Pipeline> build_indirect_arguments_pipeline;
 			sg::SharedPtr<sg::Pipeline> mesh_render_pipeline;
+			sg::SharedPtr<sg::Pipeline> mesh_render_pipeline_alpha_test; // Pixel shader variant with discard
 		};
 		Pipelines pipelines[Pipelines::Type::Count];
 

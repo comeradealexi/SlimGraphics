@@ -6,7 +6,10 @@ scales, arbitrary rotations and per instance colours, at growing scale:
   VillageTest      ~1.1k instances  houses, market, church, windmill (nested blade group), fields, meadow
   ForestTest       ~4.2k instances  forest, river, ruins, herds, fireflies
   FractalTest      ~16k instances   chessboard, depth 7 fractal tree, level 3 Menger sponge, asteroid spiral, crystals
-Every scene (and HeadsTest / SpheresTest) gets a closed "camera_track" (gdrJSON.h CameraTrack: a centripetal Catmull-Rom
+  MaterialsTest    a showcase of texture, alpha test, normal and bump mapped materials
+Every scene (and HeadsTest / SpheresTest) gets a terrain (flat under its content and camera track, hills, lakes and snow
+beyond), a sun and sky fill light plus themed point lights (street lamps, fireflies, glowing crystals), an "environment"
+(ambient, fog, exposure), and a closed "camera_track" (gdrJSON.h CameraTrack: a centripetal Catmull-Rom
 spline through position / target pairs, played at constant speed by CameraTrackPlayer).
 
 Usage: python Tools/generate_gdr_scenes.py
@@ -53,6 +56,8 @@ class Bounds(dict):
 		return value
 
 bounds = Bounds()
+# Only OBJ files are measured; the glTF helmet is centred and about 1.9 units across
+bounds["Khronos/DamagedHelmet/glTF/DamagedHelmet.gltf"] = {"min": [-0.95] * 3, "max": [0.95] * 3, "size": [1.9] * 3, "tris": 46356}
 
 MODEL_PREFIX = "../SlimGraphicsAssets\\"
 INVALID = "unknown"
@@ -125,6 +130,8 @@ MESHES = {
 	"tree1b_lod2_b": ("DebugModels\\tree1b_lod2_2.obj", False),
 	"king": ("GL\\ChessKing.obj", False),
 	"orb": ("DebugModels\\orb.obj", False),
+	"cgtree": ("CGArchive\\CGTree\\cgaxis_models_115_37_obj.obj", False),
+	"helmet": ("Khronos\\DamagedHelmet\\glTF\\DamagedHelmet.gltf", False),
 }
 
 def bounds_key(file):
@@ -358,6 +365,68 @@ def track(duration, points, near=0.1, far=100.0):
 	"""A looping camera track: points are (position, look at target) pairs."""
 	return {"duration": duration, "near_plane": near, "far_plane": far, "points": [{"position": f3(p), "target": f3(t)} for p, t in points]}
 
+# Lights, terrain and environment ---------------------------------------------------------------------------------------
+
+def light(kind="point", colour=(1, 1, 1), intensity=1.0, range_=10.0, direction=(0, -1, 0)):
+	"""A node "light" component (gdrJSON.h LightDesc)."""
+	component = {"type": kind, "colour": f3(colour), "intensity": intensity}
+	if kind == "point":
+		component["range"] = range_
+	else:
+		length = math.sqrt(sum(d * d for d in direction))
+		component["direction"] = f3([d / length for d in direction])
+	return component
+
+def light_node(position=(0, 0, 0), **kwargs):
+	n = node(position=position)
+	n["light"] = light(**kwargs)
+	return n
+
+def content_bounds(root, camera_track=None):
+	"""World space x / z bounds of every model node origin (and camera track point)."""
+	identity = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+	lo, hi = [math.inf, math.inf], [-math.inf, -math.inf]
+	def add(p):
+		lo[0] = min(lo[0], p[0]); lo[1] = min(lo[1], p[2])
+		hi[0] = max(hi[0], p[0]); hi[1] = max(hi[1], p[2])
+	def walk(n, parent_m, parent_t):
+		v = lambda k: [n[k]["x"], n[k]["y"], n[k]["z"]]
+		t = [a + b for a, b in zip(vec_mul(v("position"), parent_m), parent_t)]
+		m = mat_mul(mat_mul(scaling(v("scale")), rotation(*v("rotation"))), parent_m)
+		if n["model_name"] != INVALID:
+			add(t)
+		for c in n["children"]:
+			walk(c, m, t)
+	walk(root, identity, [0, 0, 0])
+	for point in (camera_track or {}).get("points", []):
+		add([point["position"]["x"], 0, point["position"]["z"]])
+	return lo, hi
+
+def decorate(root, camera_track, environment, lights, margin=6.0, falloff=40.0, hills=120.0, max_quads=504, **terrain):
+	"""Adds a terrain under the scene (flat where the content and camera track are, hills beyond), the given scene level
+	lights and the environment. Re-running replaces what an earlier run added."""
+	# The terrain and scene lights live in one "scenery" group (identified by its terrain child)
+	root["children"] = [c for c in root["children"] if not any("terrain" in g for g in c["children"])]
+	lo, hi = content_bounds(root, camera_track)
+	cx, cz = (lo[0] + hi[0]) * 0.5, (lo[1] + hi[1]) * 0.5
+	half_x, half_z = (hi[0] - lo[0]) * 0.5 + margin, (hi[1] - lo[1]) * 0.5 + margin
+	size = 2.0 * (max(half_x, half_z) + falloff + hills)
+	desc = {"size": round(size, 2), "resolution": min(max_quads, int(size / 1.5)), "flat_x_min": round(-half_x, 2), "flat_z_min": round(-half_z, 2),
+	        "flat_x_max": round(half_x, 2), "flat_z_max": round(half_z, 2), "flat_falloff": falloff, "flat_height": 0.02}
+	desc.update(terrain)
+	terrain_node = node(position=(cx, 0, cz))
+	terrain_node["terrain"] = desc
+	root["children"].append(group([terrain_node] + lights))
+	root["environment"] = environment
+	return root
+
+def sun(direction, colour=(1.0, 0.95, 0.85), intensity=2.0):
+	return light_node(kind="directional", direction=direction, colour=colour, intensity=intensity)
+
+def environment(sky, ground, ambient, fog, fog_density, fog_start=0.0, exposure=1.0):
+	return {"sky_colour": f3(sky), "ground_colour": f3(ground), "ambient_intensity": ambient, "fog_colour": f3(fog),
+	        "fog_density": fog_density, "fog_start": fog_start, "exposure": exposure}
+
 def lerp3(a, b, t):
 	return [a[i] + (b[i] - a[i]) * t for i in range(3)]
 
@@ -413,6 +482,7 @@ def build_village():
 		return group([
 			obj("column", height=4.0, scale_xyz=(0.18, 1, 0.18), colour=(0.25, 0.25, 0.28)),
 			obj("icosphere", position=(0, 4.15, 0), size=0.45, pivot="centre", colour=(1.0, 0.92, 0.55)),
+			light_node((0, 3.9, 0), colour=(1.0, 0.72, 0.4), intensity=7.0, range_=10.0),
 		], position=position)
 
 	# Blocks of houses around the market square (blocks are 18 m, streets 6 m)
@@ -664,7 +734,10 @@ def build_forest():
 		(cx, cz), r = random.choice(clearings)
 		a = random.uniform(0, math.tau)
 		d = random.uniform(0, r * 1.6)
-		items.append(obj("icosphere", position=(cx + math.cos(a) * d, random.uniform(0.4, 4.0), cz + math.sin(a) * d), size=random.uniform(0.05, 0.12), pivot="centre", colour=(0.85, 1.0, 0.35)))
+		firefly = obj("icosphere", position=(cx + math.cos(a) * d, random.uniform(0.4, 4.0), cz + math.sin(a) * d), size=random.uniform(0.05, 0.12), pivot="centre", colour=(0.85, 1.0, 0.35))
+		if i % 14 == 0:
+			firefly["light"] = light(colour=(0.75, 1.0, 0.35), intensity=2.5, range_=5.0)
+		items.append(firefly)
 
 	return node(children=items), camera
 
@@ -674,17 +747,17 @@ def build_fractal():
 	random.seed(8096)
 	items = []
 
-	# Giant chessboard of 64 tiles with high polygon kings and pawns (46k / 14k triangles)
+	# Giant chessboard of 64 tiles (its top 5 cm above the terrain's flat area) with high polygon kings and pawns (46k / 14k triangles)
 	board = []
 	tile = 4.0
 	for i in range(8):
 		for j in range(8):
 			dark = (i + j) % 2 == 0
-			board.append(obj("cube", position=((i - 3.5) * tile, -0.4, (j - 3.5) * tile), height=0.4, scale_xyz=(tile / 0.4, 1, tile / 0.4), colour=(0.15, 0.13, 0.12) if dark else (0.92, 0.9, 0.85)))
+			board.append(obj("cube", position=((i - 3.5) * tile, -0.35, (j - 3.5) * tile), height=0.4, scale_xyz=(tile / 0.4, 1, tile / 0.4), colour=(0.15, 0.13, 0.12) if dark else (0.92, 0.9, 0.85)))
 	for side, row_pawn, row_back, colour in ((0, 1, 0, (0.95, 0.92, 0.85)), (1, 6, 7, (0.25, 0.22, 0.24))):
 		for i in range(8):
-			board.append(obj("pawn", position=((i - 3.5) * tile, 0, (row_pawn - 3.5) * tile), height=3.0, colour=colour, rotation_deg=(0, random.uniform(0, 360), 0)))
-			board.append(obj("king", position=((i - 3.5) * tile, 0, (row_back - 3.5) * tile), height=5.5 if i in (3, 4) else 4.2, colour=colour, rotation_deg=(0, 180 * side, 0)))
+			board.append(obj("pawn", position=((i - 3.5) * tile, 0.05, (row_pawn - 3.5) * tile), height=3.0, colour=colour, rotation_deg=(0, random.uniform(0, 360), 0)))
+			board.append(obj("king", position=((i - 3.5) * tile, 0.05, (row_back - 3.5) * tile), height=5.5 if i in (3, 4) else 4.2, colour=colour, rotation_deg=(0, 180 * side, 0)))
 	items.append(group(board))
 
 	# Fractal tree: every branch carries three smaller branches (deep hierarchy, compounding scale and rotation), bunny leaves
@@ -719,6 +792,7 @@ def build_fractal():
 
 	# Asteroid spiral around an 81k triangle orb: two arms of mixed meshes with random tumbles and non uniform scales
 	spiral = [obj("orb", size=14.0, pivot="centre", colour=(0.9, 0.6, 0.3)),
+	          light_node((0, 0, 0), colour=(1.0, 0.65, 0.3), intensity=60.0, range_=90.0),
 	          obj("torus", size=40.0, scale_xyz=(1, 0.3, 1), pivot="centre", rotation_deg=(12, 0, 0), colour=(0.7, 0.6, 0.85))]
 	asteroid_meshes = ["icosphere", "sphere_lo", "suzanne", "teapot", "armadillo", "cone"]
 	for i in range(3200):
@@ -737,7 +811,11 @@ def build_fractal():
 		a = random.uniform(0, math.tau)
 		r = random.uniform(130, 190)
 		h = random.uniform(3, 16)
-		items.append(obj("cone", position=(math.sin(a) * r, 0, 30 + math.cos(a) * r), rotation_deg=(jitter(12), random.uniform(0, 360), jitter(12)), height=h, scale_xyz=(0.15 + h * 0.01, 1, 0.15 + h * 0.01), colour=hsv(0.5 + jitter(0.15), 0.6, 0.95)))
+		crystal = obj("cone", position=(math.sin(a) * r, 0, 30 + math.cos(a) * r), rotation_deg=(jitter(12), random.uniform(0, 360), jitter(12)), height=h, scale_xyz=(0.15 + h * 0.01, 1, 0.15 + h * 0.01), colour=hsv(0.5 + jitter(0.15), 0.6, 0.95))
+		items.append(crystal)
+		if i % 40 == 0:
+			c = crystal["colour"]
+			items.append(light_node((math.sin(a) * r, h + 1.0, 30 + math.cos(a) * r), colour=(c["x"], c["y"], c["z"]), intensity=20.0, range_=24.0))
 
 	camera = track(100.0, [
 		((0.0, 8.0, -40.0), (0.0, 2.0, 0.0)),
@@ -762,9 +840,11 @@ def build_fractal():
 # --- Output -----------------------------------------------------------------------------------------------------------
 def summarise(file_name, root):
 	instances = {}
-	stats = {"max_depth": 0, "nodes": 0}
+	stats = {"max_depth": 0, "nodes": 0, "lights": 0, "terrains": 0}
 	def walk(n, depth):
 		stats["nodes"] += 1
+		stats["lights"] += "light" in n
+		stats["terrains"] += "terrain" in n
 		stats["max_depth"] = max(stats["max_depth"], depth)
 		if n["model_name"] != INVALID:
 			instances[n["model_name"]] = instances.get(n["model_name"], 0) + 1
@@ -772,7 +852,7 @@ def summarise(file_name, root):
 			walk(c, depth + 1)
 	walk(root, 0)
 	meshlets = sum(n * math.ceil(bounds[bounds_key(model[len(MODEL_PREFIX):])]["tris"] / 110) for model, n in instances.items())
-	print(f"{file_name:24s} {sum(instances.values()):6d} instances of {len(instances):2d} meshes, {stats['nodes']:6d} nodes, depth {stats['max_depth']:2d}, ~{meshlets} meshlets")
+	print(f"{file_name:24s} {sum(instances.values()):6d} instances of {len(instances):2d} meshes, {stats['nodes']:6d} nodes, depth {stats['max_depth']:2d}, ~{meshlets} meshlets, {stats['lights']} lights, {stats['terrains']} terrain")
 
 def write_scene(file_name, root, camera_track):
 	root["camera_track"] = camera_track
@@ -780,31 +860,133 @@ def write_scene(file_name, root, camera_track):
 		json.dump(root, f, separators=(",", ":"))
 	summarise(file_name, root)
 
-def add_track_to_existing(file_name, camera_track):
-	"""Hand made scenes keep their nodes; only the camera track is (re)written."""
+def build_materials():
+	"""A showcase of every material feature: alpha tested foliage with opacity and bump maps (CGTree), normal mapped glTF
+	(DamagedHelmet), bump mapped scans (head) and texture mapped models (3DBuilder), under coloured lights."""
+	random.seed(77)
+	items = []
+	# A row of alpha tested trees behind everything
+	for i in range(5):
+		items.append(obj("cgtree", position=(-14 + i * 7 + jitter(1.0), 0, 14 + jitter(1.5)), rotation_deg=(0, random.uniform(0, 360), 0), height=random.uniform(6.5, 8.5)))
+	# Helmets on plinths
+	for i, yaw in enumerate((-30, 10, 50)):
+		x = -5 + i * 5
+		items.append(obj("cube", position=(x, 0, 4), height=1.0, scale_xyz=(1.4, 1, 1.4), colour=(0.55, 0.53, 0.5)))
+		items.append(obj("helmet", position=(x, 1.75, 4), rotation_deg=(0, 180 + yaw, 0), size=1.4, pivot="centre"))
+	# Scanned heads (bump mapped) in a semicircle
+	for i in range(3):
+		a = math.radians(-35 + i * 35)
+		items.append(obj("head", position=(math.sin(a) * 4.0, 0, -1.5 + math.cos(a) * 1.5), rotation_deg=(0, 180 + math.degrees(a), 0), height=1.1,
+		                 colour=[(1.0, 0.9, 0.85), (0.85, 0.9, 1.0), (1.0, 1.0, 0.85)][i]))
+	# Textured 3DBuilder models along the front
+	for i, (name, height) in enumerate((("house", 3.5), ("pumpkin", 0.6), ("sunflower", 1.8), ("trophy", 0.8), ("bulldozer", 1.6), ("cat", 0.9), ("lowpoly_tree", 3.0))):
+		items.append(obj(name, position=(-12 + i * 4, 0, -6 - (i % 2) * 2), rotation_deg=(0, 160 + jitter(30), 0), height=height))
+	for i in range(30):
+		items.append(obj("grass", position=(jitter(16), 0, -9 + jitter(3)), rotation_deg=(0, random.uniform(0, 360), 0), height=random.uniform(0.3, 0.6)))
+	# Coloured lights around the exhibits
+	for x, z, colour in ((-7, 2, (1.0, 0.5, 0.3)), (0, 7, (0.4, 0.7, 1.0)), (7, 2, (0.8, 0.4, 1.0)), (0, -4, (1.0, 0.85, 0.6))):
+		items.append(light_node((x, 3.0, z), colour=colour, intensity=10.0, range_=12.0))
+
+	camera = track(36.0, [
+		((0.0, 2.5, -14.0), (0.0, 1.5, 2.0)),
+		((-12.0, 3.0, -6.0), (-3.0, 1.5, 3.0)),
+		((-10.0, 4.5, 8.0), (0.0, 2.5, 6.0)),
+		((0.0, 3.0, 9.0), (0.0, 1.6, 4.0)),
+		((10.0, 4.5, 8.0), (0.0, 2.5, 6.0)),
+		((12.0, 3.0, -6.0), (3.0, 1.5, 3.0)),
+	], near=0.05, far=300.0)
+	return node(children=items), camera
+
+def decorate_materials(root, t):
+	lights = [sun((-0.4, -0.7, 0.6), colour=(1.0, 0.95, 0.85), intensity=1.2), sun((0.6, -0.3, -0.7), colour=(0.5, 0.6, 0.95), intensity=0.3)]
+	return decorate(root, t, environment((0.56, 0.66, 0.9), (0.3, 0.27, 0.23), 0.3, (0.4, 0.52, 0.8), 0.006, 25.0, exposure=0.95), lights,
+	                margin=5.0, falloff=25.0, hills=80.0, height=16.0, feature_size=50.0, seed=77, water=True, water_level=-1.0, snow_height=13.0)
+
+def accent_lights(root, camera_track, count, height, intensity, range_, saturation=0.55):
+	"""Coloured point lights spread over the content on a jittered grid (deterministic, own random stream)."""
+	rng = random.Random(count * 7919)
+	lo, hi = content_bounds(root)
+	side = max(1, int(math.ceil(math.sqrt(count))))
+	lights = []
+	for k in range(count):
+		gx, gz = k % side, k // side
+		x = lo[0] + (hi[0] - lo[0]) * (gx + 0.5 + rng.uniform(-0.3, 0.3)) / side
+		z = lo[1] + (hi[1] - lo[1]) * (gz + 0.5 + rng.uniform(-0.3, 0.3)) / side
+		lights.append(light_node((x, height, z), colour=hsv(rng.random(), saturation, 1.0), intensity=intensity, range_=range_))
+	return lights
+
+def decorate_heads(root, t):
+	lo, hi = content_bounds(root)
+	cx, cz, r = (lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, max(hi[0] - lo[0], hi[1] - lo[1], 2.0)
+	lights = [sun((-0.5, -0.7, 0.5), intensity=1.0),
+	          light_node((cx - r, 2.0, cz - r), colour=(1.0, 0.75, 0.5), intensity=6.0, range_=r * 4),
+	          light_node((cx + r, 2.5, cz + r * 0.5), colour=(0.45, 0.6, 1.0), intensity=5.0, range_=r * 4),
+	          light_node((cx, 0.6, cz - r * 1.5), colour=(1.0, 0.45, 0.7), intensity=3.0, range_=r * 3)]
+	return decorate(root, t, environment((0.55, 0.62, 0.85), (0.32, 0.27, 0.22), 0.3, (0.32, 0.45, 0.78), 0.012, 8.0, exposure=0.9), lights,
+	                margin=4.0, falloff=20.0, hills=60.0, height=9.0, feature_size=35.0, seed=11, water=True, water_level=-1.0)
+
+def decorate_spheres(root, t):
+	lights = [sun((0.4, -0.55, 0.7), colour=(1.0, 0.93, 0.8), intensity=1.5), sun((-0.6, -0.3, -0.7), colour=(0.5, 0.6, 0.9), intensity=0.35)]
+	lights += accent_lights(root, t, 9, 8.0, 40.0, 60.0)
+	return decorate(root, t, environment((0.55, 0.68, 0.92), (0.3, 0.28, 0.24), 0.32, (0.4, 0.55, 0.85), 0.0022, 100.0, exposure=0.9), lights,
+	                margin=15.0, falloff=60.0, hills=220.0, height=55.0, feature_size=180.0, seed=5, water=True, water_level=-4.0, snow_height=40.0)
+
+def decorate_mixed(root, t):
+	lights = [sun((-0.45, -0.75, 0.5), intensity=1.4), sun((0.6, -0.35, -0.6), colour=(0.55, 0.65, 0.95), intensity=0.3)]
+	lights += accent_lights(root, t, 12, 3.0, 6.0, 12.0)
+	return decorate(root, t, environment((0.58, 0.68, 0.9), (0.32, 0.28, 0.24), 0.32, (0.38, 0.52, 0.84), 0.006, 30.0, exposure=0.9), lights,
+	                margin=6.0, falloff=30.0, hills=90.0, height=20.0, feature_size=60.0, seed=3, water=True, water_level=-1.5, snow_height=16.0)
+
+def decorate_village(root, t):
+	# Late afternoon: a low warm sun, cool sky fill and the street lamps lit
+	lights = [sun((-0.7, -0.25, 0.65), colour=(1.0, 0.62, 0.38), intensity=0.9), sun((0.5, -0.4, -0.75), colour=(0.4, 0.5, 0.9), intensity=0.2)]
+	return decorate(root, t, environment((0.42, 0.45, 0.75), (0.3, 0.24, 0.2), 0.22, (0.45, 0.4, 0.6), 0.005, 40.0, exposure=1.0), lights,
+	                margin=8.0, falloff=45.0, hills=130.0, height=26.0, feature_size=85.0, seed=2024, water=True, water_level=-1.2, snow_height=22.0)
+
+def decorate_forest(root, t):
+	# Hazy morning light through the trees; fireflies and lakes between the hills
+	lights = [sun((0.35, -0.6, 0.72), colour=(1.0, 0.92, 0.75), intensity=1.3), sun((-0.5, -0.4, -0.7), colour=(0.45, 0.6, 0.85), intensity=0.35)]
+	return decorate(root, t, environment((0.52, 0.66, 0.8), (0.24, 0.27, 0.18), 0.3, (0.5, 0.6, 0.68), 0.0045, 30.0, exposure=0.85), lights,
+	                margin=8.0, falloff=50.0, hills=160.0, height=45.0, feature_size=110.0, ridges=0.6, seed=4048, water=True, water_level=-2.0, snow_height=30.0,
+	                grass_colour=f3((0.2, 0.36, 0.13)))
+
+def decorate_fractal(root, t):
+	# An alien world: violet sun, purple ground, teal rock, magenta lakes
+	lights = [sun((-0.3, -0.65, 0.7), colour=(0.85, 0.7, 1.0), intensity=1.1), sun((0.6, -0.35, -0.6), colour=(0.3, 0.8, 0.9), intensity=0.4)]
+	return decorate(root, t, environment((0.55, 0.45, 0.85), (0.3, 0.2, 0.32), 0.32, (0.36, 0.26, 0.58), 0.003, 60.0, exposure=0.9), lights,
+	                margin=12.0, falloff=70.0, hills=180.0, height=60.0, feature_size=150.0, ridges=0.75, seed=8096, water=True, water_level=-3.0,
+	                snow_height=45.0, grass_colour=f3((0.34, 0.24, 0.42)), rock_colour=f3((0.2, 0.5, 0.52)), sand_colour=f3((0.8, 0.55, 0.7)),
+	                snow_colour=f3((0.85, 0.95, 1.0)), water_colour=f3((0.55, 0.12, 0.45)))
+
+def update_existing(file_name, camera_track, decoration):
+	"""Hand made scenes keep their nodes; their camera track, terrain, lights and environment are (re)written."""
 	path = os.path.join(OUT_DIR, file_name)
 	with open(path) as f:
 		root = json.load(f)
+	root.pop("camera_track", None)
+	decoration(root, camera_track)
 	root["camera_track"] = camera_track
 	with open(path, "w") as f:
 		json.dump(root, f, separators=(",", ":"))
+	summarise(file_name, root)
 
 if __name__ == "__main__":
-	add_track_to_existing("HeadsTest.json", track(20.0, [
+	update_existing("HeadsTest.json", track(20.0, [
 		((0.0, 1.0, -3.0), (0.0, 0.6, 0.0)),
 		((-2.5, 2.5, -1.5), (0.0, 0.8, 0.0)),
 		((-2.5, 0.5, 2.0), (0.0, 0.5, 0.0)),
 		((1.5, 3.0, 2.5), (0.0, 1.0, 0.0)),
 		((3.0, 0.8, -1.0), (0.0, 0.6, 0.0)),
-	]))
-	add_track_to_existing("SpheresTest.json", track(40.0, [
+	]), decorate_heads)
+	update_existing("SpheresTest.json", track(40.0, [
 		((0.0, 30.0, -120.0), (0.0, 10.0, 0.0)),
 		((-110.0, 50.0, -40.0), (-20.0, 10.0, 0.0)),
 		((-80.0, 15.0, 90.0), (0.0, 20.0, 20.0)),
 		((40.0, 90.0, 80.0), (0.0, 20.0, 10.0)),
 		((120.0, 25.0, -30.0), (20.0, 10.0, 0.0)),
-	], near=0.5, far=400.0))
-	write_scene("MixedAssetsTest.json", build_mixed(), MIXED_TRACK)
-	for file_name, builder in (("VillageTest.json", build_village), ("ForestTest.json", build_forest), ("FractalTest.json", build_fractal)):
+	], near=0.5, far=400.0), decorate_spheres)
+	write_scene("MixedAssetsTest.json", decorate_mixed(build_mixed(), MIXED_TRACK), MIXED_TRACK)
+	for file_name, builder, decoration in (("MaterialsTest.json", build_materials, decorate_materials), ("VillageTest.json", build_village, decorate_village), ("ForestTest.json", build_forest, decorate_forest),
+	                                       ("FractalTest.json", build_fractal, decorate_fractal)):
 		root, camera_track = builder()
-		write_scene(file_name, root, camera_track)
+		write_scene(file_name, decoration(root, camera_track), camera_track)

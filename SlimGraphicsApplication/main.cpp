@@ -26,7 +26,6 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 #include "TestRunner.h"
 #include "ModelViewer.h"
 #include "DebugDraw.h"
-#include "Scene/Terrain.h"
 #include "MagnifyingGlass/MagnifyingGlass.h"
 #include "TextureViewer/TextureViewer.h"	
 #include "PostProcess/PostProcess.h"
@@ -227,6 +226,10 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		device->AddSamplers("Diffuse", default_sampler);
 		device->AddSamplers("Specular", default_sampler);
 		device->AddSamplers("Normals", default_sampler);
+		// s3: trilinear without anisotropy (GDR alpha testing: anisotropic filtering of an explicit mip level is implementation defined)
+		sg::SamplerDesc trilinear_sampler;
+		trilinear_sampler.filter = sg::Filter::MinMagMipLinear;
+		device->AddSamplers("Trilinear", trilinear_sampler);
 	}
 
 	SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024);
@@ -378,7 +381,6 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	Ptr<MagnifyingGlass> magnifying_glass(new MagnifyingGlass(device));
 	Ptr< PostProcess> post_process(new PostProcess(device));
 	device->set_imgui_viewer_texture(magnifying_glass->render_texture);
-	Ptr< Terrain> terrain = Ptr<Terrain>(new Terrain(device));
 	Ptr< BitonicSort> bitonic_sort = Ptr< BitonicSort>(new BitonicSort(device));
 	volatile bool run = true;
 
@@ -702,7 +704,6 @@ device->imgui_new_frame();
 				{
 					gdr_scene.render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw, depth_srv);
 				}				
-				terrain->Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb, *debug_draw);
 				stats_pool->end_query(stat_query_idx, command_buffer.get());
 				basic_grid.Render(*command_buffer, camera, cbv_cam, frame_upload_heap, *linear_cb);
 				debug_draw->Render(*command_buffer, cbv_cam);

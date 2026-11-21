@@ -147,7 +147,8 @@ namespace sg
 
 	enum class ResourceDimension
 	{
-		Buffer, Texture1D, Texture2D, Texture3D
+		Buffer, Texture1D, Texture2D, Texture3D,
+		Texture2DArray, // 'depth' slices, viewed as a Texture2DArray by shaders (subresource = mip + slice * mip_count)
 	};
 
 	struct ResourceCreateDesc

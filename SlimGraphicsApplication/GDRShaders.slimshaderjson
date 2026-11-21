@@ -29,6 +29,12 @@
         "profile": "ps_6_5",
         "entrypoint": "ps_main",
         "name": "GDR_PixelShader"
+      },
+      {
+        "profile": "ps_6_5",
+        "entrypoint": "ps_main",
+        "defines": [ "GDR_ALPHA_TEST" ],
+        "name": "GDR_PixelShaderAlphaTest"
       }
     ]
   },

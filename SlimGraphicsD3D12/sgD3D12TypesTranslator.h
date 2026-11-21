@@ -46,6 +46,7 @@ namespace sg
 			case ResourceDimension::Texture1D:
 				return D3D12_RESOURCE_DIMENSION_TEXTURE1D;
 			case ResourceDimension::Texture2D:
+			case ResourceDimension::Texture2DArray:
 				return D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 			case ResourceDimension::Texture3D:
 				return D3D12_RESOURCE_DIMENSION_TEXTURE3D;
@@ -65,6 +66,8 @@ namespace sg
 				return D3D12_SRV_DIMENSION_TEXTURE1D;
 			case ResourceDimension::Texture2D:
 				return D3D12_SRV_DIMENSION_TEXTURE2D;
+			case ResourceDimension::Texture2DArray:
+				return D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
 			case ResourceDimension::Texture3D:
 				return D3D12_SRV_DIMENSION_TEXTURE3D;
 			default:

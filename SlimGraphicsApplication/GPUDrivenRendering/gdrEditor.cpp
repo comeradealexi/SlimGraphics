@@ -67,7 +67,7 @@ scene_file_list = se::BasicFileIO::find_files_recursive("..\\SlimGraphicsAssets\
 			static const char* last_message = nullptr;
 			if (ImGui::Button("Save"))
 			{
-				if (serialise(scene.root_scene_node, scene.camera_track, file_path_buffer))
+				if (serialise(scene.root_scene_node, scene.properties, file_path_buffer))
 				{
 					last_message = "Save Successful";
 				}
@@ -143,6 +143,44 @@ scene_file_list = se::BasicFileIO::find_files_recursive("..\\SlimGraphicsAssets\
 			ImGui::DragFloat3("Rotation", &selected_node->rotation.x, 0.1f);
 			ImGui::DragFloat3("Scale", &selected_node->scale.x, 0.01f);
 			ImGui::ColorEdit3("Colour", &selected_node->colour.x);
+
+			// Components
+			if (selected_node->light)
+			{
+				LightDesc& light = *selected_node->light;
+				ImGui::SeparatorText("Light");
+				bool directional = light.type == "directional";
+				if (ImGui::Checkbox("Directional", &directional))
+				{
+					light.type = directional ? "directional" : "point";
+				}
+				ImGui::ColorEdit3("Light Colour", &light.colour.x);
+				ImGui::DragFloat("Intensity", &light.intensity, 0.01f, 0.0f, 100.0f);
+				if (directional)
+				{
+					ImGui::DragFloat3("Direction", &light.direction.x, 0.01f, -1.0f, 1.0f);
+				}
+				else
+				{
+					ImGui::DragFloat("Range", &light.range, 0.05f, 0.01f, 1000.0f);
+				}
+				if (ImGui::Button("Remove Light"))
+				{
+					selected_node->light.reset();
+				}
+			}
+			else if (ImGui::Button("Add Light"))
+			{
+				selected_node->light = LightDesc();
+			}
+			if (selected_node->terrain)
+			{
+				const TerrainDesc& terrain = *selected_node->terrain;
+				ImGui::SeparatorText("Terrain");
+				ImGui::TextDisabled("%.0f x %.0f units, %u quads, %.1f high, seed %u", terrain.size, terrain.size, terrain.resolution, terrain.height, terrain.seed);
+			}
+			ImGui::Separator();
+
 			ImGui::TextDisabled("Address: %p", selected_node);
 			ImGui::TextDisabled("Parent Address: %p", selected_node->parent);
 			ImGui::BeginDisabled(selected_node == &scene.root_scene_node); // Can't delete root

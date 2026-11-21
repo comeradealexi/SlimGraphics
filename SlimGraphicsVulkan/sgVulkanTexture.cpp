@@ -77,7 +77,8 @@ namespace sg
 			{
 			case ResourceDimension::Texture1D: key.type = vk::ImageViewType::e1D; break;
 			case ResourceDimension::Texture3D: key.type = vk::ImageViewType::e3D; break;
-			default: key.type = vk::ImageViewType::e2D; break; // Array/cube resources are viewed as their first slice, as in D3D12
+			case ResourceDimension::Texture2DArray: key.type = vk::ImageViewType::e2DArray; key.layer_count = get_layer_count(); break;
+			default: key.type = vk::ImageViewType::e2D; break; // Other multi slice resources are viewed as their first slice, as in D3D12
 			}
 			key.format = vk_format;
 			// Sample the depth aspect of depth/stencil formats

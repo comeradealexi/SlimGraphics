@@ -91,7 +91,11 @@ powershell -ExecutionPolicy Bypass -File Tools\validate.ps1 -Extended  # + D3D12
   `frames`, `model_viewer`, `gdr`, `gdr_scene` (empty clears it), `camera` (`"default"`, `{"position", "target", "near",
   "far"}` or `{"track_time": T}`), `depth_clear`, `debug_draw`, `model_viewer_settings` (`ModelViewer::ApplyTestSettings`),
   `gdr_settings` (`gdr::Scene::apply_test_settings`), `post_process`, `magnifier`, `capture_magnifier`,
-  `nondeterministic`.
+  `nondeterministic`, `timing_dependent_stats`.
+- `timing_dependent_stats` lists statistics a case cannot compare between backends because they depend on GPU timing; its
+  images and other statistics are still gated. Only use it with evidence (the same backend disagreeing with itself across
+  runs). Today: `ps_invocations` for scenes with alpha tested materials, whose pixel shader can discard (no early depth
+  rejection).
 - To cover a new feature, expose its state through one of the settings functions, list the new key in `validate_case`
   (`TestRunner.cpp` rejects plans with unknown keys, so typos cannot silently test defaults), add cases and run
   `validate.ps1`. Check the new captures by eye: parity alone passes if a feature renders nothing on both backends.
@@ -102,11 +106,39 @@ powershell -ExecutionPolicy Bypass -File Tools\validate.ps1 -Extended  # + D3D12
 
 - `Tools\generate_gdr_scenes.py` writes `MixedAssetsTest`, `VillageTest`, `ForestTest` and `FractalTest` (each roughly
   4x the previous; FractalTest has ~16k instances and takes ~20 s to load in Debug) and adds tracks to `HeadsTest` and
-  `SpheresTest`. Its output is deterministic: change the generator and regenerate rather than editing the JSON.
+  `SpheresTest`. Every scene gets a terrain (flat under the content and camera track, hills beyond), lights and an
+  environment (`decorate_*`). Its output is deterministic: change the generator and regenerate rather than editing the JSON.
 - A scene's optional root `camera_track` (`gdrJSON.h`: `duration`, `near_plane`, `far_plane`, `points` of `position` /
   `target`) is a closed centripetal Catmull-Rom spline played at constant speed (`gdrCameraTrack.h`). Playback
   (`CameraTrackPlayer`) advances a fixed 1/60 s per frame, so a given frame or `track_time` always gives the same view.
 - Keep track points clear of geometry and targets at least a few units ahead; validation cases pose cameras on them.
+
+## GDR rendering: materials, terrain and lighting
+
+- Everything the GDR scene draws (every model, material and terrain) goes through the per-meshlet culling, the sort and
+  **one** indirect `DispatchMesh`. Keep it that way: per-material or per-type data is looked up per meshlet / instance
+  (`MeshletData::material_index`, `meshlet_type`, `terrain_index`), never by adding draws, dispatches or indirect calls.
+- Materials (`gdrMaterials.h`): each assimp material becomes a `MaterialData` (diffuse / base colour, specular, Blinn-Phong
+  exponent, diffuse, specular, normal or bump (OBJ `map_bump`) and opacity textures, external or embedded). All textures
+  are resampled to `MaterialTextures::kSliceSize` and stored as slices of one `Texture2DArray`
+  (`sg::ResourceDimension::Texture2DArray`), so shaders never index resources non-uniformly. Slices upload within a per
+  frame budget because the upload heap is per frame. DDS textures are not decoded (they fall back to untextured).
+- Alpha testing uses a separate pixel shader variant (`GDR_PixelShaderAlphaTest`), selected only when a loaded material
+  needs it: `discard` disables early depth rejection for the whole pipeline. Opacity is read at an explicit mip level with
+  the trilinear sampler s3: anisotropic filtering of an explicit level is implementation defined and made D3D12 and Vulkan
+  cut out different edge pixels. Samplers s0-s2 are anisotropic (registered in `main.cpp`).
+- Terrain (`gdrTerrain.h`): a node's `terrain` component is a model whose meshlets are 7x7 quad tiles. Only the height grid
+  is generated (at load, never saved); the mesh shader builds vertices, normals and triangles from it every frame.
+  `gdr::terrain_tile_triangle` and `TerrainTileTriangle` (HLSL) must stay identical. Terrain shading (grass, rock, sand,
+  snow, water) is procedural in `ShadeTerrain`.
+- Lighting: a node's `light` component (point at the node's position, or directional along `direction` rotated by the
+  node) plus the scene's `environment` (hemisphere ambient, fog, exposure). Up to `GDR_MAX_LIGHTS` lights are looped per
+  pixel; lighting is linear with authored colours in gamma space, tone mapped at the end.
+- Scene components are validated against their defaults on load (`matches_schema` in `gdrJSON.cpp`): unknown keys or
+  wrong types fail the load instead of aborting. New component fields only need a default and an entry in the
+  `NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT` list.
+- Debug render modes (GDR window, test `gdr_settings.render_mode` with `debug_mode` 1): 1 sort order, 2 albedo, 3 normals,
+  4 lighting on a white surface. Use them when checking texture, normal or lighting changes.
 
 ## Shaders
 

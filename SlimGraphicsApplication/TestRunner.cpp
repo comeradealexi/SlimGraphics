@@ -51,7 +51,7 @@ namespace
 	{
 		const std::string name = c["name"].get<std::string>();
 		bool ok = has_only_known_keys(c, { "name", "frames", "model_viewer", "gdr", "gdr_scene", "camera", "depth_clear", "debug_draw",
-			"model_viewer_settings", "gdr_settings", "post_process", "magnifier", "capture_magnifier", "nondeterministic" }, name);
+			"model_viewer_settings", "gdr_settings", "post_process", "magnifier", "capture_magnifier", "nondeterministic", "timing_dependent_stats" }, name);
 		const auto section = [&](const char* key, std::initializer_list<std::string_view> known)
 		{
 			if (c.contains(key) && c[key].is_object())
@@ -252,8 +252,9 @@ void TestRunner::end_frame(Systems& systems, const sg::PipelineStatistics& s)
 		const auto& gdr = systems.gdr_scene.get_statistics();
 		const auto feedback = systems.gdr_scene.read_debug_feedback();
 		const ModelViewer::UAVReadBack mv = systems.model_viewer.ReadUAVCounters();
-		seWriteLine("[TEST] STAT %s gdr_instances=%u gdr_mesh_parts=%u gdr_meshlets=%u gdr_culled_total=%u gdr_culled_frustum=%u gdr_culled_cone=%u",
-			name.c_str(), gdr.total_instances, gdr.total_mesh_parts, gdr.total_meshlets, feedback.meshlets_culled_total, feedback.meshlets_cullled_by_frustum, feedback.meshlets_culled_by_cone);
+		seWriteLine("[TEST] STAT %s gdr_instances=%u gdr_mesh_parts=%u gdr_meshlets=%u gdr_culled_total=%u gdr_culled_frustum=%u gdr_culled_cone=%u gdr_lights=%u gdr_texture_slices=%u gdr_terrain_tiles=%u",
+			name.c_str(), gdr.total_instances, gdr.total_mesh_parts, gdr.total_meshlets, feedback.meshlets_culled_total, feedback.meshlets_cullled_by_frustum, feedback.meshlets_culled_by_cone,
+			gdr.total_lights, gdr.texture_slices, gdr.terrain_tiles);
 		seWriteLine("[TEST] STAT %s ia_vertices=%llu ia_primitives=%llu vs_invocations=%llu gs_invocations=%llu gs_primitives=%llu ps_invocations=%llu cs_invocations=%llu as_invocations=%llu ms_invocations=%llu",
 			name.c_str(), s.ia_vertices, s.ia_primitives, s.vs_invocations, s.gs_invocations, s.gs_primitives, s.ps_invocations, s.cs_invocations, s.as_invocations, s.ms_invocations);
 		seWriteLine("[TEST] STAT %s mv_pixels=%u mv_vs=%u mv_ms=%u mv_as=%u mv_ms_prims=%u mv_cull_cone=%u mv_cull_sphere=%u mv_gs_in=%u mv_gs_out=%u",

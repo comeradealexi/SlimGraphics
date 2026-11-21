@@ -140,6 +140,25 @@
     { "name": "gdr_fractal_culling_stats", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/FractalTest.json", "camera": { "track_time": 30.0 }, "gdr_settings": { "debug_mode": 1 } },
     { "name": "gdr_fractal_unsorted", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/FractalTest.json", "camera": { "track_time": 55.0 }, "gdr_settings": { "sort_mode": 0 } },
 
+    { "name": "gdr_heads_textured_close", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/HeadsTest.json", "camera": { "position": [ 0.0, 0.75, -1.1 ], "target": [ 0.0, 0.6, 0.0 ] } },
+    { "name": "gdr_heads_albedo", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/HeadsTest.json", "camera": { "position": [ 0.0, 0.75, -1.1 ], "target": [ 0.0, 0.6, 0.0 ] }, "gdr_settings": { "debug_mode": 1, "render_mode": 2 } },
+    { "name": "gdr_heads_normals", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/HeadsTest.json", "camera": { "position": [ 0.0, 0.75, -1.1 ], "target": [ 0.0, 0.6, 0.0 ] }, "gdr_settings": { "debug_mode": 1, "render_mode": 3 } },
+    { "name": "gdr_village_albedo", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/VillageTest.json", "camera": { "track_time": 22.0 }, "gdr_settings": { "debug_mode": 1, "render_mode": 2 } },
+    { "name": "gdr_village_lighting_only", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/VillageTest.json", "camera": { "track_time": 22.0 }, "gdr_settings": { "debug_mode": 1, "render_mode": 4 } },
+    { "name": "gdr_village_lamps_close", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/VillageTest.json", "camera": { "track_time": 5.0 }, "gdr_settings": { "debug_mode": 1, "render_mode": 4 } },
+    { "name": "gdr_forest_terrain_overview", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/ForestTest.json", "camera": { "position": [ 0.0, 140.0, -330.0 ], "target": [ 0.0, 0.0, 0.0 ], "near": 0.5, "far": 1200.0 } },
+    { "name": "gdr_forest_terrain_normals", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/ForestTest.json", "camera": { "position": [ 0.0, 140.0, -330.0 ], "target": [ 0.0, 0.0, 0.0 ], "near": 0.5, "far": 1200.0 }, "gdr_settings": { "debug_mode": 1, "render_mode": 3 } },
+    { "name": "gdr_forest_terrain_wireframe", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/ForestTest.json", "camera": { "position": [ 0.0, 140.0, -330.0 ], "target": [ 0.0, 0.0, 0.0 ], "near": 0.5, "far": 1200.0 }, "gdr_settings": { "wireframe": true } },
+    { "name": "gdr_forest_terrain_culling", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/ForestTest.json", "camera": { "position": [ 0.0, 140.0, -330.0 ], "target": [ 0.0, 0.0, 0.0 ], "near": 0.5, "far": 1200.0 }, "gdr_settings": { "debug_mode": 1 } },
+    { "name": "gdr_fractal_terrain_overview", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/FractalTest.json", "camera": { "position": [ -200.0, 160.0, -320.0 ], "target": [ 0.0, 0.0, 30.0 ], "near": 0.5, "far": 1500.0 } },
+    { "name": "gdr_fractal_lighting_only", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/FractalTest.json", "camera": { "track_time": 55.0 }, "gdr_settings": { "debug_mode": 1, "render_mode": 4 } },
+
+    { "name": "gdr_materials_track_00", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/MaterialsTest.json", "camera": { "track_time": 0.0 }, "timing_dependent_stats": [ "ps_invocations" ] },
+    { "name": "gdr_materials_track_12", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/MaterialsTest.json", "camera": { "track_time": 12.0 }, "timing_dependent_stats": [ "ps_invocations" ] },
+    { "name": "gdr_materials_track_18", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/MaterialsTest.json", "camera": { "track_time": 18.0 }, "timing_dependent_stats": [ "ps_invocations" ] },
+    { "name": "gdr_materials_albedo", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/MaterialsTest.json", "camera": { "track_time": 18.0 }, "gdr_settings": { "debug_mode": 1, "render_mode": 2 }, "timing_dependent_stats": [ "ps_invocations" ] },
+    { "name": "gdr_materials_normals", "model_viewer": false, "gdr": true, "gdr_scene": "../SlimGraphicsAssets/GDRAssets/MaterialsTest.json", "camera": { "track_time": 12.0 }, "gdr_settings": { "debug_mode": 1, "render_mode": 3 }, "timing_dependent_stats": [ "ps_invocations" ] },
+
     { "name": "gdr_cleared", "gdr": true, "gdr_scene": "" }
   ]
 }

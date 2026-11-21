@@ -75,11 +75,6 @@ struct MeshletCullData
 	int pad3;
 };
 
-struct TerrainData
-{
-
-};
-
 struct MagnifyingGlassData
 {
 	float4 coordinates; // Source Pixel index = x,y, output texture size =  z,w

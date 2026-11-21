@@ -104,6 +104,14 @@ Instanced Mesh Rendering Specifics:
 
 namespace gdr
 {
+	// Shader resource registers shared by every GDR pass (see gdrShaderCompute.hlsl)
+	enum SRVRegister : sg::u32
+	{
+		SRV_VERTICES, SRV_MESHLETS, SRV_MESHLET_VERTEX_INDICES, SRV_MESHLET_PRIMITIVES, SRV_INSTANCES,
+		SRV_MATERIALS, SRV_LIGHTS, SRV_ENVIRONMENT, SRV_TERRAINS, SRV_TERRAIN_HEIGHTS, SRV_MATERIAL_TEXTURES,
+		SRV_COUNT
+	};
+
 	static DirectX::XMFLOAT3 Max(const DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
 	{
 		DirectX::XMFLOAT3 o;
@@ -159,22 +167,25 @@ namespace gdr
 
 		BindingDesc global_binding_desc;
 		global_binding_desc.uav_binding_count = 3;
-		global_binding_desc.srv_binding_count = 5;
+		global_binding_desc.srv_binding_count = SRV_COUNT;
 		global_binding_desc.cbv_binding_count = 2;
+		global_binding_desc.sampler_binding_count = 4; // s0: material textures, s3: trilinear (alpha test)
 
-		const char* shaders[Pipelines::Type::Count][4] =
+		const char* shaders[Pipelines::Type::Count][5] =
 		{
 			{
 				"GDR_PerInstanceProcessingMain",
 				"GDR_BuildIndirectArguments",
 				"GDR_MeshShader",
-				"GDR_PixelShader"
+				"GDR_PixelShader",
+				"GDR_PixelShaderAlphaTest"
 			},
 			{
 				"GDR_PerInstanceProcessingMain_DEBUG",
 				"GDR_BuildIndirectArguments_DEBUG",
 				"GDR_MeshShader_DEBUG",
-				"GDR_PixelShader_DEBUG"
+				"GDR_PixelShader_DEBUG",
+				"GDR_PixelShaderAlphaTest_DEBUG"
 			}
 		};
 
@@ -220,6 +231,10 @@ namespace gdr
 
 				pipeline.mesh_render_pipeline = device->create_pipeline(desc, global_binding_desc);
 				seAssert(pipeline.mesh_render_pipeline != nullptr, "Failed to create pipeline");
+
+				desc.pixel_shader = sg::create_pixel_shader(*device, get_shader_path(shaders[i][4]));
+				pipeline.mesh_render_pipeline_alpha_test = device->create_pipeline(desc, global_binding_desc);
+				seAssert(pipeline.mesh_render_pipeline_alpha_test != nullptr, "Failed to create pipeline");
 			}
 		}
 	}
@@ -266,7 +281,7 @@ namespace gdr
 				ImGui::Checkbox("Use Frustum Culling", (bool*)&debug_data.shader_debug_data.use_frustum_culling);
 				ImGui::Checkbox("Use Cone Culling", (bool*)&debug_data.shader_debug_data.use_cone_culling);
 				ImGui::Text("Render Mode");
-				ImGui::Combo("Debug Render Mode", (int*)&debug_data.shader_debug_data.debug_render_mode, "None\0Sort Order\0");
+				ImGui::Combo("Debug Render Mode", (int*)&debug_data.shader_debug_data.debug_render_mode, "None\0Sort Order\0Albedo\0Normals\0Lighting\0");
 				ImGui::Unindent();
 				ImGui::EndDisabled();
 			}
@@ -289,6 +304,19 @@ namespace gdr
 				render_options.recreate_pipelines |= ImGui::Combo("Depth Comparison", &render_options.depth_comparison, "None\0Never\0Less\0Equal\0LessEqual\0Greater\0NotEqual\0GreaterEqual\0Always\0");
 				ImGui::Unindent();
 			}
+
+			if (ImGui::CollapsingHeader("Environment"))
+			{
+				// Saved with the scene ("environment"); lights are node components
+				SceneEnvironment& e = properties.environment;
+				ImGui::ColorEdit3("Sky Ambient", &e.sky_colour.x);
+				ImGui::ColorEdit3("Ground Ambient", &e.ground_colour.x);
+				ImGui::SliderFloat("Ambient Intensity", &e.ambient_intensity, 0.0f, 2.0f);
+				ImGui::ColorEdit3("Fog Colour", &e.fog_colour.x);
+				ImGui::SliderFloat("Fog Density", &e.fog_density, 0.0f, 0.05f, "%.4f");
+				ImGui::SliderFloat("Fog Start", &e.fog_start, 0.0f, 200.0f);
+				ImGui::SliderFloat("Exposure", &e.exposure, 0.1f, 4.0f);
+			}
 		}
 		ImGui::End();
 
@@ -299,6 +327,10 @@ namespace gdr
 				ImGui::Text("Instances:  %u", statistics.total_instances);
 				ImGui::Text("Mesh Parts: %u", statistics.total_mesh_parts);
 				ImGui::Text("Meshlets:   %u", statistics.total_meshlets);
+				ImGui::Text("Terrain Tiles: %u", statistics.terrain_tiles);
+				ImGui::Text("Lights:     %u", statistics.total_lights);
+				ImGui::Text("Alpha Test: %s", model_buffers.has_alpha_test ? "yes (pixel shader with discard)" : "no");
+				ImGui::Text("Texture Slices: %u (%ux%u)", statistics.texture_slices, MaterialTextures::kSliceSize, MaterialTextures::kSliceSize);
 
 				ImGui::Text("GPU Feedback Data:");
 				if (debug_data.shader_debug_data.debug_mode == 0)
@@ -334,6 +366,11 @@ namespace gdr
 		scene_graph_traverser.process_scene_graph(root_scene_node);
 
 		load_gpu_data(scene_graph_traverser, upload_heap);
+		if (!model_buffers.material_textures.is_uploaded())
+		{
+			model_buffers.material_textures.upload(device, upload_heap);
+		}
+		update_lighting(scene_graph_traverser, upload_heap);
 
 		// Construct and upload per-instance data
 		model_buffers.instance_data.cpu_data = {};
@@ -341,6 +378,8 @@ namespace gdr
 
 		statistics.total_instances = 0;
 		statistics.total_mesh_parts = 0;
+		statistics.terrain_tiles = 0;
+		statistics.texture_slices = model_buffers.material_textures.get_slice_count();
 		// Now we iterate over all loaded models and each instance within that model
 		// We then add each instance we want to render to a list to send to the GPU	
 		// Meshes with mutiple parts are sent as if they were separate instances	
@@ -358,8 +397,15 @@ namespace gdr
 				}
 				const ModelBuffers::ModelData& per_model_data = *per_model_data_ptr;
 
-				statistics.total_instances += model_list.size();
-				statistics.total_mesh_parts += model_list.size() * per_model_data.mesh_parts.size();
+				statistics.total_instances += static_cast<sg::u32>(model_list.size());
+				statistics.total_mesh_parts += static_cast<sg::u32>(model_list.size() * per_model_data.mesh_parts.size());
+				if (is_terrain_model_name(model_name))
+				{
+					for (const auto& mesh_part : per_model_data.mesh_parts)
+					{
+						statistics.terrain_tiles += static_cast<sg::u32>(model_list.size()) * mesh_part.meshlet_count;
+					}
+				}
 
 				// TODO: Not ideal to treat each mesh part as its own instances, wastes space and data
 				for (const auto& mesh_part : per_model_data.mesh_parts)
@@ -430,8 +476,9 @@ namespace gdr
 
 		Binding b;
 		b.uav_binding_count = 3;
-		b.srv_binding_count = 5;
+		b.srv_binding_count = SRV_COUNT;
 		b.cbv_binding_count = 2;
+		b.sampler_binding_count = 4;
 
 		// Updated Culling Camera Data
 		if (debug_data.shader_debug_data.debug_mode == 0 || (debug_data.shader_debug_data.debug_mode != 0 && debug_data.shader_debug_data.freeze_culling_camera == 0))
@@ -467,12 +514,17 @@ namespace gdr
 		b.set_uav(model_buffers.atomic_counter.uav, 1);
 		b.set_uav(model_buffers.indirect_arguments.uav, 2);
 
-		b.set_srv(model_buffers.vertex_data.srv, 0);
-		b.set_srv(model_buffers.meshlet_data.srv, 1);
-		b.set_srv(model_buffers.meshlet_vertex_index.srv, 2);
-		b.set_srv(model_buffers.meshlet_primitive_index.srv, 3);
-		b.set_srv(model_buffers.instance_data.srv, 4);
-		//b.set_srv(model_buffers.model_data.srv, 5);
+		b.set_srv(model_buffers.vertex_data.srv, SRV_VERTICES);
+		b.set_srv(model_buffers.meshlet_data.srv, SRV_MESHLETS);
+		b.set_srv(model_buffers.meshlet_vertex_index.srv, SRV_MESHLET_VERTEX_INDICES);
+		b.set_srv(model_buffers.meshlet_primitive_index.srv, SRV_MESHLET_PRIMITIVES);
+		b.set_srv(model_buffers.instance_data.srv, SRV_INSTANCES);
+		b.set_srv(model_buffers.material_data.srv, SRV_MATERIALS);
+		b.set_srv(light_data.srv, SRV_LIGHTS);
+		b.set_srv(environment_data.srv, SRV_ENVIRONMENT);
+		b.set_srv(model_buffers.terrain_data.srv, SRV_TERRAINS);
+		b.set_srv(model_buffers.terrain_heights.srv, SRV_TERRAIN_HEIGHTS);
+		b.set_srv(model_buffers.material_textures.get_srv(), SRV_MATERIAL_TEXTURES);
 		
 		b.set_cbv(cbv_camera, 0);
 
@@ -507,7 +559,9 @@ namespace gdr
 		// Stage 3
 		// So at this point we now have a list of final meshlets to be rendered in model_buffers.gpu_pre_process_instances_output
 		{
-			command_list.set_pipeline(pipelines[debug_data.shader_debug_data.debug_mode].mesh_render_pipeline.get());
+			// The alpha test variant only when a material needs it: discard disables early depth rejection
+			const Pipelines& render_pipelines = pipelines[debug_data.shader_debug_data.debug_mode];
+			command_list.set_pipeline(model_buffers.has_alpha_test ? render_pipelines.mesh_render_pipeline_alpha_test.get() : render_pipelines.mesh_render_pipeline.get());
 			command_list.bind(b, PipelineType::Geometry);
 
 			mesh_shader_indirect_arguments->set_indirect_buffer(model_buffers.indirect_arguments.buffer);
@@ -586,6 +640,18 @@ namespace gdr
 
 		new_model.mesh_parts.resize(aScene->mNumMeshes);
 
+		// Materials are appended to the scene wide material buffer; meshlets refer to them by global index
+		const sg::u32 material_base = static_cast<sg::u32>(model_buffers.material_data.cpu_data.size());
+		for (unsigned int material_idx = 0; material_idx < aScene->mNumMaterials; material_idx++)
+		{
+			model_buffers.material_data.cpu_data.push_back(load_material(*aScene, *aScene->mMaterials[material_idx], path, model_buffers.material_textures));
+		}
+		new_model.material_count = aScene->mNumMaterials;
+		if (aScene->mNumMaterials == 0)
+		{
+			model_buffers.material_data.cpu_data.push_back(default_material());
+		}
+
 		for (size_t mesh_part_idx = 0; mesh_part_idx < new_model.mesh_parts.size(); mesh_part_idx++)
 		{
 			ModelBuffers::ModelData::MeshPart& mesh_part = new_model.mesh_parts[mesh_part_idx];
@@ -597,7 +663,7 @@ namespace gdr
 			mesh_part.meshlet_primitive_index_offset = model_buffers.meshlet_primitive_index.cpu_data.size();
 
 			aiMesh* assimp_mesh = aScene->mMeshes[mesh_part_idx];
-			mesh_part.material_index = assimp_mesh->mMaterialIndex;
+			mesh_part.material_index = material_base + (aScene->mNumMaterials > 0 ? assimp_mesh->mMaterialIndex : 0);
 
 			// Load normal vertex and index buffer data (only used to generate meshlet data from
 			std::vector<Vertex> vertices = load_vertex_buffer(assimp_mesh);
@@ -650,6 +716,8 @@ namespace gdr
 					gpu_meshlet.triangle_offset		 = model_buffers.meshlet_primitive_index.cpu_data.size(); // Offset by the current primitive index offset.
 					gpu_meshlet.vertex_count		 = meshlet.vertex_count;
 					gpu_meshlet.triangle_count		 = meshlet.triangle_count;
+					gpu_meshlet.material_index		 = mesh_part.material_index;
+					gpu_meshlet.meshlet_type		 = GDR_MESHLET_TYPE_MESH;
 
 					for (size_t tri_idx = 0; tri_idx < meshlet.triangle_count; tri_idx++)
 					{
@@ -743,6 +811,100 @@ namespace gdr
 		return true;
 	}
 
+	bool Scene::load_terrain(const std::string& name, const TerrainDesc& desc)
+	{
+		TerrainBuild build;
+		if (!build_terrain(desc, build))
+		{
+			return false;
+		}
+
+		const sg::u32 terrain_index = static_cast<sg::u32>(model_buffers.terrain_data.cpu_data.size());
+		build.data.height_offset = static_cast<sg::u32>(model_buffers.terrain_heights.cpu_data.size());
+		model_buffers.terrain_data.cpu_data.push_back(build.data);
+		model_buffers.terrain_heights.cpu_data.insert(model_buffers.terrain_heights.cpu_data.end(), build.heights.begin(), build.heights.end());
+
+		ShaderStructs::MaterialData material = default_material();
+		material.flags = GDR_MATERIAL_TERRAIN;
+		material.terrain_index = terrain_index;
+		material.specular = ShaderStructs::float4(0.02f, 0.02f, 0.02f, 16.0f);
+		const sg::u32 material_index = static_cast<sg::u32>(model_buffers.material_data.cpu_data.size());
+		model_buffers.material_data.cpu_data.push_back(material);
+
+		// A terrain is a model with one mesh part whose meshlets are its tiles
+		ModelBuffers::ModelData& model = model_buffers.models.emplace_back();
+		model.name = name;
+		model.material_count = 1;
+		ModelBuffers::ModelData::MeshPart& part = model.mesh_parts.emplace_back();
+		part.material_index = material_index;
+		part.meshlet_data_offset = static_cast<sg::u32>(model_buffers.meshlet_data.cpu_data.size());
+		part.meshlet_count = static_cast<sg::u32>(build.tiles.size());
+		part.bounding_box_min = build.bounds_min;
+		part.bounding_box_max = build.bounds_max;
+		for (ShaderStructs::MeshletData& tile : build.tiles)
+		{
+			tile.material_index = material_index;
+			tile.terrain_index = terrain_index;
+			model_buffers.meshlet_data.cpu_data.push_back(tile);
+		}
+		seWriteLine("GDR: terrain %u x %u quads, %zu tiles", build.data.quads, build.data.quads, build.tiles.size());
+		return true;
+	}
+
+	void Scene::update_lighting(const SceneGraphTraverser& scene_graph, Ptr<UploadHeap>& upload_heap)
+	{
+		using namespace DirectX;
+		// Colours are authored in gamma space; lighting is computed in linear space
+		auto linear = [](const Float3& c, float scale)
+			{
+				return ShaderStructs::float4(std::pow(c.x, 2.2f) * scale, std::pow(c.y, 2.2f) * scale, std::pow(c.z, 2.2f) * scale, 1.0f);
+			};
+
+		light_data.cpu_data.clear();
+		for (const SceneGraphTraverser::LightInstance& instance : scene_graph.lights)
+		{
+			if (light_data.cpu_data.size() == GDR_MAX_LIGHTS)
+			{
+				if (!reported_light_limit)
+				{
+					seWriteLine("GDR: the scene has %zu lights; only the first %u are used", scene_graph.lights.size(), GDR_MAX_LIGHTS);
+					reported_light_limit = true;
+				}
+				break;
+			}
+			const LightDesc& desc = *instance.light;
+			ShaderStructs::LightData& light = light_data.cpu_data.emplace_back();
+			light = {};
+			light.type = desc.type == "directional" ? GDR_LIGHT_DIRECTIONAL : GDR_LIGHT_POINT;
+			light.colour = linear(desc.colour, desc.intensity);
+			XMFLOAT3 position;
+			XMStoreFloat3(&position, instance.world_matrix.r[3]);
+			light.position_range = ShaderStructs::float4(position.x, position.y, position.z, std::max(desc.range, 1e-3f));
+			XMFLOAT3 direction;
+			XMStoreFloat3(&direction, XMVector3Normalize(XMVector3TransformNormal(XMVectorSet(desc.direction.x, desc.direction.y, desc.direction.z, 0.0f), instance.world_matrix)));
+			light.direction = ShaderStructs::float4(direction.x, direction.y, direction.z, 0.0f);
+		}
+		statistics.total_lights = static_cast<sg::u32>(light_data.cpu_data.size());
+		if (light_data.cpu_data.empty())
+		{
+			light_data.cpu_data.emplace_back() = {}; // Keeps the buffer bindable; light_count is 0
+		}
+
+		const SceneEnvironment& e = properties.environment;
+		ShaderStructs::EnvironmentData environment = {};
+		environment.sky_colour = linear(e.sky_colour, e.ambient_intensity);
+		environment.ground_colour = linear(e.ground_colour, e.ambient_intensity);
+		environment.fog_colour = linear(e.fog_colour, 1.0f);
+		environment.fog_colour.w = std::max(e.fog_density, 0.0f);
+		environment.fog_start = std::max(e.fog_start, 0.0f);
+		environment.exposure = std::max(e.exposure, 0.0f);
+		environment.light_count = statistics.total_lights;
+		environment_data.cpu_data = { environment };
+
+		light_data.create_and_upload_to_gpu(device, upload_heap);
+		environment_data.create_and_upload_to_gpu(device, upload_heap);
+	}
+
 	void Scene::load_gpu_data(SceneGraphTraverser& scene_graph, Ptr<UploadHeap>& upload_heap)
 	{
 		bool recreate_gpu_buffers = false;
@@ -796,6 +958,14 @@ namespace gdr
 			{
 				continue;
 			}
+			if (is_terrain_model_name(model_string))
+			{
+				if (!load_terrain(model_string, *scene_graph.terrains.at(model_string)))
+				{
+					failed_model_paths.insert(model_string);
+				}
+				continue;
+			}
 			ShaderStructs::ModelData model_gpu_data = {};
 			if (load_model(model_string, model_gpu_data))
 			{
@@ -822,16 +992,15 @@ namespace gdr
 	{
 		auto process_node = [this](const SceneNode& scene_node)
 			{
-				if (scene_node.model_name == kINVALID_MODEL_NAME)
+				const bool has_model = scene_node.model_name != kINVALID_MODEL_NAME;
+				if (!has_model && !scene_node.terrain && !scene_node.light)
 				{
 					return;
 				}
 
-				auto& instance_list = model_instance_map[scene_node.model_name];
-
 				using namespace DirectX;
 
-				InstanceData& node_data = instance_list.emplace_back();
+				InstanceData node_data;
 				node_data.model_matrix = XMMatrixIdentity();
 				node_data.colour = { 1.0f, 1.0f, 1.0f };
 				node_data.scene_node = &scene_node;
@@ -858,6 +1027,21 @@ namespace gdr
 					// Apply parents matrix next
 					current_node = current_node->parent;
 				}
+
+				if (has_model)
+				{
+					model_instance_map[scene_node.model_name].push_back(node_data);
+				}
+				if (scene_node.terrain)
+				{
+					const std::string terrain_name = terrain_model_name(*scene_node.terrain);
+					model_instance_map[terrain_name].push_back(node_data);
+					terrains.emplace(terrain_name, &*scene_node.terrain);
+				}
+				if (scene_node.light)
+				{
+					lights.push_back({ node_data.model_matrix, &*scene_node.light });
+				}
 			};
 
 		scene_node_traverse(root_node, process_node);
@@ -878,13 +1062,26 @@ namespace gdr
 
 	void ModelBuffers::create_and_upload_to_gpu(sg::SharedPtr<sg::Device>& device, sg::Ptr<sg::UploadHeap>& upload_heap)
 	{
-		// NODE: We do this separately. 
+		// Every buffer the shaders bind gets at least one element (a scene of only terrains has no vertices, for example)
+		if (material_data.cpu_data.empty()) material_data.cpu_data.push_back(default_material());
+		has_alpha_test = std::any_of(material_data.cpu_data.begin(), material_data.cpu_data.end(), [](const ShaderStructs::MaterialData& m) { return (m.flags & GDR_MATERIAL_ALPHA_TEST) != 0; });
+		if (has_alpha_test)
+		{
+			seWriteLine("GDR: the scene has alpha tested materials (pixel shader variant with discard)");
+		}
+		if (terrain_data.cpu_data.empty()) terrain_data.cpu_data.emplace_back() = {};
+		if (terrain_heights.cpu_data.empty()) terrain_heights.cpu_data.push_back(0.0f);
+		if (vertex_data.cpu_data.empty()) vertex_data.cpu_data.emplace_back() = {};
+		if (meshlet_vertex_index.cpu_data.empty()) meshlet_vertex_index.cpu_data.push_back(0);
+		if (meshlet_primitive_index.cpu_data.empty()) meshlet_primitive_index.cpu_data.push_back(0);
+
 		meshlet_data.create_and_upload_to_gpu(device, upload_heap);
 		material_data.create_and_upload_to_gpu(device, upload_heap);
 		vertex_data.create_and_upload_to_gpu(device, upload_heap);
 		meshlet_vertex_index.create_and_upload_to_gpu(device, upload_heap);
 		meshlet_primitive_index.create_and_upload_to_gpu(device, upload_heap);
-		//model_data.create_and_upload_to_gpu(device, upload_heap);
+		terrain_data.create_and_upload_to_gpu(device, upload_heap);
+		terrain_heights.create_and_upload_to_gpu(device, upload_heap);
 
 		atomic_counter.create(device, 1);
 		indirect_arguments.create(device, 1);

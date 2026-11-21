@@ -77,7 +77,7 @@ $IssuePattern = '^\[(Vulkan|D3D12) (ERROR|WARNING|CORRUPTION)\]|^Assert:'
 
 # Statistics compared between the backends: exact, or within a relative tolerance (plus a small absolute slack for
 # counts that rasterisation or floating point differences between the shader compilers can nudge)
-$ExactStats = @("gdr_instances", "gdr_mesh_parts", "gdr_meshlets", "ia_vertices", "ia_primitives")
+$ExactStats = @("gdr_instances", "gdr_mesh_parts", "gdr_meshlets", "gdr_lights", "gdr_texture_slices", "gdr_terrain_tiles", "ia_vertices", "ia_primitives")
 $TolerantStats = @("gdr_culled_total", "gdr_culled_frustum", "gdr_culled_cone", "cs_invocations", "as_invocations", "ms_invocations",
     "ps_invocations", "gs_invocations", "gs_primitives", "mv_pixels", "mv_ms", "mv_as", "mv_ms_prims", "mv_cull_cone", "mv_cull_sphere", "mv_gs_in", "mv_gs_out")
 $StatTolerance = 0.02
@@ -219,7 +219,11 @@ function Get-PlanCases([string]$PlanPath)
     {
         $nondeterministic = $defaultNondeterministic
         if ($null -ne $case.nondeterministic) { $nondeterministic = [bool]$case.nondeterministic }
-        $list += [pscustomobject]@{ Name = $case.name; Nondeterministic = $nondeterministic }
+        # Statistics that depend on GPU timing for this case (for example pixel shader invocations when the shader can
+        # discard, which stops early depth rejection) are not compared; its images and other statistics still are
+        $timingDependent = @()
+        if ($null -ne $case.timing_dependent_stats) { $timingDependent = @($case.timing_dependent_stats) }
+        $list += [pscustomobject]@{ Name = $case.name; Nondeterministic = $nondeterministic; TimingDependentStats = $timingDependent }
     }
     return $list
 }
@@ -227,6 +231,8 @@ function Get-PlanCases([string]$PlanPath)
 function New-FilteredPlan([string]$PlanPath, [string[]]$Patterns)
 {
     $plan = Get-Content -LiteralPath $PlanPath -Raw | ConvertFrom-Json
+    # powershell -File passes "a","b" as one comma separated string
+    $Patterns = @($Patterns | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
     $plan.cases = @($plan.cases | Where-Object { $name = $_.name; @($Patterns | Where-Object { $name -like $_ }).Count -gt 0 })
     if ($plan.cases.Count -eq 0) { Add-Failure "No test cases match $($Patterns -join ', ')"; return $null }
     $path = Join-Path $OutDir "filtered_plan.json"
@@ -430,6 +436,7 @@ function Compare-Backends($PlanCases, $StatsD3D12, $StatsVulkan)
         foreach ($key in $ExactStats + $TolerantStats)
         {
             if (-not ($d.ContainsKey($key) -and $v.ContainsKey($key))) { continue }
+            if ($case.TimingDependentStats -contains $key) { continue }
             $difference = [Math]::Abs($d[$key] - $v[$key])
             $allowed = if ($ExactStats -contains $key) { 0 } else { [Math]::Max($d[$key], $v[$key]) * $StatTolerance + $StatSlack }
             if ($difference -gt $allowed)
