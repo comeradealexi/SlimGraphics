@@ -1,6 +1,7 @@
 #include "ModelViewer.h"
 #include <sgPlatformInclude.h>
 #include <imgui.h>
+#include "ImGuiLayout.h"
 #include <seEngineBasicFileIO.h>
 #include <nlohmann/json.hpp>
 #include "Camera.h"
@@ -181,6 +182,7 @@ void ModelViewer::Update(float delta_time, float total_time, const Camera& camer
 {
 	bool recreate_pipeline = false;
 
+	place_window_first_use(-10.0f, 450.0f, 380.0f);
 	ImGui::Begin("Model Viewer", nullptr, 0);
 
 	const UAVReadBack uav_readback_values = ReadUAVCounters();

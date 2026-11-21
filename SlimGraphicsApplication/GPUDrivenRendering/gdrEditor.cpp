@@ -1,6 +1,7 @@
 #include "gdrEditor.h"
 #include "gdrScene.h"
 #include <imgui.h>
+#include "ImGuiLayout.h"
 #include <stack>
 #include <format>
 #include "seEngineBasicFileIO.h"
@@ -30,6 +31,7 @@ scene_file_list = se::BasicFileIO::find_files_recursive("..\\SlimGraphicsAssets\
 
 	void Editor::imgui_scene_overlay(Scene& scene)
 	{
+		place_window_first_use(10.0f, 10.0f, 470.0f);
 		if (!ImGui::Begin("GDR Scene Editor"))
 		{
 			ImGui::End(); // End() must always be paired with Begin(), even when it returns false

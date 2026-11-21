@@ -1,5 +1,6 @@
 #include "gdrScene.h"
 #include <imgui.h>
+#include "ImGuiLayout.h"
 #include <stack>
 
 //assimp
@@ -264,6 +265,7 @@ namespace gdr
 	void Scene::imgui()
 	{
 		// Note: ImGui::End() must be called whether or not Begin() returns true.
+		place_window_first_use(-400.0f, 10.0f, 380.0f, 430.0f);
 		if (ImGui::Begin("GDR Scene"))
 		{
 			if (ImGui::CollapsingHeader("Debug Options", ImGuiTreeNodeFlags_DefaultOpen))
@@ -321,6 +323,7 @@ namespace gdr
 		}
 		ImGui::End();
 
+		place_window_first_use(-400.0f, 450.0f, 380.0f, 320.0f);
 		if (ImGui::Begin("GDR Statistics"))
 		{
 			if (ImGui::CollapsingHeader("Statistics", ImGuiTreeNodeFlags_DefaultOpen))

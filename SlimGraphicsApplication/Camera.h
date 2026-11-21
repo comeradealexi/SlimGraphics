@@ -24,6 +24,10 @@ public:
 	const DirectX::BoundingFrustum& GetCameraBoundingFrustum() const { return bounding_frustum; }
 
 	float GetNearPlane() const { return min_depth_plane; }
+	// Movement speed (units per second) and the mouse look sensitivity, shown in the Camera menu
+	float& MovementSpeed() { return camera_movement_speed; }
+	float& LookSensitivity() { return look_sensitivity; }
+	void SpeedSlider();
 	float GetFarPlane() const { return max_depth_plane; }
 
 	bool IsInFrustum_Accurate(const DirectX::BoundingSphere& sphere) const;
@@ -39,8 +43,11 @@ private:
 	ProjectionType projection_type = ProjectionType::Perspective;
 	bool imgui_perspective = true;
 
+	void ProcessControls(float time_delta);
+
 	float camera_movement_speed = 1.0f;
 	float camera_rotation_speed = 1.0f;
+	float look_sensitivity = 1.0f;
 
 	float width = 0.0f;
 	float height = 0.0f;

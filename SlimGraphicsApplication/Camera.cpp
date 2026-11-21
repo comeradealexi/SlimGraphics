@@ -64,62 +64,8 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 		shader_data.camera_position = { position.x, position.y, position.z, 0.0f };
 		XMStoreFloat4(&shader_data.camera_direction, XMVector3Normalize(XMVectorSubtract(At, Eye))); // Direction the camera is looking
 
-		//Process input now.
-		if (input.is_key_down(L'W'))
-		{
-			position.x += XMVectorGetX(direction) * fTimeDelta * camera_movement_speed;
-			position.y += XMVectorGetY(direction) * fTimeDelta * camera_movement_speed;
-			position.z += XMVectorGetZ(direction) * fTimeDelta * camera_movement_speed;
-		}
-		if (input.is_key_down(L'S'))
-		{
-			position.x -= XMVectorGetX(direction) * fTimeDelta * camera_movement_speed;
-			position.y -= XMVectorGetY(direction) * fTimeDelta * camera_movement_speed;
-			position.z -= XMVectorGetZ(direction) * fTimeDelta * camera_movement_speed;
-		}
-		if (input.is_key_down(L'A'))
-		{
-			::DirectX::XMVECTOR crossVector = ::DirectX::XMVector3Cross(direction, Up);
-			crossVector = XMVector3Normalize(crossVector);
-			position.x += XMVectorGetX(crossVector) * fTimeDelta* camera_movement_speed;
-			position.y += XMVectorGetY(crossVector) * fTimeDelta* camera_movement_speed;
-			position.z += XMVectorGetZ(crossVector) * fTimeDelta* camera_movement_speed;
-		}
-		if (input.is_key_down(L'D'))
-		{
-			::DirectX::XMVECTOR crossVector = ::DirectX::XMVector3Cross(direction, Up);
-			crossVector = XMVector3Normalize(crossVector);
-			position.x -= XMVectorGetX(crossVector) * fTimeDelta * camera_movement_speed;
-			position.y -= XMVectorGetY(crossVector) * fTimeDelta * camera_movement_speed;
-			position.z -= XMVectorGetZ(crossVector) * fTimeDelta * camera_movement_speed;
-		}
-
-		if (/*input.IsKeyDown(Input::Keys::NUMPAD_4_LEFT) ||*/ input.is_key_down(L'J'))
-		{
-			camera_rot_y -= 1.0f * fTimeDelta * camera_rotation_speed;
-		}
-		if (/*input.IsKeyDown(Input::Keys::NUMPAD_6_RIGHT) ||*/ input.is_key_down(L'L'))
-		{
-			camera_rot_y += 1.0f * fTimeDelta * camera_rotation_speed;
-		}
-		if (/*input.IsKeyDown(Input::Keys::NUMPAD_8_UP) ||*/ input.is_key_down(L'I'))
-		{
-			camera_rot_x -= 1.0f * fTimeDelta * camera_rotation_speed;
-		}
-		if (/*input.IsKeyDown(Input::Keys::NUMPAD_5_MIDDLE) ||*/ input.is_key_down(L'K'))
-		{
-			camera_rot_x += 1.0f * fTimeDelta * camera_rotation_speed;
-		}
-
-		if (input.is_key_down(L'Q'))
-		{
-			position.y += 1.0f * fTimeDelta * camera_movement_speed;
-		}
-
-		if (input.is_key_down(L'E'))
-		{
-			position.y -= 1.0f * fTimeDelta * camera_movement_speed;
-		}
+		(void)input; // The controls read ImGui's input state (it knows when the UI has the mouse or keyboard)
+		ProcessControls(fTimeDelta);
 	}
 
 	shader_data.view_projection_matrix = XMMatrixMultiply(shader_data.view_matrix, shader_data.projection_matrix);
@@ -147,8 +93,10 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 	{
 		if (ImGui::CollapsingHeader("Camera"))
 		{
-			ImGui::DragFloat("Movement Speed", &camera_movement_speed, 0.001f, 0.0f,3.0f);
-			ImGui::DragFloat("Rotation Speed", &camera_rotation_speed, 0.001f, 0.0f, 3.0f);
+			ImGui::TextDisabled("Hold the right mouse button to look, WASD to move, Q / E up / down (Help > Controls)");
+			SpeedSlider();
+			ImGui::SliderFloat("Look Sensitivity", &look_sensitivity, 0.1f, 4.0f, "%.2f");
+			ImGui::SliderFloat("Key Turn Speed", &camera_rotation_speed, 0.1f, 4.0f, "%.2f rad/s");
 
 			ImGui::DragFloat3("Position", &position.x, 0.001f);
 			//ImGui::SliderFloat2("Rotation", &m_fCameraRotY, -360.0f, 360.0f);
@@ -197,6 +145,50 @@ void Camera::Update(float fTimeDelta, float fTotalTime, const se::GameInput& inp
 			ImGui::PopID();
 
 		}
+	}
+}
+
+// Flying camera: WASD / arrow keys move, Q / E move up and down, the right mouse button (dragged) or IJKL turn, the mouse
+// wheel scales the speed, Shift moves 5x faster and Ctrl 5x slower. Keys are ignored while the UI is typing into a field
+// and the mouse while it is over a window.
+void Camera::ProcessControls(float time_delta)
+{
+	const ImGuiIO& io = ImGui::GetIO();
+	if (!io.WantCaptureMouse && io.MouseWheel != 0.0f)
+	{
+		camera_movement_speed = std::clamp(camera_movement_speed * std::pow(1.25f, io.MouseWheel), 0.01f, 1000.0f);
+	}
+	if (!io.WantCaptureMouse && ImGui::IsMouseDown(ImGuiMouseButton_Right))
+	{
+		const float radians_per_pixel = 0.003f * look_sensitivity;
+		camera_rot_y += io.MouseDelta.x * radians_per_pixel;
+		camera_rot_x += io.MouseDelta.y * radians_per_pixel;
+	}
+	if (io.WantCaptureKeyboard)
+	{
+		return;
+	}
+	auto down = [](ImGuiKey a, ImGuiKey b = ImGuiKey_None) { return ImGui::IsKeyDown(a) || (b != ImGuiKey_None && ImGui::IsKeyDown(b)); };
+	const float step = time_delta * camera_movement_speed * (io.KeyShift ? 5.0f : 1.0f) * (io.KeyCtrl ? 0.2f : 1.0f);
+	const XMVECTOR forward = direction;
+	const XMVECTOR left = XMVector3Normalize(XMVector3Cross(direction, XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)));
+	XMVECTOR move = XMVectorZero();
+	move = XMVectorAdd(move, XMVectorScale(forward, (down(ImGuiKey_W, ImGuiKey_UpArrow) ? 1.0f : 0.0f) - (down(ImGuiKey_S, ImGuiKey_DownArrow) ? 1.0f : 0.0f)));
+	move = XMVectorAdd(move, XMVectorScale(left, (down(ImGuiKey_A, ImGuiKey_LeftArrow) ? 1.0f : 0.0f) - (down(ImGuiKey_D, ImGuiKey_RightArrow) ? 1.0f : 0.0f)));
+	move = XMVectorAdd(move, XMVectorSet(0.0f, (down(ImGuiKey_Q) ? 1.0f : 0.0f) - (down(ImGuiKey_E) ? 1.0f : 0.0f), 0.0f, 0.0f));
+	XMStoreFloat3A(&position, XMVectorAdd(XMLoadFloat3A(&position), XMVectorScale(move, step)));
+
+	const float turn = time_delta * camera_rotation_speed;
+	camera_rot_y += ((down(ImGuiKey_L) ? 1.0f : 0.0f) - (down(ImGuiKey_J) ? 1.0f : 0.0f)) * turn;
+	camera_rot_x += ((down(ImGuiKey_K) ? 1.0f : 0.0f) - (down(ImGuiKey_I) ? 1.0f : 0.0f)) * turn;
+}
+
+void Camera::SpeedSlider()
+{
+	ImGui::SliderFloat("Movement Speed", &camera_movement_speed, 0.01f, 1000.0f, "%.2f units/s", ImGuiSliderFlags_Logarithmic);
+	if (ImGui::IsItemHovered())
+	{
+		ImGui::SetTooltip("Mouse wheel over the scene changes it; hold Shift for 5x, Ctrl for 1/5");
 	}
 }
 

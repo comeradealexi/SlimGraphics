@@ -17,6 +17,8 @@ public:
 
 	void play(float start_time = 0.0f);
 	void stop() { playing = false; }
+	// Pauses, or resumes where it paused
+	void toggle() { playing = !playing && has_track(); }
 	bool is_playing() const { return playing; }
 
 	// Poses the camera at a time on the track (and applies the track's clip planes)

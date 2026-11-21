@@ -50,8 +50,13 @@ $msbuild = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere
   track), `-camera_track_time=T` (start it at T seconds), `-test_plan=PATH` / `-test_output=DIR` (run a test plan and
   quit, see "Test cases"), `-pbr_scene=NAME` (open the PBR viewer with a preset such as `Sponza` or `Bistro Exterior`, or a
   model path) and `-cvar=NAME=VALUE` (repeatable, e.g. `-cvar=pbr.mode=1`).
-- Screenshots: F12 or the "Screenshot" header of the Slim Graphics window saves the same captures as the tests (back
-  buffer with ImGui, optionally the output and scene render target) to `SlimGraphicsApplication\Screenshots` (gitignored).
+- Interface (`main.cpp`): a main menu bar (Scenes incl. "Open PBR Scene", Camera, Capture, View, Help) with FPS and CPU / GPU
+  times. Keys: F1 controls, F12 screenshot (the tests' captures, to `SlimGraphicsApplication\Screenshots`, gitignored), Tab
+  hides the interface (drawn transparent, ignores the mouse), Space plays the camera track. The camera (`Camera.cpp`)
+  flies with right mouse look, WASD / arrows, Q / E, Shift / Ctrl and wheel speed, read from ImGui so typing into fields
+  does not move it; PBR presets set its speed from the scene size. The Controls window opens on first launch (no
+  `imgui.ini`). Windows get first use positions from `ImGuiLayout.h` (`place_window_first_use`); new windows should too,
+  and anything a user sees should explain itself (tooltips, short descriptions, as the PBR views and passes do).
 - Environment: `SE_LOG_FILE=path` copies engine output (including validation messages) to a file,
   `SG_VULKAN_VALIDATION_LOG=path` copies Vulkan validation messages, `SG_D3D12_GPU_VALIDATION=1` enables D3D12
   GPU-based validation, and `VK_KHRONOS_VALIDATION_VALIDATE_SYNC=true` / `VK_KHRONOS_VALIDATION_GPUAV_ENABLE=true` /
@@ -86,7 +91,7 @@ powershell -ExecutionPolicy Bypass -File Tools\validate.ps1 -Extended  # + D3D12
   cause. The only filtered message is `D3D12_MESSAGE_ID_FENCE_ZERO_WAIT`, which ImGui's DX12 multi-viewport code
   triggers. Only add to that list with evidence that the message comes from outside the engine.
 - New features need coverage: add a case to `Tools\validation_tests.json` (see "Test cases"). Things the plan does not
-  cover (ImGui interaction, magnifier mouse input, camera track playback UI, screenshots, keyboard camera movement,
+  cover (ImGui interaction, magnifier mouse input, camera track playback UI, screenshots, the menu bar, camera mouse and keyboard controls,
   window resize and minimise) must be checked
   by hand when touched.
 - Best practices validation is advisory. Its known, accepted warnings: one memory block per resource (the D3D12 placed

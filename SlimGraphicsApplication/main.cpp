@@ -34,6 +34,7 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 #include "GPUDrivenRendering/gdrScene.h"
 #include "PBRViewer/pbrRenderer.h"
 #include "CVars.h"
+#include "ImGuiLayout.h"
 #include <filesystem>
 #include <ctime>
 
@@ -105,6 +106,124 @@ void OverrideImguiStyle()
 }
 
 using namespace sg;
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Interface windows that explain the tool (Help menu)
+
+namespace help_windows
+{
+	constexpr const char* kBackend =
+#ifdef SG_PLATFORM_D3D12
+		"D3D12";
+#else
+		"Vulkan";
+#endif
+
+	void key_line(const char* keys, const char* action)
+	{
+		ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.4f, 1.0f), "%-22s", keys);
+		ImGui::SameLine(170.0f);
+		ImGui::TextUnformatted(action);
+	}
+
+	void controls_window(bool* open)
+	{
+		centre_window_first_use(560.0f, 0.0f);
+		if (ImGui::Begin("Controls", open))
+		{
+			ImGui::SeparatorText("Camera");
+			key_line("Right mouse (drag)", "Look around");
+			key_line("W A S D / arrows", "Move forward, left, back, right");
+			key_line("Q / E", "Move up / down");
+			key_line("Shift / Ctrl", "Move 5x faster / slower");
+			key_line("Mouse wheel", "Change the movement speed (over the scene)");
+			key_line("I J K L", "Turn with the keyboard");
+			key_line("Space", "Play / pause the scene's camera track");
+			ImGui::SeparatorText("Interface");
+			key_line("Tab", "Hide / show the interface (clean screenshots)");
+			key_line("F12", "Save a screenshot (Capture menu)");
+			key_line("F1", "This window");
+			key_line("Hover", "Most settings explain themselves in a tooltip");
+			key_line("Ctrl + click a slider", "Type an exact value");
+			key_line("Right click a setting", "Reset it (PBR Settings window)");
+			key_line("Drag a window's tab", "Dock it next to or inside another window");
+			ImGui::SeparatorText("Scenes (Scenes menu)");
+			ImGui::TextWrapped("Model Viewer: one model drawn with the vertex pipeline, mesh shaders or amplification + mesh shaders; "
+				"its debug views show how the GPU shades vertices, primitives and pixels (wave order, helper lanes, triangle size).");
+			ImGui::TextWrapped("GPU Driven Rendering: thousands of instances culled per meshlet on the GPU and drawn with one indirect "
+				"dispatch per render bucket, with procedural terrain and textured materials.");
+			ImGui::TextWrapped("PBR Viewer: physically based materials with ray traced shadows, global illumination and reflections, "
+				"denoised in real time, next to a reference path tracer (needs ray tracing; D3D12).");
+		}
+		ImGui::End();
+	}
+
+	void about_window(bool* open, sg::Device& device, bool raytracing)
+	{
+		centre_window_first_use(0.0f, 0.0f);
+		if (ImGui::Begin("About Slim Graphics", open, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::TextUnformatted("Slim Graphics: a playground for rendering techniques on a thin layer over D3D12 and Vulkan.");
+			ImGui::Separator();
+			ImGui::Text("Backend: %s", kBackend);
+#ifdef _DEBUG
+			ImGui::TextUnformatted("Build: Debug (validation layers and asserts on; GPU timings are not representative)");
+#else
+			ImGui::TextUnformatted("Build: Release");
+#endif
+			ImGui::Text("Mesh shaders: %s", device.SupportsMeshShaders() ? "yes" : "no");
+			ImGui::Text("Hardware ray tracing (PBR viewer): %s", raytracing ? "yes" : "no");
+			ImGui::TextDisabled("The adapter, memory and feature details are in the Slim Graphics window's Device header.");
+		}
+		ImGui::End();
+	}
+
+	// GPU pipeline statistics with what each counter means
+	void pipeline_statistics(const sg::PipelineStatistics& q)
+	{
+		const struct { const char* name; uint64_t value; const char* meaning; } rows[] =
+		{
+			{ "Input assembler vertices", q.ia_vertices, "Vertices read by the input assembler (vertex pipeline only; mesh shaders read their own data)" },
+			{ "Input assembler primitives", q.ia_primitives, "Triangles assembled from the index buffer" },
+			{ "Vertex shader invocations", q.vs_invocations, "Vertex shader runs; below the vertex count when the post transform cache reuses results" },
+			{ "Geometry shader invocations", q.gs_invocations, "Geometry shader runs (one per input primitive)" },
+			{ "Geometry shader primitives", q.gs_primitives, "Primitives the geometry shader emitted" },
+			{ "Clipper invocations", q.clipping_invocations, "Primitives sent to the clipper" },
+			{ "Clipper primitives", q.clipping_primitives, "Primitives left after clipping and culling, sent to the rasteriser" },
+			{ "Pixel shader invocations", q.ps_invocations, "Pixel shader runs: covered pixels (with 2x2 quad helpers), minus those rejected by early depth testing" },
+			{ "Hull shader invocations", q.hs_invocations, "Tessellation control (hull) shader runs" },
+			{ "Domain shader invocations", q.ds_invocations, "Tessellation evaluation (domain) shader runs" },
+			{ "Compute shader invocations", q.cs_invocations, "Compute threads launched" },
+			{ "Amplification shader invocations", q.as_invocations, "Amplification (task) shader threads: usually one per meshlet tested for culling" },
+			{ "Mesh shader invocations", q.ms_invocations, "Mesh shader threads launched for the meshlets that survived" },
+		};
+		if (ImGui::BeginTable("PipelineStatistics", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+		{
+			for (const auto& row : rows)
+			{
+				ImGui::TableNextColumn();
+				ImGui::TextUnformatted(row.name);
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::SetTooltip("%s", row.meaning);
+				}
+				ImGui::TableNextColumn();
+				// Thousands separated
+				char digits[32];
+				sprintf_s(digits, "%llu", static_cast<unsigned long long>(row.value));
+				std::string text;
+				for (size_t i = 0, n = strlen(digits); i < n; i++)
+				{
+					text += digits[i];
+					if ((n - i - 1) % 3 == 0 && i + 1 < n) text += ',';
+				}
+				ImGui::TextUnformatted(text.c_str());
+			}
+			ImGui::EndTable();
+		}
+		ImGui::TextDisabled("Hover a counter for what it measures. Counted over the Model Viewer and GDR passes.");
+	}
+}
 
 // Optional command line switches, mainly to make automated captures for comparing rendering backends:
 //   -capture_frame=N      Save the final render target and back buffer (after ImGui) as PNGs at frame N
@@ -512,6 +631,20 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		bool requested = false;
 		std::string last_message;
 	} screenshot;
+	// Interface: windows opened from the menu bar, and the hidden interface of clean screenshots (Tab)
+	struct Interface
+	{
+		bool visible = true;
+		bool controls = false;
+		bool about = false;
+		bool performance = false;
+	} ui;
+	// First launch (ImGui has not saved a layout yet): show the controls
+	{
+		std::error_code error;
+		const char* ini = ImGui::GetIO().IniFilename;
+		ui.controls = ini != nullptr && !std::filesystem::exists(ini, error) && command_line.test_plan.empty();
+	}
 	while (run)
 	{
 		auto cpu_start_time = std::chrono::high_resolution_clock::now();
@@ -538,62 +671,146 @@ device->imgui_new_frame();
 			gdr_scene.update(frame_upload_heap);
 		}
 
-		static bool ExpandedStatsWindow = false;
-		bool CurrentExpandedStatsWindow = ExpandedStatsWindow;
-		static float TargetTimeMicroSeconds = 33'000.0f;
-		ImGui::SetNextWindowPos(ImVec2(x_off, y_off), ImGuiCond_FirstUseEver);
-		ImGui::SetNextWindowSize(ImVec2(w, CurrentExpandedStatsWindow ? 0 : 30));
-		ImGui::SetNextWindowBgAlpha(0.5f);
-		ImGui::Begin("Top Bar", nullptr
- 			, 			
- 			ImGuiWindowFlags_NoTitleBar |
- 			ImGuiWindowFlags_NoMove |
- 			ImGuiWindowFlags_NoResize |
- 			ImGuiWindowFlags_NoSavedSettings | 
- 			ImGuiWindowFlags_NoCollapse | 
- 			/*ImGuiWindowFlags_AlwaysAutoResize |*/ ImGuiWindowFlags_NoDecoration
- #ifdef SE_IMGUI_DOCKING
- 			| ImGuiWindowFlags_NoDocking
- #endif
-
-		);		
-		ImGui::SameLine();
-		ImGui::Text("CPU: %5.0fus", cpu_timer.get_average());
-		ImGui::SameLine();
-		ImGui::Text("GPU: %5.0fus", gpu_timer.get_average());				
-// 		ImGui::PlotHistogram("gpu", gpu_timer.get_history_buffer(), gpu_timer.get_history_count(), gpu_timer.get_history_idx(), nullptr, 0.0f, TargetTimeMicroSeconds);
-// 		ImGui::SameLine(); ImGui::SetNextItemWidth(300);
-// 		ImGui::PlotHistogram("cpu", cpu_timer.get_history_buffer(), cpu_timer.get_history_count(), cpu_timer.get_history_idx(), nullptr, 0.0f, TargetTimeMicroSeconds);		
-		ImGui::SameLine();
-		ImGui::Checkbox("Expand Stats |", &ExpandedStatsWindow);
-		ImGui::SameLine(); ImGui::Text("Render Scenes: ");
-		ImGui::SameLine(); ImGui::Checkbox("Model Viewer", &enable_model_viewer);
-		ImGui::SameLine(); ImGui::Checkbox("GDR", &enable_gdr);
-		if (pbr_viewer.is_supported())
+		// Keys (ignored while a text field or slider is being edited)
+		if (!ImGui::GetIO().WantCaptureKeyboard)
 		{
-			ImGui::SameLine(); ImGui::Checkbox("PBR Viewer", &enable_pbr);
-		}
-		if (CurrentExpandedStatsWindow)
-		{
-			if (ImPlot::BeginPlot("GPU Implot", ImVec2(-1,0), ImPlotFlags_NoTitle))
-			{				
-				//ImPlot::SetupAxes("", "", ImPlotAxisFlags_AutoFit);
-				ImPlot::SetNextLineStyle(ImVec4(247.0 / 255.0, 227 / 255.0, 121.0 / 255.0, 1.0));
-				ImPlot::PlotLine<float>("GPU", gpu_timer.get_history_buffer(), gpu_timer.get_history_count(), 1.0, 0.0, 0, gpu_timer.get_history_idx());
-				ImPlot::SetNextLineStyle(ImVec4(68.0 / 255.0, 206 / 255.0, 27.0 / 255.0, 1.0));
-				ImPlot::PlotLine<float>("CPU", cpu_timer.get_history_buffer(), cpu_timer.get_history_count(), 1.0, 0.0, 0, cpu_timer.get_history_idx());
-				ImPlot::EndPlot();
+			ui.visible ^= ImGui::IsKeyPressed(ImGuiKey_Tab, false);
+			ui.controls ^= ImGui::IsKeyPressed(ImGuiKey_F1, false);
+			screenshot.requested |= ImGui::IsKeyPressed(ImGuiKey_F12, false);
+			if (ImGui::IsKeyPressed(ImGuiKey_Space, false))
+			{
+				camera_track_player.toggle();
 			}
 		}
+		// A hidden interface is drawn fully transparent and ignores the mouse (its logic still runs)
+		ImGui::GetStyle().Alpha = ui.visible ? 1.0f : 0.0f;
+		ImGui::GetIO().ConfigFlags = ui.visible ? (ImGui::GetIO().ConfigFlags & ~ImGuiConfigFlags_NoMouse) : (ImGui::GetIO().ConfigFlags | ImGuiConfigFlags_NoMouse);
 
-		//static float 
-		//ImGui::SameLine();
+		if (ImGui::BeginMainMenuBar())
+		{
+			if (ImGui::BeginMenu("Scenes"))
+			{
+				ImGui::MenuItem("Model Viewer", nullptr, &enable_model_viewer);
+				ImGui::MenuItem("GPU Driven Rendering", nullptr, &enable_gdr);
+				if (pbr_viewer.is_supported())
+				{
+					ImGui::MenuItem("PBR Viewer", nullptr, &enable_pbr);
+					if (ImGui::BeginMenu("Open PBR Scene"))
+					{
+						for (const pbr::ScenePreset& preset : pbr::scene_presets())
+						{
+							if (ImGui::MenuItem(preset.name))
+							{
+								// The PBR viewer alone: the other scenes would draw over it
+								enable_pbr = true;
+								enable_model_viewer = enable_gdr = false;
+								pbr_viewer.load_scene(preset.name, &camera);
+							}
+						}
+						ImGui::EndMenu();
+					}
+				}
+				else
+				{
+					ImGui::MenuItem("PBR Viewer (needs hardware ray tracing, D3D12)", nullptr, false, false);
+				}
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Camera"))
+			{
+				ImGui::SetNextItemWidth(220.0f);
+				camera.SpeedSlider();
+				ImGui::SetNextItemWidth(220.0f);
+				ImGui::SliderFloat("Look Sensitivity", &camera.LookSensitivity(), 0.1f, 4.0f, "%.2f");
+				if (enable_pbr && ImGui::MenuItem("Back to the scene's starting view"))
+				{
+					pbr_viewer.apply_preset_camera(camera);
+				}
+				if (ImGui::MenuItem(camera_track_player.is_playing() ? "Pause camera track" : "Play camera track", "Space", false, camera_track_player.has_track()))
+				{
+					camera_track_player.toggle();
+				}
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Capture"))
+			{
+				screenshot.requested |= ImGui::MenuItem("Save screenshot", "F12");
+				ImGui::MenuItem("Back buffer (with the interface)", nullptr, &screenshot.back_buffer);
+				ImGui::MenuItem("Output (without the interface)", nullptr, &screenshot.output);
+				ImGui::MenuItem("Scene render target", nullptr, &screenshot.final);
+				if (ImGui::MenuItem("Open the screenshot folder"))
+				{
+					std::error_code error;
+					std::filesystem::create_directories(screenshot.directory, error);
+					ShellExecuteA(nullptr, "open", std::filesystem::absolute(screenshot.directory, error).string().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+				}
+				if (!screenshot.last_message.empty())
+				{
+					ImGui::Separator();
+					ImGui::TextDisabled("%s", screenshot.last_message.c_str());
+				}
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("View"))
+			{
+				if (ImGui::MenuItem("Hide interface", "Tab"))
+				{
+					ui.visible = false;
+				}
+				ImGui::MenuItem("Performance graph", nullptr, &ui.performance);
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Help"))
+			{
+				ImGui::MenuItem("Controls", "F1", &ui.controls);
+				ImGui::MenuItem("About Slim Graphics", nullptr, &ui.about);
+				ImGui::EndMenu();
+			}
+			// Frame rate and CPU / GPU frame times, right aligned
+			char stats[128];
+			const float frame_ms = std::max(cpu_timer.get_average(), gpu_timer.get_average()) / 1000.0f;
+			sprintf_s(stats, "%s   %.0f FPS   CPU %.2f ms   GPU %.2f ms", help_windows::kBackend, frame_ms > 0.0f ? 1000.0f / frame_ms : 0.0f, cpu_timer.get_average() / 1000.0f, gpu_timer.get_average() / 1000.0f);
+			ImGui::SameLine(ImGui::GetWindowWidth() - ImGui::CalcTextSize(stats).x - 16.0f);
+			ImGui::TextUnformatted(stats);
+			if (ImGui::IsItemHovered())
+			{
+				ImGui::SetTooltip("Averaged over recent frames. The frame rate follows the slower of the CPU and GPU (the application waits for the GPU every frame).");
+			}
+			ImGui::EndMainMenuBar();
+		}
+		if (ui.controls)
+		{
+			help_windows::controls_window(&ui.controls);
+		}
+		if (ui.about)
+		{
+			help_windows::about_window(&ui.about, *device, pbr_viewer.is_supported());
+		}
+		if (ui.performance)
+		{
+			place_window_first_use(490.0f, layout_area().w - 280.0f, 560.0f, 270.0f);
+			if (ImGui::Begin("Performance", &ui.performance))
+			{
+				ImGui::Text("CPU %.2f ms (min %.2f, max %.2f)   GPU %.2f ms (min %.2f, max %.2f)", cpu_timer.get_average() / 1000.0f, cpu_timer.min() / 1000.0f, cpu_timer.max() / 1000.0f,
+					gpu_timer.get_average() / 1000.0f, gpu_timer.min() / 1000.0f, gpu_timer.max() / 1000.0f);
+				if (ImPlot::BeginPlot("##frame_times", ImVec2(-1.0f, -1.0f), ImPlotFlags_NoTitle))
+				{
+					ImPlot::SetupAxes("Frame", "Microseconds", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_AutoFit);
+					ImPlot::SetNextLineStyle(ImVec4(247.0f / 255.0f, 227.0f / 255.0f, 121.0f / 255.0f, 1.0f));
+					ImPlot::PlotLine<float>("GPU", gpu_timer.get_history_buffer(), gpu_timer.get_history_count(), 1.0, 0.0, 0, gpu_timer.get_history_idx());
+					ImPlot::SetNextLineStyle(ImVec4(68.0f / 255.0f, 206.0f / 255.0f, 27.0f / 255.0f, 1.0f));
+					ImPlot::PlotLine<float>("CPU", cpu_timer.get_history_buffer(), cpu_timer.get_history_count(), 1.0, 0.0, 0, cpu_timer.get_history_idx());
+					ImPlot::EndPlot();
+				}
+			}
+			ImGui::End();
+		}
 
-		//ImGui::PlotHistogram("GPU Time", )
-
-		ImGui::End();
-
+		place_window_first_use(-10.0f, 10.0f, 380.0f, 430.0f);
 		ImGui::Begin("Slim Graphics", &bOpen, 0);
+		ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+		ImGui::TextWrapped("Scenes menu: what is drawn. Help > Controls (F1): camera keys. Tab hides the interface.");
+		ImGui::PopStyleColor();
 
 		device->imgui_update();
 
@@ -628,73 +845,15 @@ device->imgui_new_frame();
 		{
 			pbr_viewer.update(delta_time, camera);
 		}
-		if (ImGui::CollapsingHeader("Performance"))
+		if (ImGui::CollapsingHeader("GPU Pipeline Statistics"))
 		{
-			// Plots can display overlay texts
-			// (in this example, we will display an average value)
-			{
-				char overlay[32];
-				sprintf_s(overlay, "CPU - %u", (u32)cpu_timer.most_recent());
-				char text[128];
-				sprintf_s(text, "Average: %u\nMin: %u\nMax: %u", (u32)cpu_timer.get_average(), (u32)cpu_timer.min(), (u32)cpu_timer.max());
-				ImGui::PlotLines(text, cpu_timer.get_history_buffer(), cpu_timer.get_history_count(), cpu_timer.get_history_idx(), overlay, 0.0f, 50000.0f, ImVec2(0, 80.0f));
-			}
-			{
-				char overlay[32];
-				sprintf_s(overlay, "GPU - %u", (u32)gpu_timer.most_recent());
-				char text[128];
-				sprintf_s(text, "Average: %u\nMin: %u\nMax: %u", (u32)gpu_timer.get_average(), (u32)gpu_timer.min(), (u32)gpu_timer.max());
-				ImGui::PlotLines(text, gpu_timer.get_history_buffer(), gpu_timer.get_history_count(), gpu_timer.get_history_idx(), overlay, 0.0f, 50000.0f, ImVec2(0, 80.0f));
-			}
-
-		}
-		if (ImGui::CollapsingHeader("GPU Pipeline Stats"))
-		{
-			{ // Query Stats
-
-				char cbfr[25]; // Add commas to numbers - Couldn't find any good way in std lib to do this!
-				auto prettify_num = [&cbfr](uint64_t v) {
-						char d[20], *p = cbfr;
-						int n = 0;
-						do { d[n++] = '0' + v % 10; } while (v /= 10);
-						while (n--) { *p++ = d[n]; if (n && n % 3 == 0) *p++ = ','; }
-						*p = '\0';
-						return cbfr; };
-
-				ImGui::Text("IAVertices:    %s", prettify_num(query_data.ia_vertices));
-				ImGui::Text("IAPrimitives:  %s", prettify_num(query_data.ia_primitives));
-				ImGui::Text("VSInvocations: %s", prettify_num(query_data.vs_invocations));
-				ImGui::Text("GSInvocations: %s", prettify_num(query_data.gs_invocations));
-				ImGui::Text("GSPrimitives:  %s", prettify_num(query_data.gs_primitives));
-				ImGui::Text("CInvocations:  %s", prettify_num(query_data.clipping_invocations));
-				ImGui::Text("CPrimitives:   %s", prettify_num(query_data.clipping_primitives));
-				ImGui::Text("PSInvocations: %s", prettify_num(query_data.ps_invocations));
-				ImGui::Text("HSInvocations: %s", prettify_num(query_data.hs_invocations));
-				ImGui::Text("DSInvocations: %s", prettify_num(query_data.ds_invocations));
-				ImGui::Text("CSInvocations: %s", prettify_num(query_data.cs_invocations));
-				ImGui::Text("ASInvocations: %s", prettify_num(query_data.as_invocations));
-				ImGui::Text("MSInvocations: %s", prettify_num(query_data.ms_invocations));
-			}
-		}
-		if (ImGui::IsKeyPressed(ImGuiKey_F12, false))
-		{
-			screenshot.requested = true;
+			help_windows::pipeline_statistics(query_data);
 		}
 		if (ImGui::CollapsingHeader("Screenshot"))
 		{
 			ImGui::PushID("Screenshot");
-			if (ImGui::Button("Save Screenshot (F12)"))
-			{
-				screenshot.requested = true;
-			}
 			ImGui::InputText("Directory", screenshot.directory, sizeof(screenshot.directory));
-			ImGui::Checkbox("Back buffer (with ImGui)", &screenshot.back_buffer);
-			ImGui::Checkbox("Output (without ImGui)", &screenshot.output);
-			ImGui::Checkbox("Scene render target", &screenshot.final);
-			if (!screenshot.last_message.empty())
-			{
-				ImGui::TextWrapped("%s", screenshot.last_message.c_str());
-			}
+			ImGui::TextDisabled("Save from the Capture menu or with F12");
 			ImGui::PopID();
 		}
 		if (ImGui::CollapsingHeader("Clear Values"))

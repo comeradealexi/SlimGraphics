@@ -1,5 +1,6 @@
 #include "pbrRenderer.h"
 #include "CVars.h"
+#include "ImGuiLayout.h"
 #include <sgUtils.h>
 #include <Utils.h>
 #include <imgui.h>
@@ -114,6 +115,85 @@ namespace pbr
 		CVarInt cv_pt_max_frames("pbr.pt.max_frames", "Path Tracer", "Accumulated frames after which the image stops refining", 4096, 1, 65536, CVarResetHistory);
 
 		constexpr sg::u32 kMaxTimers = 64;
+
+		// What each debug view shows (PBR_DEBUG_* order), for the PBR Viewer window
+		const char* const kDebugViewDescriptions[] =
+		{
+			"The finished image: emitted light, direct sunlight and denoised indirect light, anti-aliased, exposed and tone mapped.",
+			"Every surface white, lit only by a uniform white sky. An energy conserving renderer shows an even image: darker or brighter areas reveal lost or invented energy.",
+			"Sunlight only: the BRDF times the sun's illuminance, times the ray traced shadow.",
+			"Light that bounced off other surfaces: the denoised diffuse and specular signals weighted by the material.",
+			"One cosine distributed ray per pixel before denoising: the noise the denoiser has to remove.",
+			"Incoming diffuse light after temporal accumulation and the edge aware filter. It is divided by the albedo, so the filter blurs light, not texture detail.",
+			"One reflection ray per pixel, sampled from the GGX lobe, before denoising.",
+			"Reflected light after denoising. Smooth surfaces keep sharp reflections; rough ones are filtered wider.",
+			"Light emitted by surfaces such as lamps and windows.",
+			"The world space radiance cache read at each surface: a hash grid that stores light for further bounces. Cells grow with distance from the camera.",
+			"Base colour: what the surface reflects, without any lighting.",
+			"Shading normals including normal maps (x, y, z shown as red, green, blue).",
+			"Triangle face normals. Compare with Normals to see the detail normal maps add.",
+			"Perceptual roughness: black is mirror like, white is matte.",
+			"Metalness: white surfaces are metals (coloured reflections, no diffuse light).",
+			"Ambient occlusion baked into the material textures.",
+			"Screen space motion of each pixel since the last frame (move the camera). TAA and the denoiser use it to reproject their history.",
+			"Distance as repeating bands (log2 of the linear depth). The depth buffer is reverse Z with an infinite far plane.",
+			"Each colour is one instance: one mesh placed in the world, with its own bottom level acceleration structure.",
+			"Each colour is one meshlet (up to 64 vertices and 124 triangles): the unit the amplification shader culls and one mesh shader group draws.",
+			"Each colour is one triangle, read back from the visibility buffer's ids.",
+			"One shadow ray per pixel towards a random point on the sun's disk: soft shadow noise before denoising.",
+			"Sun visibility after denoising.",
+			"Frames of history the denoiser has accumulated (blue: new, red: 32 frames). Newly revealed areas start over.",
+			"The diffuse signal's estimated noise: where the denoiser filters hardest.",
+			"The hierarchical depth buffer occlusion culling tests against, cycling through its levels. Each texel holds the farthest depth of the area it covers.",
+		};
+		static_assert(sizeof(kDebugViewDescriptions) / sizeof(kDebugViewDescriptions[0]) == PBR_DEBUG_HZB + 1, "One description per debug view");
+
+		// What each timed pass does on the GPU
+		const char* pass_description(const char* pass)
+		{
+			static const std::pair<const char*, const char*> descriptions[] =
+			{
+				{ "Sky", "Sky radiance: single scattering through the atmosphere plus a multiple scattering lookup table, into an equirectangular texture." },
+				{ "Geometry (early)", "Draws what was visible last frame: instance culling in a compute shader, meshlet culling in the amplification shader, then mesh shaders write instance and triangle ids into the visibility buffer." },
+				{ "HZB", "Builds the depth pyramid of the early pass that occlusion culling tests against." },
+				{ "Geometry (late)", "Tests everything not drawn yet against the depth pyramid and draws what became visible." },
+				{ "Resolve", "Turns the visibility buffer's ids into a G-buffer: re-intersects each pixel's triangle for exact barycentrics and texture gradients, and evaluates the material once per pixel." },
+				{ "Ray Traced Lighting", "Inline ray queries per pixel: a sun shadow ray, a diffuse ray, a reflection ray and an emissive light sample, plus radiance cache updates." },
+				{ "Denoise Shadow", "Temporal accumulation, then an edge aware a-trous wavelet filter (SVGF), for the sun shadow." },
+				{ "Denoise Diffuse", "Temporal accumulation, then an edge aware a-trous wavelet filter (SVGF), for diffuse light." },
+				{ "Denoise Specular", "Temporal accumulation (reprojecting reflections by their hit distance), then an edge aware a-trous filter that narrows on smooth surfaces." },
+				{ "Composite", "Combines the materials with direct sunlight and the denoised indirect light." },
+				{ "TAA", "Temporal anti-aliasing: blends with the reprojected previous frame, clipped to the colours around each pixel." },
+				{ "Exposure + Tone Map", "A luminance histogram for automatic exposure, then the tone mapping curve and dithering." },
+				{ "Path Tracer", "One complete light path per pixel per frame, averaged over frames: the ground truth the real time image is compared with." },
+			};
+			for (const auto& [name, description] : descriptions)
+			{
+				if (strcmp(name, pass) == 0)
+				{
+					return description;
+				}
+			}
+			return "";
+		}
+
+		void disabled_text(const char* text)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+			ImGui::TextWrapped("%s", text);
+			ImGui::PopStyleColor();
+		}
+
+		void tooltip(const char* text)
+		{
+			if (ImGui::IsItemHovered() && text[0] != '\0')
+			{
+				ImGui::SetNextWindowSize(ImVec2(420.0f, 0.0f));
+				ImGui::BeginTooltip();
+				ImGui::TextWrapped("%s", text);
+				ImGui::EndTooltip();
+			}
+		}
 
 		sg::u32 groups(sg::u32 threads, sg::u32 group_size)
 		{
@@ -399,6 +479,11 @@ namespace pbr
 		{
 			camera.SetLookAt(position, target);
 		}
+		if (scene && scene->is_ready())
+		{
+			// Crossing the scene takes about 20 seconds
+			camera.MovementSpeed() = std::clamp(scene->get_bounds().radius() * 0.1f, 0.5f, 50.0f);
+		}
 	}
 
 	bool Renderer::apply_test_settings(const nlohmann::json& settings, Camera& camera, std::string& error)
@@ -611,7 +696,9 @@ namespace pbr
 
 	void Renderer::imgui(Camera& camera)
 	{
+		place_window_first_use(10.0f, 540.0f, 470.0f);
 		CVars::imgui_window("PBR Settings", "pbr.");
+		place_window_first_use(10.0f, 10.0f, 470.0f, 520.0f);
 		if (ImGui::Begin("PBR Viewer"))
 		{
 			static int selected = 0;
@@ -638,19 +725,51 @@ namespace pbr
 				ImGui::Text("%u materials (%u alpha tested), %u textures (%.0f MiB), BVH %.0f MiB", s.materials, s.alpha_tested_materials, s.textures, s.texture_bytes / 1048576.0, s.acceleration_structure_bytes / 1048576.0);
 				ImGui::Text("Import: %.1f s", s.import_seconds);
 			}
-			if (ImGui::CollapsingHeader("Culling", ImGuiTreeNodeFlags_DefaultOpen))
-			{
-				ImGui::Text("Instances culled: frustum %u, occlusion %u", cull_stats[PBR_STAT_INSTANCES_FRUSTUM_CULLED], cull_stats[PBR_STAT_INSTANCES_OCCLUSION_CULLED]);
-				ImGui::Text("Meshlets culled: frustum %u, cone %u, occlusion %u", cull_stats[PBR_STAT_MESHLETS_FRUSTUM_CULLED], cull_stats[PBR_STAT_MESHLETS_CONE_CULLED], cull_stats[PBR_STAT_MESHLETS_OCCLUSION_CULLED]);
-				ImGui::Text("Meshlets drawn: early %u, late %u (%u triangles)", cull_stats[PBR_STAT_MESHLETS_DRAWN_EARLY], cull_stats[PBR_STAT_MESHLETS_DRAWN_LATE], cull_stats[PBR_STAT_TRIANGLES_DRAWN]);
-			}
+			// What the viewer shows, explained
+			ImGui::TextUnformatted("View");
+			ImGui::SameLine();
+			ImGui::SetNextItemWidth(260.0f);
+			cv_debug_view.imgui();
+			disabled_text(kDebugViewDescriptions[std::clamp(cv_debug_view.get(), 0, static_cast<int>(PBR_DEBUG_HZB))]);
 			if (ImGui::CollapsingHeader("GPU Timings", ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				for (const auto& [name, us] : timings)
+				// Each pass and its share of the frame (hover a pass for what it does)
+				const double total = gpu_milliseconds();
+				if (ImGui::BeginTable("Timings", 3, ImGuiTableFlags_SizingFixedFit))
 				{
-					ImGui::Text("%-24s %8.3f ms", name, us / 1000.0);
+					ImGui::TableSetupColumn("Pass");
+					ImGui::TableSetupColumn("ms");
+					ImGui::TableSetupColumn("Share", ImGuiTableColumnFlags_WidthStretch);
+					for (const auto& [name, us] : timings)
+					{
+						ImGui::TableNextColumn();
+						ImGui::TextUnformatted(name);
+						tooltip(pass_description(name));
+						ImGui::TableNextColumn();
+						ImGui::Text("%6.2f", us / 1000.0);
+						ImGui::TableNextColumn();
+						ImGui::ProgressBar(total > 0.0 ? static_cast<float>(us / 1000.0 / total) : 0.0f, ImVec2(-1.0f, ImGui::GetTextLineHeight()), "");
+					}
+					ImGui::EndTable();
 				}
-				ImGui::Text("%-24s %8.3f ms", "Total", gpu_milliseconds());
+				ImGui::Text("Total %.2f ms on the GPU", total);
+#ifdef _DEBUG
+				disabled_text("Debug build: the GPU runs at low, stable clocks with validation on, so timings are higher than in Release.");
+#endif
+			}
+			if (ImGui::CollapsingHeader("Culling", ImGuiTreeNodeFlags_DefaultOpen))
+			{
+				// The funnel from every instance and meshlet to what was drawn
+				const Scene::Statistics& s = scene->get_statistics();
+				const sg::u32 drawn = cull_stats[PBR_STAT_MESHLETS_DRAWN_EARLY] + cull_stats[PBR_STAT_MESHLETS_DRAWN_LATE];
+				auto percent = [](sg::u32 part, sg::u32 whole) { return whole > 0 ? 100.0f * part / whole : 0.0f; };
+				ImGui::Text("Instances: %u, outside the view %u, hidden behind others %u", s.instances, cull_stats[PBR_STAT_INSTANCES_FRUSTUM_CULLED], cull_stats[PBR_STAT_INSTANCES_OCCLUSION_CULLED]);
+				tooltip("Whole objects tested in a compute shader against the view frustum, then against the depth pyramid of what was drawn first.");
+				ImGui::Text("Meshlets culled: frustum %u, facing away %u, occluded %u", cull_stats[PBR_STAT_MESHLETS_FRUSTUM_CULLED], cull_stats[PBR_STAT_MESHLETS_CONE_CULLED], cull_stats[PBR_STAT_MESHLETS_OCCLUSION_CULLED]);
+				tooltip("Meshlets of the surviving instances tested in the amplification shader: frustum, normal cone (all triangles face away) and depth pyramid.");
+				ImGui::Text("Drawn: %u of %u meshlets (%.1f%%), %u triangles (%.1f%%)", drawn, s.meshlets, percent(drawn, s.meshlets), cull_stats[PBR_STAT_TRIANGLES_DRAWN], percent(cull_stats[PBR_STAT_TRIANGLES_DRAWN], s.triangles));
+				tooltip("Early: drawn because they were visible last frame. Late: became visible this frame. Only these reach the mesh shaders and rasteriser.");
+				ImGui::Text("Early %u, late %u", cull_stats[PBR_STAT_MESHLETS_DRAWN_EARLY], cull_stats[PBR_STAT_MESHLETS_DRAWN_LATE]);
 			}
 			camera_track.imgui(camera);
 			ImGui::Text("Exposure: EV100 %.2f", exposure_ev100);
