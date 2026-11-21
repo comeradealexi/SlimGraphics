@@ -31,15 +31,15 @@ namespace gdr
 		seAssert(pipelines[SortDirection::Descending].pipeline_global != nullptr, "Failed to create pipeline");
 	}
 
-	void GPUSort::sort(sg::CommandList& command_list, SimpleLinearConstantBuffer& cbuffer, sg::UnorderedAccessView& array_to_sort, sg::UnorderedAccessView& array_size, u32 maximum_elements, SortDirection sort_direction)
+	void GPUSort::sort(sg::CommandList& command_list, SimpleLinearConstantBuffer& cbuffer, sg::UnorderedAccessView& array_to_sort, sg::UnorderedAccessView& array_size, u32 maximum_elements, SortDirection sort_direction, u32 element_offset, u32 counter_index)
 	{
 		struct GlobalMergeParams
 		{
 			uint32_t k;
 			uint32_t j;
-			uint32_t dummy0;
-			uint32_t dummy1;
-		} global_merge_params = {};
+			uint32_t element_offset;
+			uint32_t counter_index;
+		} global_merge_params = { 0, 0, element_offset, counter_index };
 
 		Binding b = {};
 		b.uav_binding_count = 2;
@@ -71,7 +71,7 @@ namespace gdr
 			{
 				for (u32 j = k >> 1u; j >= 1; j >>= 1u)
 				{
-					global_merge_params = { k, j, 0, 0 };
+					global_merge_params = { k, j, element_offset, counter_index };
 					ConstantBufferView cbv0 = cbuffer.AllocateAndWrite(global_merge_params);
 					b.set_cbv(cbv0, 0);
 

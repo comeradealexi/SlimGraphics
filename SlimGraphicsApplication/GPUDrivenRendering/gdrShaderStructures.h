@@ -33,6 +33,15 @@ namespace gdr {
 	#define GDR_MATERIAL_ALPHA_TEST 1u		// Discard pixels whose opacity (opacity texture, else diffuse alpha) is below 0.5
 	#define GDR_MATERIAL_BUMP_MAP 2u		// texture_normals_index is a height (bump) map rather than a tangent space normal map
 	#define GDR_MATERIAL_TERRAIN 4u			// Procedural terrain shading (TerrainData of the meshlet's terrain)
+	#define GDR_MATERIAL_DOUBLE_SIDED 8u	// Rendered without back face culling, lit from the side facing the viewer
+
+	// Render buckets: meshlets that need different pipeline state (and specialised shaders, so no per pixel branching on
+	// meshlet type) are culled into separate regions of the visible meshlet list, each drawn by its own indirect DispatchMesh.
+	// Every mesh part belongs to exactly one bucket (gdr::bucket_of_material).
+	#define GDR_BUCKET_OPAQUE 0u			// Back face culled, no alpha test: keeps early depth rejection
+	#define GDR_BUCKET_FOLIAGE 1u			// Alpha tested and / or double sided (foliage, trees): no culling, discard
+	#define GDR_BUCKET_TERRAIN 2u			// Terrain tiles: the mesh shader builds them from the height grid
+	#define GDR_BUCKET_COUNT 3u
 
 	// LightData::type
 	#define GDR_LIGHT_DIRECTIONAL 0u
@@ -89,6 +98,11 @@ namespace gdr {
 		uint meshlets_per_instance;
 		uint meshlet_offset;
 		uint instance_offset;
+
+		uint bucket;					// GDR_BUCKET_* of every meshlet processed (and drawn) with this data
+		uint bucket_output_offset;		// First element of the bucket's region of the visible meshlet list
+		uint cone_culling;				// 0 for double sided buckets, whose back faces are visible
+		uint pad0;
 	};
 
 	struct PerInstanceProcessingData_Output

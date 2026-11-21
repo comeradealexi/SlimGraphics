@@ -26,6 +26,12 @@
         "name": "GDR_MeshShader"
       },
       {
+        "profile": "ms_6_5",
+        "entrypoint": "ms_main",
+        "defines": [ "GDR_SHADER_TERRAIN" ],
+        "name": "GDR_MeshShaderTerrain"
+      },
+      {
         "profile": "ps_6_5",
         "entrypoint": "ps_main",
         "name": "GDR_PixelShader"
@@ -33,8 +39,14 @@
       {
         "profile": "ps_6_5",
         "entrypoint": "ps_main",
-        "defines": [ "GDR_ALPHA_TEST" ],
-        "name": "GDR_PixelShaderAlphaTest"
+        "defines": [ "GDR_SHADER_FOLIAGE" ],
+        "name": "GDR_PixelShaderFoliage"
+      },
+      {
+        "profile": "ps_6_5",
+        "entrypoint": "ps_main",
+        "defines": [ "GDR_SHADER_TERRAIN" ],
+        "name": "GDR_PixelShaderTerrain"
       }
     ]
   },

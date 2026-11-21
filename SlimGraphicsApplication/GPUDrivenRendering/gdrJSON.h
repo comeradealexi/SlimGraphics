@@ -138,6 +138,10 @@ namespace gdr
 	bool serialise(const SceneNode& node, const SceneProperties& properties, const char* file_path);
 	bool deserialise(SceneNode& node, SceneProperties& properties, const char* file_path);
 
+	// A camera track on its own (the PBR viewer's per scene tracks): a malformed file fails to load instead of aborting
+	bool load_camera_track(const char* file_path, CameraTrack& track);
+	bool save_camera_track(const CameraTrack& track, const char* file_path);
+
 	// Recursively sets each child's parent pointer (needed after loading or copying a subtree).
 	void set_parent_pointers(SceneNode& node, SceneNode* parent);
 }

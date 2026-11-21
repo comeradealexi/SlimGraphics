@@ -22,7 +22,12 @@ namespace sg
 		{
 			CHECKHR(command_allocator->Reset());
 			CHECKHR(command_list->Reset(command_allocator.Get(), nullptr));
-			descriptor_heap_index = 0;
+
+			// The heap starts with the device's bindless descriptors (ResourceDescriptorHeap[index] in shaders); per bind
+			// descriptors are allocated linearly after them
+			bindless_copied_version = ~0u;
+			refresh_bindless_descriptors();
+			descriptor_heap_index = Device::BINDLESS_DESCRIPTOR_COUNT;
 
 			ID3D12DescriptorHeap* heaps[2] = { descriptor_heap.Get(), sg_device->get_sampler_descriptor_heap().Get() };
 			command_list->SetDescriptorHeaps(2, heaps);
@@ -49,8 +54,26 @@ namespace sg
 			active_pipeline = pipeline;
 		}
 
+		void CommandList::refresh_bindless_descriptors()
+		{
+			const u32 version = sg_device->get_bindless_descriptor_version();
+			if (version == bindless_copied_version)
+			{
+				return;
+			}
+			// Slots recorded work already uses keep their contents (they are copied unchanged), so rewriting them is safe
+			const u32 bindless_count = sg_device->get_bindless_descriptor_high_water();
+			if (bindless_count > 0)
+			{
+				device->CopyDescriptorsSimple(bindless_count, descriptor_heap->GetCPUDescriptorHandleForHeapStart(),
+					sg_device->get_bindless_descriptor_heap()->GetCPUDescriptorHandleForHeapStart(), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+			}
+			bindless_copied_version = version;
+		}
+
 		void CommandList::bind(Binding& bind, PipelineType type)
 		{
+			refresh_bindless_descriptors();
 			// Never write past the end of the per-command-list descriptor heap (asserts are compiled out in release).
 			// Checked before any barriers are recorded so the tracked binding state stays consistent.
 			const u32 descriptors_needed = bind.cbv_binding_count + bind.srv_binding_count + bind.uav_binding_count;
@@ -162,8 +185,7 @@ namespace sg
 				{
 					ShaderResourceView& srv = bind.d3d12_srvs[i];
 					seAssert(srv.buffer_resource || srv.texture_resource, "SRV slot %u has no resource", i);
-					ID3D12Resource* pResource = srv.buffer_resource ? srv.buffer_resource->get().Get() : (srv.texture_resource ? srv.texture_resource->get().Get() : nullptr);
-					device->CreateShaderResourceView(pResource, &srv.desc, dest_cpu);
+					device->CreateShaderResourceView(srv.get_view_resource(), &srv.desc, dest_cpu);
 					dest_cpu.Offset(descriptor_heap_increment);
 				}
 
@@ -335,14 +357,14 @@ namespace sg
 			flush_bound_uavs();
 		}
 
-		void CommandList::execute_indirect(IndirectArguments& indirect_argument)
+		void CommandList::execute_indirect(IndirectArguments& indirect_argument, u64 argument_offset)
 		{
 			ensure_bindings_valid();
 			{
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_argument.indirect_buffer->get().Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT);
 				command_list->ResourceBarrier(1, &barrier);
 			}
-			command_list->ExecuteIndirect(indirect_argument.command_signature.Get(), 1, indirect_argument.indirect_buffer->get().Get(), 0, nullptr, 0);
+			command_list->ExecuteIndirect(indirect_argument.command_signature.Get(), 1, indirect_argument.indirect_buffer->get().Get(), argument_offset, nullptr, 0);
 			{
 				CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(indirect_argument.indirect_buffer->get().Get(), D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 				command_list->ResourceBarrier(1, &barrier);

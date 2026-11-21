@@ -171,23 +171,15 @@ namespace gdr
 		global_binding_desc.cbv_binding_count = 2;
 		global_binding_desc.sampler_binding_count = 4; // s0: material textures, s3: trilinear (alpha test)
 
-		const char* shaders[Pipelines::Type::Count][5] =
+		const char* compute_shaders[2] = { "GDR_PerInstanceProcessingMain", "GDR_BuildIndirectArguments" };
+		// Mesh and pixel shader of each render bucket (GDR_BUCKET_*), specialised so they never branch on meshlet type
+		const char* bucket_shaders[GDR_BUCKET_COUNT][2] =
 		{
-			{
-				"GDR_PerInstanceProcessingMain",
-				"GDR_BuildIndirectArguments",
-				"GDR_MeshShader",
-				"GDR_PixelShader",
-				"GDR_PixelShaderAlphaTest"
-			},
-			{
-				"GDR_PerInstanceProcessingMain_DEBUG",
-				"GDR_BuildIndirectArguments_DEBUG",
-				"GDR_MeshShader_DEBUG",
-				"GDR_PixelShader_DEBUG",
-				"GDR_PixelShaderAlphaTest_DEBUG"
-			}
+			{ "GDR_MeshShader", "GDR_PixelShader" },				// GDR_BUCKET_OPAQUE
+			{ "GDR_MeshShader", "GDR_PixelShaderFoliage" },			// GDR_BUCKET_FOLIAGE
+			{ "GDR_MeshShaderTerrain", "GDR_PixelShaderTerrain" },	// GDR_BUCKET_TERRAIN
 		};
+		auto shader_name = [](const char* name, size_t type) { return std::string(name) + (type == Pipelines::Type::Debug ? "_DEBUG" : ""); };
 
 		for (size_t i = 0; i < Pipelines::Type::Count; i++)
 		{
@@ -202,21 +194,22 @@ namespace gdr
 			// Compute
 			{
 				PipelineDesc::Compute desc;
-				desc.compute_shader = sg::create_compute_shader(*device, get_shader_path(shaders[i][0]));
+				desc.compute_shader = sg::create_compute_shader(*device, get_shader_path(shader_name(compute_shaders[0], i).c_str()));
 				pipeline.per_instance_compute_pipeline = device->create_pipeline(desc, global_binding_desc);
 				seAssert(pipeline.per_instance_compute_pipeline != nullptr, "Failed to create pipeline");
 
-				desc.compute_shader = sg::create_compute_shader(*device, get_shader_path(shaders[i][1]));
+				desc.compute_shader = sg::create_compute_shader(*device, get_shader_path(shader_name(compute_shaders[1], i).c_str()));
 				pipeline.build_indirect_arguments_pipeline = device->create_pipeline(desc, global_binding_desc);
 				seAssert(pipeline.build_indirect_arguments_pipeline != nullptr, "Failed to create pipeline");
 			}
 
-			// Mesh Shader
+			// Mesh Shader: one pipeline per render bucket
+			for (sg::u32 bucket = 0; bucket < GDR_BUCKET_COUNT; bucket++)
 			{
 				PipelineDesc::Mesh desc;
 
-				desc.mesh_shader = sg::create_mesh_shader(*device, get_shader_path(shaders[i][2]));
-				desc.pixel_shader = sg::create_pixel_shader(*device, get_shader_path(shaders[i][3]));
+				desc.mesh_shader = sg::create_mesh_shader(*device, get_shader_path(shader_name(bucket_shaders[bucket][0], i).c_str()));
+				desc.pixel_shader = sg::create_pixel_shader(*device, get_shader_path(shader_name(bucket_shaders[bucket][1], i).c_str()));
 				desc.render_target_count = 1;
 				desc.render_target_format_list[0] = DXGI_FORMAT_R8G8B8A8_UNORM; // TODO - UNDO HARDCODING
 				desc.depth_stencil_format = DXGI_FORMAT_D32_FLOAT; // TODO - UNDO HARDCODING
@@ -226,15 +219,12 @@ namespace gdr
 
 				const ComparisonFunction dcf = render_options.depth_comparison != 0 ? (ComparisonFunction)render_options.depth_comparison : ComparisonFunction::Never; // Not actually supported to pass None..
 				desc.depth_stencil_desc.comparison_function = dcf;
-				desc.rasterizer_desc.cull_mode = (Rasterizer::CullMode) render_options.cull_mode;
+				// Double sided foliage is never back face culled
+				desc.rasterizer_desc.cull_mode = bucket == GDR_BUCKET_FOLIAGE ? Rasterizer::CullMode::None : (Rasterizer::CullMode) render_options.cull_mode;
 				desc.rasterizer_desc.fill_mode = render_options.render_wireframe ? Rasterizer::FillMode::Wireframe : Rasterizer::FillMode::Solid;
 
-				pipeline.mesh_render_pipeline = device->create_pipeline(desc, global_binding_desc);
-				seAssert(pipeline.mesh_render_pipeline != nullptr, "Failed to create pipeline");
-
-				desc.pixel_shader = sg::create_pixel_shader(*device, get_shader_path(shaders[i][4]));
-				pipeline.mesh_render_pipeline_alpha_test = device->create_pipeline(desc, global_binding_desc);
-				seAssert(pipeline.mesh_render_pipeline_alpha_test != nullptr, "Failed to create pipeline");
+				pipeline.mesh_render_pipelines[bucket] = device->create_pipeline(desc, global_binding_desc);
+				seAssert(pipeline.mesh_render_pipelines[bucket] != nullptr, "Failed to create pipeline");
 			}
 		}
 	}
@@ -253,6 +243,11 @@ namespace gdr
 		render_options.render_wireframe = s.value("wireframe", false);
 		render_options.depth_enable = s.value("depth_enable", true);
 		render_options.depth_write = s.value("depth_write", true);
+		const std::vector<bool> buckets = s.value("render_buckets", std::vector<bool>{ true, true, true });
+		for (sg::u32 bucket = 0; bucket < GDR_BUCKET_COUNT; bucket++)
+		{
+			render_options.render_bucket[bucket] = bucket < buckets.size() ? buckets[bucket] : true;
+		}
 		render_options.recreate_pipelines = true;
 	}
 
@@ -303,6 +298,12 @@ namespace gdr
 				render_options.recreate_pipelines |= ImGui::Combo("Cull Mode", &render_options.cull_mode, "None\0Front\0Back\0", 3);
 				render_options.recreate_pipelines |= ImGui::Combo("Depth Comparison", &render_options.depth_comparison, "None\0Never\0Less\0Equal\0LessEqual\0Greater\0NotEqual\0GreaterEqual\0Always\0");
 				ImGui::Unindent();
+				ImGui::Text("Render Buckets (one indirect DispatchMesh each)");
+				ImGui::Indent();
+				ImGui::Checkbox("Opaque", &render_options.render_bucket[GDR_BUCKET_OPAQUE]);
+				ImGui::Checkbox("Foliage (alpha tested, double sided)", &render_options.render_bucket[GDR_BUCKET_FOLIAGE]);
+				ImGui::Checkbox("Terrain", &render_options.render_bucket[GDR_BUCKET_TERRAIN]);
+				ImGui::Unindent();
 			}
 
 			if (ImGui::CollapsingHeader("Environment"))
@@ -329,7 +330,7 @@ namespace gdr
 				ImGui::Text("Meshlets:   %u", statistics.total_meshlets);
 				ImGui::Text("Terrain Tiles: %u", statistics.terrain_tiles);
 				ImGui::Text("Lights:     %u", statistics.total_lights);
-				ImGui::Text("Alpha Test: %s", model_buffers.has_alpha_test ? "yes (pixel shader with discard)" : "no");
+				ImGui::Text("Meshlets per bucket: opaque %u, foliage %u, terrain %u", statistics.bucket_meshlets[GDR_BUCKET_OPAQUE], statistics.bucket_meshlets[GDR_BUCKET_FOLIAGE], statistics.bucket_meshlets[GDR_BUCKET_TERRAIN]);
 				ImGui::Text("Texture Slices: %u (%ux%u)", statistics.texture_slices, MaterialTextures::kSliceSize, MaterialTextures::kSliceSize);
 
 				ImGui::Text("GPU Feedback Data:");
@@ -379,6 +380,7 @@ namespace gdr
 		statistics.total_instances = 0;
 		statistics.total_mesh_parts = 0;
 		statistics.terrain_tiles = 0;
+		std::fill(std::begin(statistics.bucket_meshlets), std::end(statistics.bucket_meshlets), 0u);
 		statistics.texture_slices = model_buffers.material_textures.get_slice_count();
 		// Now we iterate over all loaded models and each instance within that model
 		// We then add each instance we want to render to a list to send to the GPU	
@@ -419,6 +421,8 @@ namespace gdr
 					instance_render_info.count = model_list.size();
 					instance_render_info.meshlet_offset = mesh_part.meshlet_data_offset;
 					instance_render_info.meshlets_per_instance = mesh_part.meshlet_count;
+					instance_render_info.bucket = mesh_part.bucket;
+					statistics.bucket_meshlets[mesh_part.bucket] += static_cast<sg::u32>(model_list.size()) * mesh_part.meshlet_count;
 
 					for (const auto& instance : model_list)
 					{
@@ -438,9 +442,18 @@ namespace gdr
 		{
 			model_buffers.instance_data.create_and_upload_to_gpu(device, upload_heap);
 
-			// Because gpu_pre_process_instances_output is sorted with bitonic sort we must ensure that the size is a power of two
-			// TODO - don't reallocate this every frame - cache maximum size and only reallocate if we exceed it
-			model_buffers.gpu_pre_process_instances_output.create(device, total_meshlets, true); // Output buffer allocated matches input
+			// One region of the visible meshlet list per render bucket. Regions are bitonic sorted on their own, so each is a power
+			// of two (and at least one 32 element sort tile) in size.
+			sg::u32 output_size = 0;
+			for (sg::u32 bucket = 0; bucket < GDR_BUCKET_COUNT; bucket++)
+			{
+				const sg::u32 count = statistics.bucket_meshlets[bucket];
+				bucket_regions[bucket].offset = output_size;
+				bucket_regions[bucket].size = count > 0 ? std::max<sg::u32>(std::bit_ceil(count), 32u) : 0u;
+				output_size += bucket_regions[bucket].size;
+			}
+			// Only reallocated when it grows
+			model_buffers.gpu_pre_process_instances_output.create(device, output_size);
 		}
 		
 		statistics.total_meshlets = total_meshlets;
@@ -537,6 +550,9 @@ namespace gdr
 			pre_process_cbuffer.meshlets_per_instance = instance_section.meshlets_per_instance;
 			pre_process_cbuffer.meshlet_offset = instance_section.meshlet_offset;
 			pre_process_cbuffer.meshlets_to_process_count = instance_section.count * instance_section.meshlets_per_instance;
+			pre_process_cbuffer.bucket = instance_section.bucket;
+			pre_process_cbuffer.bucket_output_offset = bucket_regions[instance_section.bucket].offset;
+			pre_process_cbuffer.cone_culling = instance_section.bucket == GDR_BUCKET_FOLIAGE ? 0u : 1u;
 			
 			ConstantBufferView cbv = cbuffer.AllocateAndWrite(pre_process_cbuffer);
 			b.set_cbv(cbv, 1);
@@ -550,22 +566,40 @@ namespace gdr
 		command_list.set_pipeline(pipelines[debug_data.shader_debug_data.debug_mode].build_indirect_arguments_pipeline.get());
 		command_list.dispatch(1, 1, 1);
 
-		// Stage 2 - Optional sorting stage
+		// Stage 2 - Optional sorting stage: each bucket's region separately
 		if (debug_data.shader_debug_data.sort_mode != 0)
 		{
-			gpu_sort.sort(command_list, cbuffer, model_buffers.gpu_pre_process_instances_output.uav, model_buffers.atomic_counter.uav, model_buffers.gpu_pre_process_instances_output.get_element_count(), debug_data.shader_debug_data.sort_mode == 1 ? GPUSort::Ascending : GPUSort::Descending);
+			for (sg::u32 bucket = 0; bucket < GDR_BUCKET_COUNT; bucket++)
+			{
+				if (bucket_regions[bucket].size == 0)
+				{
+					continue;
+				}
+				gpu_sort.sort(command_list, cbuffer, model_buffers.gpu_pre_process_instances_output.uav, model_buffers.atomic_counter.uav, bucket_regions[bucket].size,
+					debug_data.shader_debug_data.sort_mode == 1 ? GPUSort::Ascending : GPUSort::Descending, bucket_regions[bucket].offset, bucket);
+			}
 		}
 
 		// Stage 3
-		// So at this point we now have a list of final meshlets to be rendered in model_buffers.gpu_pre_process_instances_output
+		// So at this point we now have a list of final meshlets to be rendered in model_buffers.gpu_pre_process_instances_output,
+		// grouped by render bucket. Each bucket is one indirect DispatchMesh with its own pipeline state and shaders.
+		const Pipelines& render_pipelines = pipelines[debug_data.shader_debug_data.debug_mode];
+		mesh_shader_indirect_arguments->set_indirect_buffer(model_buffers.indirect_arguments.buffer);
+		for (sg::u32 bucket = 0; bucket < GDR_BUCKET_COUNT; bucket++)
 		{
-			// The alpha test variant only when a material needs it: discard disables early depth rejection
-			const Pipelines& render_pipelines = pipelines[debug_data.shader_debug_data.debug_mode];
-			command_list.set_pipeline(model_buffers.has_alpha_test ? render_pipelines.mesh_render_pipeline_alpha_test.get() : render_pipelines.mesh_render_pipeline.get());
-			command_list.bind(b, PipelineType::Geometry);
+			if (bucket_regions[bucket].size == 0 || !render_options.render_bucket[bucket])
+			{
+				continue;
+			}
+			ShaderStructs::PerInstanceProcessingData bucket_cbuffer = {};
+			bucket_cbuffer.bucket = bucket;
+			bucket_cbuffer.bucket_output_offset = bucket_regions[bucket].offset;
+			ConstantBufferView cbv = cbuffer.AllocateAndWrite(bucket_cbuffer);
+			b.set_cbv(cbv, 1);
 
-			mesh_shader_indirect_arguments->set_indirect_buffer(model_buffers.indirect_arguments.buffer);
-			command_list.execute_indirect(*mesh_shader_indirect_arguments);
+			command_list.set_pipeline(render_pipelines.mesh_render_pipelines[bucket].get());
+			command_list.bind(b, PipelineType::Geometry);
+			command_list.execute_indirect(*mesh_shader_indirect_arguments, bucket * sizeof(std::array<sg::u32, 4>));
 		}
 
 		// Copy our feedback buffer to our readback buffer
@@ -664,6 +698,7 @@ namespace gdr
 
 			aiMesh* assimp_mesh = aScene->mMeshes[mesh_part_idx];
 			mesh_part.material_index = material_base + (aScene->mNumMaterials > 0 ? assimp_mesh->mMaterialIndex : 0);
+			mesh_part.bucket = bucket_of_material(model_buffers.material_data.cpu_data[mesh_part.material_index]);
 
 			// Load normal vertex and index buffer data (only used to generate meshlet data from
 			std::vector<Vertex> vertices = load_vertex_buffer(assimp_mesh);
@@ -837,6 +872,7 @@ namespace gdr
 		model.material_count = 1;
 		ModelBuffers::ModelData::MeshPart& part = model.mesh_parts.emplace_back();
 		part.material_index = material_index;
+		part.bucket = GDR_BUCKET_TERRAIN;
 		part.meshlet_data_offset = static_cast<sg::u32>(model_buffers.meshlet_data.cpu_data.size());
 		part.meshlet_count = static_cast<sg::u32>(build.tiles.size());
 		part.bounding_box_min = build.bounds_min;
@@ -1064,11 +1100,6 @@ namespace gdr
 	{
 		// Every buffer the shaders bind gets at least one element (a scene of only terrains has no vertices, for example)
 		if (material_data.cpu_data.empty()) material_data.cpu_data.push_back(default_material());
-		has_alpha_test = std::any_of(material_data.cpu_data.begin(), material_data.cpu_data.end(), [](const ShaderStructs::MaterialData& m) { return (m.flags & GDR_MATERIAL_ALPHA_TEST) != 0; });
-		if (has_alpha_test)
-		{
-			seWriteLine("GDR: the scene has alpha tested materials (pixel shader variant with discard)");
-		}
 		if (terrain_data.cpu_data.empty()) terrain_data.cpu_data.emplace_back() = {};
 		if (terrain_heights.cpu_data.empty()) terrain_heights.cpu_data.push_back(0.0f);
 		if (vertex_data.cpu_data.empty()) vertex_data.cpu_data.emplace_back() = {};
@@ -1083,7 +1114,7 @@ namespace gdr
 		terrain_data.create_and_upload_to_gpu(device, upload_heap);
 		terrain_heights.create_and_upload_to_gpu(device, upload_heap);
 
-		atomic_counter.create(device, 1);
-		indirect_arguments.create(device, 1);
+		atomic_counter.create(device, GDR_BUCKET_COUNT);
+		indirect_arguments.create(device, GDR_BUCKET_COUNT);
 	}
 }

@@ -55,4 +55,18 @@ namespace gdr
 	// Converts an assimp material (colours, Blinn-Phong exponent and diffuse / base colour, specular, normal or bump, and opacity
 	// textures, external or embedded) to the GPU material, adding its textures to 'textures'
 	ShaderStructs::MaterialData load_material(const aiScene& scene, const aiMaterial& material, const std::string& model_path, MaterialTextures& textures);
+
+	// The render bucket (GDR_BUCKET_*) of meshlets using a material: each bucket has its own pipeline state and shaders
+	inline sg::u32 bucket_of_material(const ShaderStructs::MaterialData& material)
+	{
+		if ((material.flags & GDR_MATERIAL_TERRAIN) != 0u)
+		{
+			return GDR_BUCKET_TERRAIN;
+		}
+		if ((material.flags & (GDR_MATERIAL_ALPHA_TEST | GDR_MATERIAL_DOUBLE_SIDED)) != 0u)
+		{
+			return GDR_BUCKET_FOLIAGE;
+		}
+		return GDR_BUCKET_OPAQUE;
+	}
 }

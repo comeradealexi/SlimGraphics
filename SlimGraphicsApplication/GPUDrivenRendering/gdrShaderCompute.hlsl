@@ -1,5 +1,11 @@
 #include "gdrShaderStructures.h"
 
+// Shader variants (GDRShaders.slimshaderjson). Each render bucket (GDR_BUCKET_*) is drawn by its own indirect DispatchMesh
+// with shaders specialised for it, so the mesh and pixel shaders never branch on the type of meshlet or material:
+//  - no define:          opaque meshes (GDR_BUCKET_OPAQUE)
+//  - GDR_SHADER_FOLIAGE: alpha tested and double sided meshes (GDR_BUCKET_FOLIAGE)
+//  - GDR_SHADER_TERRAIN: terrain tiles (GDR_BUCKET_TERRAIN)
+
 struct Vertex
 {
     float3 position;
@@ -210,7 +216,8 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
             visible = false;
         }
         
-        if (visible && DoConeCulling())
+        // Not for double sided buckets: their back faces are visible
+        if (visible && constant_data.cone_culling != 0 && DoConeCulling())
         {
             visible = IsMeshletVisibleNormalCone(meshlet, instance);         
             if (!visible) Feedback::IncrementMeshletCullCone();
@@ -224,8 +231,9 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
         
         if (visible) // If we're visible, add to the output list of meshests to be rendered
         {
+            // Appended to the region of the visible meshlet list that belongs to this section's bucket (one counter per bucket)
             uint data_output_index;
-            InterlockedAdd(AtomicCounter[0].x, 1, data_output_index);
+            InterlockedAdd(AtomicCounter[constant_data.bucket].x, 1, data_output_index);
             
             PerInstanceProcessingData_Output meshlet_out;
             meshlet_out.instance_index = instance_index;
@@ -233,7 +241,7 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
             meshlet_out.sort_key = CalculateSortKey(meshlet, instance);
             meshlet_out.pad = 0;
             
-            PerInstanceDataOutput[data_output_index] = meshlet_out;
+            PerInstanceDataOutput[constant_data.bucket_output_offset + data_output_index] = meshlet_out;
         }
         else
         {
@@ -242,24 +250,22 @@ void per_instance_processing_main(uint3 dispatch_id : SV_DispatchThreadID)
     }
 }
 
-// TODO - We can actually remove this entirely since we can just rebind the UAV as this pass does zero processing. Must ensure values set to 1 though on upload.
-[numthreads(1, 1, 1)]
+// One thread per render bucket: the DispatchMesh arguments of each bucket's indirect call
+[numthreads(GDR_BUCKET_COUNT, 1, 1)]
 void build_indirect_arguments(uint3 dtid : SV_DispatchThreadID)
 {
     // One mesh shader group per visible meshlet, split over X/Y to respect the 65535 per-dimension limit.
     // ms_main reconstructs the linear index as gid.y * GDR_MAX_DISPATCH_X + gid.x.
-    uint count = AtomicCounter[0].x;
+    uint bucket = dtid.x;
+    uint count = AtomicCounter[bucket].x;
     uint x = min(count, GDR_MAX_DISPATCH_X);
     uint y = (count + GDR_MAX_DISPATCH_X - 1) / GDR_MAX_DISPATCH_X; // 0 when nothing is visible
-    IndirectArgumentBuffer[0].x = x;
-    IndirectArgumentBuffer[0].y = y;
-    IndirectArgumentBuffer[0].z = 1;
-
+    IndirectArgumentBuffer[bucket] = uint4(x, y, 1, 0);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Mesh shading: every visible meshlet (model meshlets and terrain tiles alike) is one mesh shader group of a single
-// indirect dispatch.
+// Mesh shading: every visible meshlet is one mesh shader group of its bucket's indirect dispatch. constant_data holds the
+// bucket and the start of its region of the visible meshlet list.
 
 struct PSInput
 {
@@ -314,7 +320,7 @@ uint3 TerrainTileTriangle(uint triangle_index)
 void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, out indices uint3 tris[124], out vertices PSInput verts[64])
 {
     uint meshlet_list_index = gid.y * GDR_MAX_DISPATCH_X + gid.x;
-    uint visible_count = AtomicCounter[0].x;
+    uint visible_count = AtomicCounter[constant_data.bucket].x;
     bool valid_thread = meshlet_list_index < visible_count;
     uint out_vertex_count = 0;
     uint out_triangle_count = 0;
@@ -325,7 +331,7 @@ void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, out indices 
 
     if (valid_thread)
     {
-        instance_stage_output = PerInstanceDataOutput[meshlet_list_index];
+        instance_stage_output = PerInstanceDataOutput[constant_data.bucket_output_offset + meshlet_list_index];
         meshlet = Meshlets[instance_stage_output.meshlet_index];
         instance = Instances[instance_stage_output.instance_index];
 
@@ -337,7 +343,6 @@ void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, out indices 
 
     if (valid_thread)
     {
-        bool terrain = meshlet.meshlet_type == GDR_MESHLET_TYPE_TERRAIN;
         if (gtid.x < meshlet.vertex_count)
         {
             float3 position;
@@ -346,7 +351,7 @@ void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, out indices 
             float3 colour;
             float2 uvs;
             float terrain_height = 0.0f;
-            if (terrain)
+#ifdef GDR_SHADER_TERRAIN
             {
                 // Grid vertex of the tile: position from the height grid, normal from the neighbouring heights
                 TerrainData t = Terrains[meshlet.terrain_index];
@@ -362,7 +367,7 @@ void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, out indices 
                 colour = float3(1, 1, 1);
                 uvs = position.xz;
             }
-            else
+#else
             {
                 uint vertex_index = UniqueVertexIndices[meshlet.vertex_offset + gtid.x];
                 Vertex v = Vertices[meshlet.vertex_buffer_offset + vertex_index];
@@ -372,6 +377,7 @@ void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, out indices 
                 colour = v.colour;
                 uvs = v.uvs;
             }
+#endif
 
             float4 world_position = mul(float4(position, 1.0f), instance.model_matrix);
             float3 world_normal = mul(normal, NormalMatrix(instance.model_matrix));
@@ -392,15 +398,12 @@ void ms_main(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID, out indices 
 
         if (gtid.x < meshlet.triangle_count)
         {
-            if (terrain)
-            {
-                tris[gtid.x] = TerrainTileTriangle(gtid.x);
-            }
-            else
-            {
-                uint packedIndices = PrimitiveIndices[meshlet.triangle_offset + gtid.x];
-                tris[gtid.x] = uint3(packedIndices & 0xFF, (packedIndices >> 8) & 0xFF, (packedIndices >> 16) & 0xFF);
-            }
+#ifdef GDR_SHADER_TERRAIN
+            tris[gtid.x] = TerrainTileTriangle(gtid.x);
+#else
+            uint packedIndices = PrimitiveIndices[meshlet.triangle_offset + gtid.x];
+            tris[gtid.x] = uint3(packedIndices & 0xFF, (packedIndices >> 8) & 0xFF, (packedIndices >> 16) & 0xFF);
+#endif
         }
     }
 }
@@ -548,7 +551,7 @@ float3 ApplyLighting(Surface s, float3 world_position)
     return colour * environment.exposure;
 }
 
-float4 ps_main(PSInput input) : SV_TARGET
+float4 ps_main(PSInput input, bool is_front_face : SV_IsFrontFace) : SV_TARGET
 {
     MaterialData material = Materials[input.material_index];
     // Texture coordinate derivatives taken outside the material branches, which may not be uniform across a pixel quad
@@ -557,11 +560,9 @@ float4 ps_main(PSInput input) : SV_TARGET
 
     float3 normal = normalize(input.normal);
     Surface s;
-    if ((material.flags & GDR_MATERIAL_TERRAIN) != 0u)
-    {
-        s = ShadeTerrain(Terrains[material.terrain_index], input, normal);
-    }
-    else
+#ifdef GDR_SHADER_TERRAIN
+    s = ShadeTerrain(Terrains[material.terrain_index], input, normal);
+#else
     {
         s.albedo = GammaToLinear(input.colour * material.diffuse_colour.rgb);
         s.normal = normal;
@@ -573,9 +574,9 @@ float4 ps_main(PSInput input) : SV_TARGET
             float4 diffuse = MaterialTextures.SampleGrad(MaterialSampler, float3(input.uvs, (float) material.texture_diffuse_index), duv_dx, duv_dy);
             s.albedo *= GammaToLinear(diffuse.rgb);
         }
-#ifdef GDR_ALPHA_TEST
-        // Only scenes with alpha tested materials use this variant: discard stops drivers rejecting hidden pixels before
-        // shading, which costs performance (and makes pixel shader counts depend on GPU timing).
+#ifdef GDR_SHADER_FOLIAGE
+        // Only the foliage bucket uses this variant: discard stops drivers rejecting hidden pixels before shading, which
+        // costs performance (and makes pixel shader counts depend on GPU timing).
         // Opacity is read at an explicit mip level with a trilinear sampler: anisotropic filtering of an explicit level is
         // implementation defined (D3D12 and Vulkan drivers cut out different edge pixels), and this also keeps cut outs stable
         // as the view moves.
@@ -625,7 +626,16 @@ float4 ps_main(PSInput input) : SV_TARGET
                 s.normal = normalize(tangent_space.x * tangent + tangent_space.y * bitangent + tangent_space.z * normal);
             }
         }
+#ifdef GDR_SHADER_FOLIAGE
+        // Double sided: back faces are lit as the mirror image of the front (the shading normal reflected through the
+        // surface plane), so leaves and cards are lit from whichever side the viewer sees
+        if (!is_front_face)
+        {
+            s.normal -= 2.0f * dot(s.normal, normal) * normal;
+        }
+#endif
     }
+#endif
 
     switch (GetDebugRenderMode())
     {

@@ -61,10 +61,17 @@ namespace sg
 
 			void dispatch(u32 x = 1, u32 y = 1, u32 z = 1);
 			void dispatch_mesh(u32 x = 1, u32 y = 1, u32 z = 1);
-			void execute_indirect(IndirectArguments& indirect_argument);
+			// argument_offset: byte offset of the arguments in the indirect buffer (a multiple of 4)
+			void execute_indirect(IndirectArguments& indirect_argument, u64 argument_offset = 0);
 
 			void clear_buffer_float(UnorderedAccessView& uav, ShaderResourceView& srv, float value);
 			void clear_buffer_uint(UnorderedAccessView& uav, ShaderResourceView& srv, sg::u32 value);
+			// Clears a texture UAV's mip (every layer) to a value
+			void clear_texture_float(UnorderedAccessView& uav, float4 value);
+
+			// Ray tracing is not implemented by the Vulkan backend yet (Device::supports_raytracing() is false)
+			void build_bottom_level_acceleration_structure(const Raytracing::GeometryDesc*, u32, Buffer*, Buffer*, u64 = 0) { seAssert(false, "Vulkan ray tracing is not implemented"); }
+			void build_top_level_acceleration_structure(Buffer*, u32, Buffer*, Buffer*) { seAssert(false, "Vulkan ray tracing is not implemented"); }
 
 			void copy_buffer_to_buffer(Buffer* dest, Buffer* source);
 			void copy_texture_to_texture(Texture& dest, Texture& source);

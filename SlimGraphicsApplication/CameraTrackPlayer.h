@@ -3,7 +3,7 @@
 
 class Camera;
 
-// Plays a GDR scene's camera track. Time advances by a fixed step per frame rather than by wall clock time, so frame N of
+// Plays a camera track (the GDR scene's, or the PBR viewer's scene track while the viewer is enabled). Time advances by a fixed step per frame rather than by wall clock time, so frame N of
 // a playback always shows the same view: captures along a track are reproducible on any machine and backend.
 class CameraTrackPlayer
 {

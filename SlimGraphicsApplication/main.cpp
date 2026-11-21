@@ -32,6 +32,10 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 #include "BitonicSort.h"
 
 #include "GPUDrivenRendering/gdrScene.h"
+#include "PBRViewer/pbrRenderer.h"
+#include "CVars.h"
+#include <filesystem>
+#include <ctime>
 
 void OverrideImguiStyle()
 {
@@ -113,6 +117,8 @@ using namespace sg;
 //   -camera_track_time=T  Start the camera track at T seconds
 //   -test_plan=PATH       Run an automated test plan in this session, then quit (see TestRunner.h)
 //   -test_output=PATH     Directory the test plan's captures are written to (default: working directory)
+//   -pbr_scene=NAME       Open the PBR viewer with a scene preset (pbr::scene_presets, e.g. "Sponza") or a model file
+//   -cvar=NAME=VALUE      Set a cvar (repeatable), e.g. -cvar=pbr.mode=1
 struct CommandLineOptions
 {
 	std::string test_plan;
@@ -125,6 +131,8 @@ struct CommandLineOptions
 	int mesh_mode = -1;
 	bool camera_track = false;
 	float camera_track_time = 0.0f;
+	std::string pbr_scene;
+	std::vector<std::string> cvars;
 };
 
 static CommandLineOptions ParseCommandLine()
@@ -154,6 +162,8 @@ static CommandLineOptions ParseCommandLine()
 		else if (arg == "-camera_track") options.camera_track = true;
 		else if (match("-test_plan=")) options.test_plan = v;
 		else if (match("-test_output=")) options.test_output = v;
+		else if (match("-pbr_scene=")) options.pbr_scene = v;
+		else if (match("-cvar=")) options.cvars.push_back(v);
 	}
 	LocalFree(argv);
 	return options;
@@ -230,6 +240,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		sg::SamplerDesc trilinear_sampler;
 		trilinear_sampler.filter = sg::Filter::MinMagMipLinear;
 		device->AddSamplers("Trilinear", trilinear_sampler);
+		// s4, s5: clamped linear and point sampling (PBR viewer: sky, history and HZB reads)
+		sg::SamplerDesc linear_clamp;
+		linear_clamp.filter = sg::Filter::MinMagMipLinear;
+		linear_clamp.address_u = linear_clamp.address_v = linear_clamp.address_w = sg::TextureAddressMode::Clamp;
+		device->AddSamplers("LinearClamp", linear_clamp);
+		sg::SamplerDesc point_clamp = linear_clamp;
+		point_clamp.filter = sg::Filter::MinMagMipPoint;
+		device->AddSamplers("PointClamp", point_clamp);
 	}
 
 	SharedPtr<Memory> mem = device->allocate_memory(MemoryType::GPUOptimal, MemorySubType::Buffer, 64ull * 1024);
@@ -309,6 +327,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		intermediate_rtv = device->create_render_target_view(intermediate_render_target);
 
 	}
+	// The PBR viewer writes its tone mapped image straight into the final render target
+	UnorderedAccessView final_uav = device->create_unordered_access_view(final_render_target);
 
 	//Pipeline
 	SharedPtr<Pipeline> pipeline;
@@ -404,12 +424,30 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	gdr::Scene gdr_scene(device, dsv_tex);
 	CameraTrackPlayer camera_track_player;
-	u32 camera_track_scene_load_count = 0;
+	u64 camera_track_key = ~0ull;
 
 	texture_viewer->set_texture(gdr_scene.get_hzb_texture());
 
 	bool enable_model_viewer = true;
 	bool enable_gdr = true;
+
+	pbr::Renderer pbr_viewer(device, queue, static_cast<u32>(w), static_cast<u32>(h));
+	bool enable_pbr = false;
+	for (const std::string& assignment : command_line.cvars)
+	{
+		std::string cvar_error;
+		if (!CVars::apply_assignment(assignment, cvar_error))
+		{
+			seWriteLine("-cvar: %s", cvar_error.c_str());
+		}
+	}
+	if (!command_line.pbr_scene.empty() && pbr_viewer.is_supported())
+	{
+		enable_pbr = true;
+		enable_model_viewer = false;
+		enable_gdr = false;
+		pbr_viewer.load_scene(command_line.pbr_scene, &camera);
+	}
 
 	bool bOpen = true;
 	float delta_time; // seconds
@@ -433,7 +471,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 	// Automated test plan (see TestRunner.h)
 	TestRunner test_runner;
-	TestRunner::Systems test_systems{ camera, camera_track_player, *model_viewer, gdr_scene, *post_process, *magnifying_glass, *debug_draw, enable_model_viewer, enable_gdr, depth_clear_value };
+	TestRunner::Systems test_systems{ camera, camera_track_player, *model_viewer, gdr_scene, *post_process, *magnifying_glass, *debug_draw, enable_model_viewer, enable_gdr, depth_clear_value, pbr_viewer, enable_pbr };
 	if (!command_line.test_plan.empty() && !test_runner.load(command_line.test_plan, command_line.test_output))
 	{
 		run = false;
@@ -463,6 +501,17 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			capture.path = std::move(path);
 			pending_captures.push_back(std::move(capture));
 		};
+	// Screenshots from the "Slim Graphics" window (or F12): the same captures as the test runner's, written to a directory
+	// with a time stamped name once the frame has finished on the GPU
+	struct Screenshot
+	{
+		char directory[260] = "Screenshots";
+		bool back_buffer = true;		// With ImGui, like the tests' _backbuffer capture
+		bool output = false;			// Presented image without ImGui
+		bool final = false;				// Scene render target before post processing
+		bool requested = false;
+		std::string last_message;
+	} screenshot;
 	while (run)
 	{
 		auto cpu_start_time = std::chrono::high_resolution_clock::now();
@@ -520,6 +569,10 @@ device->imgui_new_frame();
 		ImGui::SameLine(); ImGui::Text("Render Scenes: ");
 		ImGui::SameLine(); ImGui::Checkbox("Model Viewer", &enable_model_viewer);
 		ImGui::SameLine(); ImGui::Checkbox("GDR", &enable_gdr);
+		if (pbr_viewer.is_supported())
+		{
+			ImGui::SameLine(); ImGui::Checkbox("PBR Viewer", &enable_pbr);
+		}
 		if (CurrentExpandedStatsWindow)
 		{
 			if (ImPlot::BeginPlot("GPU Implot", ImVec2(-1,0), ImPlotFlags_NoTitle))
@@ -555,11 +608,12 @@ device->imgui_new_frame();
 		basic_grid.Update(delta_time, total_time, camera);
 		post_process->Update(wnd->g_hWnd, *input, delta_time, total_time, camera, *debug_draw);
 
-		// The loaded GDR scene's camera track
-		if (gdr_scene.get_scene_load_count() != camera_track_scene_load_count)
+		// The camera track: the PBR viewer's scene track while it is enabled, else the loaded GDR scene's
+		const u64 track_key = enable_pbr ? (1ull << 32) | pbr_viewer.get_camera_track_version() : gdr_scene.get_scene_load_count();
+		if (track_key != camera_track_key && !test_runner.is_active())
 		{
-			camera_track_scene_load_count = gdr_scene.get_scene_load_count();
-			camera_track_player.set_track(gdr_scene.get_camera_track());
+			camera_track_key = track_key;
+			camera_track_player.set_track(enable_pbr ? pbr_viewer.get_camera_track() : gdr_scene.get_camera_track());
 			if (command_line.camera_track)
 			{
 				camera_track_player.play(command_line.camera_track_time);
@@ -570,6 +624,10 @@ device->imgui_new_frame();
 
 		camera.Update(delta_time, total_time, *input);
 		test_runner.after_update(test_systems);
+		if (enable_pbr)
+		{
+			pbr_viewer.update(delta_time, camera);
+		}
 		if (ImGui::CollapsingHeader("Performance"))
 		{
 			// Plots can display overlay texts
@@ -617,6 +675,27 @@ device->imgui_new_frame();
 				ImGui::Text("ASInvocations: %s", prettify_num(query_data.as_invocations));
 				ImGui::Text("MSInvocations: %s", prettify_num(query_data.ms_invocations));
 			}
+		}
+		if (ImGui::IsKeyPressed(ImGuiKey_F12, false))
+		{
+			screenshot.requested = true;
+		}
+		if (ImGui::CollapsingHeader("Screenshot"))
+		{
+			ImGui::PushID("Screenshot");
+			if (ImGui::Button("Save Screenshot (F12)"))
+			{
+				screenshot.requested = true;
+			}
+			ImGui::InputText("Directory", screenshot.directory, sizeof(screenshot.directory));
+			ImGui::Checkbox("Back buffer (with ImGui)", &screenshot.back_buffer);
+			ImGui::Checkbox("Output (without ImGui)", &screenshot.output);
+			ImGui::Checkbox("Scene render target", &screenshot.final);
+			if (!screenshot.last_message.empty())
+			{
+				ImGui::TextWrapped("%s", screenshot.last_message.c_str());
+			}
+			ImGui::PopID();
 		}
 		if (ImGui::CollapsingHeader("Clear Values"))
 		{
@@ -712,6 +791,11 @@ device->imgui_new_frame();
 
 			gdr_scene.generate_hzb(*command_buffer, depth_srv, *linear_cb);
 
+			if (enable_pbr)
+			{
+				pbr_viewer.render(*command_buffer, camera, frame_upload_heap, *linear_cb, final_uav);
+			}
+
 			SharedPtr<Texture> copy_to_swap_chain_target = final_render_target;
 			ShaderResourceView copy_to_swap_chain_target_view = final_srv;
 			// Post Process
@@ -751,6 +835,49 @@ device->imgui_new_frame();
 					record_capture(*command_buffer, *magnifying_glass->render_texture, path("_magnifier.png"));
 				}
 			}
+			else if (screenshot.requested && !test_runner.is_active())
+			{
+				screenshot.requested = false;
+				std::error_code error;
+				std::filesystem::create_directories(screenshot.directory, error);
+				if (error)
+				{
+					screenshot.last_message = std::string("Could not create ") + screenshot.directory + ": " + error.message();
+				}
+				else
+				{
+					const std::time_t now = std::time(nullptr);
+					std::tm local = {};
+					localtime_s(&local, &now);
+					char name[64];
+					std::strftime(name, sizeof(name), "SlimGraphics_%Y%m%d_%H%M%S", &local);
+					const std::string base = std::string(screenshot.directory) + "/" + name + "_" + std::to_string(total_frame_idx);
+					const size_t first = pending_captures.size();
+					if (screenshot.back_buffer)
+					{
+						record_capture(*command_buffer, *backbuffer_rtvs[current_frame_idx]->texture_resource, base + "_backbuffer.png");
+					}
+					if (screenshot.output)
+					{
+						record_capture(*command_buffer, *copy_to_swap_chain_target, base + "_output.png");
+					}
+					if (screenshot.final)
+					{
+						record_capture(*command_buffer, *final_render_target, base + "_final.png");
+					}
+					screenshot.last_message.clear();
+					for (size_t i = first; i < pending_captures.size(); i++)
+					{
+						std::error_code absolute_error;
+						const std::filesystem::path absolute = std::filesystem::absolute(pending_captures[i].path, absolute_error);
+						screenshot.last_message += "Saved " + (absolute_error ? pending_captures[i].path : absolute.string()) + "\n";
+					}
+					if (first == pending_captures.size())
+					{
+						screenshot.last_message = "Nothing selected to save";
+					}
+				}
+			}
 		}
 
 
@@ -781,7 +908,7 @@ device->imgui_new_frame();
 				SaveReadbackToPNG(*capture.readback, capture.row_pitch, capture.width, capture.height, capture.format, capture.path);
 			}
 			pending_captures.clear();
-			if (command_line.exit_after_capture && !test_runner.is_active())
+			if (command_line.exit_after_capture && !test_runner.is_active() && (int)total_frame_idx == command_line.capture_frame)
 			{
 				run = false;
 			}

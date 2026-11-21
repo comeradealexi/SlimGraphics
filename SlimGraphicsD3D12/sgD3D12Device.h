@@ -54,7 +54,8 @@ namespace sg
 			// Shader visible sampler heaps are limited to D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE (2048) on most hardware.
 			// Per command list linear (reset each recording) shader visible CBV/SRV/UAV heap. Every bind() consumes new
 			// descriptors, so this needs room for a whole frame of draws/dispatches (Tier 1 allows up to 1,000,000).
-			static constexpr u64 COMMAND_LIST_DESCRIPTOR_COUNT = 65536;
+			// The first BINDLESS_DESCRIPTOR_COUNT entries hold a copy of the bindless descriptors.
+			static constexpr u64 COMMAND_LIST_DESCRIPTOR_COUNT = 65536 + 16384;
 			static constexpr u64 SAMPLER_DESCRIPTOR_COUNT = D3D12_MAX_SHADER_VISIBLE_SAMPLER_HEAP_SIZE;
 
 		public:
@@ -121,6 +122,26 @@ namespace sg
 			VertexBufferView create_vertex_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, u64 stride);
 			IndexBufferView create_index_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, DXGI_FORMAT format);
 
+			// Ray tracing (inline ray queries, DXR tier 1.1)
+			bool supports_raytracing();
+			Raytracing::PrebuildInfo get_bottom_level_prebuild_info(const Raytracing::GeometryDesc* geometries, u32 geometry_count);
+			Raytracing::PrebuildInfo get_top_level_prebuild_info(u32 instance_count);
+			u64 get_gpu_address(Buffer* buffer);
+			// View of a top level acceleration structure (a BufferType::AccelerationStructure buffer) for a RaytracingAccelerationStructure
+			ShaderResourceView create_acceleration_structure_view(SharedPtr<Buffer> buffer);
+
+			// Bindless descriptors: shader resource views shaders read by index (ResourceDescriptorHeap[index] in pipelines whose
+			// BindingDesc sets 'bindless'). Every command list's shader visible heap starts with a copy of them. The view's
+			// resource must stay alive (and in its read state) while the descriptor is allocated.
+			static constexpr u32 BINDLESS_DESCRIPTOR_COUNT = 16384;
+			static constexpr u32 INVALID_BINDLESS_DESCRIPTOR = ~0u;
+			u32 allocate_bindless_descriptor(ShaderResourceView& srv); // INVALID_BINDLESS_DESCRIPTOR when full
+			void free_bindless_descriptor(u32 index);
+			u32 get_bindless_descriptor_high_water() const { return bindless_high_water; }
+			// Changes whenever a bindless descriptor is allocated or freed (command lists then copy them again)
+			u32 get_bindless_descriptor_version() const { return bindless_version; }
+			ComPtr<ID3D12DescriptorHeap> get_bindless_descriptor_heap() { return bindless_descriptor_heap->get_heap(); }
+
 			//Support checks
 			bool SupportsMeshShaders();
 			size_t GetMeshShaderMaxNumThreads() { return 128; };
@@ -169,6 +190,11 @@ namespace sg
 			SharedPtr<DescriptorHeap> rtv_descriptor_heap;
 			SharedPtr<DescriptorHeap> dsv_descriptor_heap;
 			SharedPtr<DescriptorHeap> sampler_descriptor_heap;
+			SharedPtr<DescriptorHeap> bindless_descriptor_heap;	// CPU only; copied to each command list's heap
+			u32 bindless_high_water = 0;						// One past the highest allocated bindless descriptor
+			u32 bindless_version = 0;
+			std::vector<SharedPtr<Buffer>> bindless_resources;	// Keeps each allocated descriptor's resource alive
+			ComPtr<ID3D12Device5> device5;
 
 			ImGuiTextureViewer imgui_texture_viewer;
 

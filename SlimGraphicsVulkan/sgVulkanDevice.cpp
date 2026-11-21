@@ -1167,6 +1167,12 @@ namespace sg
 			return cbv;
 		}
 
+		ShaderResourceView Device::create_acceleration_structure_view(SharedPtr<Buffer>)
+		{
+			seAssert(false, "Vulkan ray tracing is not implemented");
+			return {};
+		}
+
 		ShaderResourceView Device::create_shader_resource_view(SharedPtr<Buffer> buffer, u64 element_size, u64 element_count)
 		{
 			ShaderResourceView srv;

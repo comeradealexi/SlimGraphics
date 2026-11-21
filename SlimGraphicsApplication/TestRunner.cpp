@@ -6,6 +6,8 @@
 #include "MagnifyingGlass/MagnifyingGlass.h"
 #include "GPUDrivenRendering/gdrScene.h"
 #include "DebugDraw.h"
+#include "PBRViewer/pbrRenderer.h"
+#include <chrono>
 #include <seEngineBasicFileIO.h>
 #include <algorithm>
 #include <string_view>
@@ -51,7 +53,8 @@ namespace
 	{
 		const std::string name = c["name"].get<std::string>();
 		bool ok = has_only_known_keys(c, { "name", "frames", "model_viewer", "gdr", "gdr_scene", "camera", "depth_clear", "debug_draw",
-			"model_viewer_settings", "gdr_settings", "post_process", "magnifier", "capture_magnifier", "nondeterministic", "timing_dependent_stats" }, name);
+			"model_viewer_settings", "gdr_settings", "post_process", "magnifier", "capture_magnifier", "nondeterministic", "timing_dependent_stats",
+			"pbr", "pbr_settings", "backends" }, name);
 		const auto section = [&](const char* key, std::initializer_list<std::string_view> known)
 		{
 			if (c.contains(key) && c[key].is_object())
@@ -60,21 +63,33 @@ namespace
 			}
 		};
 		section("camera", { "track_time", "position", "target", "near", "far" });
+		section("pbr_settings", { "scene", "settings" });
 		section("post_process", { "enabled", "technique", "dispatch_mode" });
 		section("magnifier", { "active", "x", "y", "zoom" });
 		section("gdr_settings", { "debug_mode", "cull_all", "frustum_culling", "cone_culling", "sort_mode", "render_mode", "wireframe",
-			"depth_enable", "depth_write" });
+			"depth_enable", "depth_write", "render_buckets" });
 		section("model_viewer_settings", { "model", "mesh_mode", "cone_culling", "sphere_culling", "render_mode", "wave_mode", "render_geo",
 			"pixel_pipeline", "simplified_value", "early_depth_stencil", "geometry_shader", "geometry_shader_scale", "geometry_shader_explode",
 			"wireframe", "cull_mode", "depth_comparison", "depth_enable", "depth_write", "instance_count", "render_percentage", "rotation",
 			"textures", "debug_aabb", "debug_obb", "debug_sphere", "debug_meshlets", "cpu_sort" });
-		if (c.contains("camera") && !c["camera"].is_object() && c["camera"] != "default")
+		if (c.contains("camera") && !c["camera"].is_object() && c["camera"] != "default" && c["camera"] != "scene")
 		{
-			seWriteLine("[TEST] ERROR plan: %s: \"camera\" must be \"default\" or an object", name.c_str());
+			seWriteLine("[TEST] ERROR plan: %s: \"camera\" must be \"default\", \"scene\" (the PBR scene's camera) or an object", name.c_str());
 			ok = false;
 		}
 		return ok;
 	}
+
+	double now_seconds()
+	{
+		return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+	}
+
+#ifdef SG_PLATFORM_D3D12
+	const char* kBackend = "D3D12";
+#else
+	const char* kBackend = "Vulkan";
+#endif
 
 	DirectX::XMFLOAT3 read_float3(const nlohmann::json& j, DirectX::XMFLOAT3 fallback)
 	{
@@ -127,6 +142,23 @@ void TestRunner::error(const std::string& message)
 	seWriteLine("[TEST] ERROR %s: %s", cases[case_index].value("name", "?").c_str(), message.c_str());
 }
 
+bool TestRunner::case_runs_here() const
+{
+	const nlohmann::json& c = cases[case_index];
+	if (!c.contains("backends"))
+	{
+		return true;
+	}
+	for (const nlohmann::json& backend : c["backends"])
+	{
+		if (backend.is_string() && backend.get<std::string>() == kBackend)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void TestRunner::begin_frame(Systems& systems)
 {
 	if (!active || is_finished())
@@ -135,6 +167,17 @@ void TestRunner::begin_frame(Systems& systems)
 	}
 	if (case_frame < 0)
 	{
+		// Cases for other backends only (features this backend does not implement yet)
+		while (!is_finished() && !case_runs_here())
+		{
+			seWriteLine("[TEST] SKIP %s (not run on %s)", cases[case_index]["name"].get<std::string>().c_str(), kBackend);
+			case_index++;
+		}
+		if (is_finished())
+		{
+			seWriteLine("[TEST] COMPLETE %zu cases", cases.size());
+			return;
+		}
 		start_case(systems);
 	}
 	apply_camera(systems);
@@ -152,6 +195,26 @@ void TestRunner::start_case(Systems& systems)
 	systems.enable_gdr = c.value("gdr", false);
 	systems.depth_clear_value = c.value("depth_clear", 1.0f);
 	systems.debug_draw.SetEnabled(c.value("debug_draw", false));
+	systems.enable_pbr = c.value("pbr", false);
+	case_wait_start = now_seconds();
+	if (systems.enable_pbr)
+	{
+		std::string pbr_error;
+		if (!systems.pbr_viewer.is_supported())
+		{
+			error("the PBR viewer is not supported on this device / backend");
+		}
+		else if (!systems.pbr_viewer.apply_test_settings(c.contains("pbr_settings") ? c["pbr_settings"] : nlohmann::json::object(), systems.camera, pbr_error))
+		{
+			error("PBR settings: " + pbr_error);
+		}
+	}
+	// The PBR viewer's scene track replaces the GDR scene's while the viewer is enabled
+	const auto set_camera_track = [&]()
+		{
+			systems.camera_track_player.set_track(systems.enable_pbr ? systems.pbr_viewer.get_camera_track() : systems.gdr_scene.get_camera_track());
+		};
+	set_camera_track();
 
 	// GDR scene (an empty name clears the scene). Models load during the scene's next update.
 	const std::string scene = c.value("gdr_scene", "");
@@ -166,7 +229,7 @@ void TestRunner::start_case(Systems& systems)
 			error("cannot load GDR scene " + scene);
 		}
 		current_gdr_scene = scene;
-		systems.camera_track_player.set_track(systems.gdr_scene.get_camera_track());
+		set_camera_track();
 	}
 	if (c.contains("gdr_settings")) systems.gdr_scene.apply_test_settings(c["gdr_settings"]);
 	if (c.contains("model_viewer_settings") && !systems.model_viewer.ApplyTestSettings(c["model_viewer_settings"]))
@@ -188,7 +251,7 @@ void TestRunner::start_case(Systems& systems)
 	}
 	if (c.contains("camera") && c["camera"].is_object() && c["camera"].contains("track_time") && !systems.camera_track_player.has_track())
 	{
-		error("the case poses the camera on a track but the GDR scene has none");
+		error("the case poses the camera on a track but the scene (GDR, or the PBR preset while the PBR viewer is enabled) has none");
 	}
 	systems.camera_track_player.stop();
 }
@@ -197,6 +260,11 @@ void TestRunner::apply_camera(Systems& systems) const
 {
 	const nlohmann::json& c = cases[case_index];
 	const nlohmann::json camera = c.contains("camera") ? c["camera"] : nlohmann::json("default");
+	if (camera == "scene")
+	{
+		systems.pbr_viewer.apply_preset_camera(systems.camera);
+		return;
+	}
 	if (camera.is_object() && camera.contains("track_time") && camera["track_time"].is_number())
 	{
 		systems.camera_track_player.pose(systems.camera, camera["track_time"].get<float>());
@@ -252,14 +320,18 @@ void TestRunner::end_frame(Systems& systems, const sg::PipelineStatistics& s)
 		const auto& gdr = systems.gdr_scene.get_statistics();
 		const auto feedback = systems.gdr_scene.read_debug_feedback();
 		const ModelViewer::UAVReadBack mv = systems.model_viewer.ReadUAVCounters();
-		seWriteLine("[TEST] STAT %s gdr_instances=%u gdr_mesh_parts=%u gdr_meshlets=%u gdr_culled_total=%u gdr_culled_frustum=%u gdr_culled_cone=%u gdr_lights=%u gdr_texture_slices=%u gdr_terrain_tiles=%u",
+		seWriteLine("[TEST] STAT %s gdr_instances=%u gdr_mesh_parts=%u gdr_meshlets=%u gdr_culled_total=%u gdr_culled_frustum=%u gdr_culled_cone=%u gdr_lights=%u gdr_texture_slices=%u gdr_terrain_tiles=%u gdr_opaque_meshlets=%u gdr_foliage_meshlets=%u gdr_terrain_meshlets=%u",
 			name.c_str(), gdr.total_instances, gdr.total_mesh_parts, gdr.total_meshlets, feedback.meshlets_culled_total, feedback.meshlets_cullled_by_frustum, feedback.meshlets_culled_by_cone,
-			gdr.total_lights, gdr.texture_slices, gdr.terrain_tiles);
+			gdr.total_lights, gdr.texture_slices, gdr.terrain_tiles, gdr.bucket_meshlets[GDR_BUCKET_OPAQUE], gdr.bucket_meshlets[GDR_BUCKET_FOLIAGE], gdr.bucket_meshlets[GDR_BUCKET_TERRAIN]);
 		seWriteLine("[TEST] STAT %s ia_vertices=%llu ia_primitives=%llu vs_invocations=%llu gs_invocations=%llu gs_primitives=%llu ps_invocations=%llu cs_invocations=%llu as_invocations=%llu ms_invocations=%llu",
 			name.c_str(), s.ia_vertices, s.ia_primitives, s.vs_invocations, s.gs_invocations, s.gs_primitives, s.ps_invocations, s.cs_invocations, s.as_invocations, s.ms_invocations);
 		seWriteLine("[TEST] STAT %s mv_pixels=%u mv_vs=%u mv_ms=%u mv_as=%u mv_ms_prims=%u mv_cull_cone=%u mv_cull_sphere=%u mv_gs_in=%u mv_gs_out=%u",
 			name.c_str(), mv.UAV_INDEX_PIXELS_SHADED, mv.UAV_INDEX_VERTEX_SHADER_INVOCATIONS, mv.UAV_INDEX_MESH_SHADER_INVOCATIONS, mv.UAV_INDEX_AMPLIFICATION_SHADER_INVOCATIONS,
 			mv.UAV_INDEX_MESH_SHADER_PRIM_COUNT, mv.UAV_INDEX_MESH_SHADER_CULL_CONE_COUNT, mv.UAV_INDEX_MESH_SHADER_CULL_SPHERE_COUNT, mv.UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_IN, mv.UAV_INDEX_GEOMETRY_SHADER_TRIANGLES_OUT);
+		if (systems.enable_pbr)
+		{
+			seWriteLine("[TEST] STAT %s %s", name.c_str(), systems.pbr_viewer.get_statistics_line().c_str());
+		}
 		seWriteLine("[TEST] END %s", name.c_str());
 		pending_capture.clear();
 		case_index++;
@@ -269,6 +341,16 @@ void TestRunner::end_frame(Systems& systems, const sg::PipelineStatistics& s)
 			seWriteLine("[TEST] COMPLETE %zu cases", cases.size());
 		}
 		return;
+	}
+	// PBR cases count their frames once the scene has loaded (large scenes take a while)
+	if (systems.enable_pbr && systems.pbr_viewer.is_supported() && !systems.pbr_viewer.is_ready())
+	{
+		const double waited = now_seconds() - case_wait_start;
+		if (waited < 600.0)
+		{
+			return;
+		}
+		error("the PBR scene did not load within 10 minutes");
 	}
 	case_frame++;
 }

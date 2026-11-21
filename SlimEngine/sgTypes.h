@@ -91,7 +91,8 @@ namespace sg
 		Index,
 		Constant,
 		Texture,
-		Upload
+		Upload,
+		AccelerationStructure // Ray tracing acceleration structure storage (create with uav_access; always rests in its own state)
 	};
 
 	enum class ResourceUsageFlags
@@ -429,7 +430,59 @@ namespace sg
 		u32 srv_binding_count = 0;
 		u32 uav_binding_count = 0;
 		u32 sampler_binding_count = 0;
+
+		// Shaders may also index the device's bindless descriptors (Device::allocate_bindless_descriptor). D3D12: the root
+		// signature allows ResourceDescriptorHeap (shader model 6.6). Not implemented by the Vulkan backend yet.
+		bool bindless = false;
 	};
+
+	// Hardware ray tracing (inline ray queries). Implemented by the D3D12 backend; the Vulkan backend reports no support
+	// (Device::supports_raytracing) until it is added.
+	namespace Raytracing
+	{
+		// Triangle geometry of a bottom level acceleration structure. The buffers rest in their shader read state.
+		struct GeometryDesc
+		{
+			Buffer* vertex_buffer = nullptr;
+			u64 vertex_offset = 0;			// Bytes to the first vertex
+			u32 vertex_stride = 0;			// Bytes
+			u32 vertex_count = 0;
+			DXGI_FORMAT vertex_format = DXGI_FORMAT_R32G32B32_FLOAT; // Of the position at the start of each vertex
+			Buffer* index_buffer = nullptr;	// 32 bit indices
+			u64 index_offset = 0;			// Bytes to the first index
+			u32 index_count = 0;
+			bool opaque = true;				// false: ray queries see candidate hits (alpha testing)
+		};
+
+		// One instance of a top level acceleration structure: the layout of D3D12_RAYTRACING_INSTANCE_DESC (and
+		// VkAccelerationStructureInstanceKHR), written by the application into a buffer
+		struct InstanceDesc
+		{
+			float transform[3][4];			// Object to world, row major 3x4
+			u32 instance_id : 24;			// InstanceID() in shaders
+			u32 instance_mask : 8;
+			u32 contribution_to_hit_group : 24;
+			u32 flags : 8;					// InstanceFlags
+			u64 acceleration_structure;		// Device::get_gpu_address of the bottom level structure
+		};
+		static_assert(sizeof(InstanceDesc) == 64, "Must match the API instance layout");
+
+		enum InstanceFlags : u32
+		{
+			InstanceFlagNone = 0,
+			InstanceFlagTriangleCullDisable = 1,
+			InstanceFlagTriangleFrontCounterClockwise = 2,
+			InstanceFlagForceOpaque = 4,
+			InstanceFlagForceNonOpaque = 8,
+		};
+
+		// Sizes of an acceleration structure and of the scratch memory its build needs
+		struct PrebuildInfo
+		{
+			u64 result_size = 0;
+			u64 scratch_size = 0;
+		};
+	}
 
 	using CBVBinding = u32;
 	using SRVBinding = u32;

@@ -1,0 +1,79 @@
+[
+  {
+    "platforms": [ "PC_DXC" ],
+    "input_file": "PBRViewer/pbrGeometry.hlsl",
+    "shaders": [
+      { "profile": "cs_6_6", "entrypoint": "cull_instances", "name": "PBR_CullInstances" },
+      { "profile": "cs_6_6", "entrypoint": "build_draw_arguments", "name": "PBR_BuildDrawArguments" },
+      { "profile": "as_6_6", "entrypoint": "as_main", "name": "PBR_Amplification" },
+      { "profile": "ms_6_6", "entrypoint": "ms_main", "name": "PBR_Mesh" },
+      { "profile": "ms_6_6", "entrypoint": "ms_main", "defines": [ "PBR_SHADER_MASKED" ], "name": "PBR_MeshMasked" },
+      { "profile": "ps_6_6", "entrypoint": "ps_main", "name": "PBR_Visibility" },
+      { "profile": "ps_6_6", "entrypoint": "ps_main", "defines": [ "PBR_SHADER_MASKED" ], "name": "PBR_VisibilityMasked" },
+      { "profile": "cs_6_6", "entrypoint": "build_hzb_first", "name": "PBR_BuildHZBFirst" },
+      { "profile": "cs_6_6", "entrypoint": "build_hzb_down", "name": "PBR_BuildHZBDown" }
+    ]
+  },
+  {
+    "platforms": [ "PC_DXC" ],
+    "input_file": "PBRViewer/pbrAlphaAnalysis.hlsl",
+    "shaders": [
+      { "profile": "cs_6_6", "entrypoint": "analyse_alpha", "name": "PBR_AlphaAnalysis" }
+    ]
+  },
+  {
+    "platforms": [ "PC_DXC" ],
+    "input_file": "PBRViewer/pbrResolve.hlsl",
+    "shaders": [
+      { "profile": "cs_6_6", "entrypoint": "resolve", "name": "PBR_Resolve" }
+    ]
+  },
+  {
+    "platforms": [ "PC_DXC" ],
+    "input_file": "PBRViewer/pbrSky.hlsl",
+    "shaders": [
+      { "profile": "cs_6_6", "entrypoint": "sky", "name": "PBR_Sky" },
+      { "profile": "cs_6_6", "entrypoint": "multiple_scattering", "name": "PBR_SkyMultipleScattering" }
+    ]
+  },
+  {
+    "platforms": [ "PC_DXC" ],
+    "input_file": "PBRViewer/pbrLighting.hlsl",
+    "shaders": [
+      { "profile": "cs_6_6", "entrypoint": "lighting", "name": "PBR_Lighting" },
+      { "profile": "cs_6_6", "entrypoint": "radiance_cache_resolve", "name": "PBR_RadianceCacheResolve" }
+    ]
+  },
+  {
+    "platforms": [ "PC_DXC" ],
+    "input_file": "PBRViewer/pbrDenoise.hlsl",
+    "shaders": [
+      { "profile": "cs_6_6", "entrypoint": "temporal", "name": "PBR_DenoiseTemporal" },
+      { "profile": "cs_6_6", "entrypoint": "variance", "name": "PBR_DenoiseVariance" },
+      { "profile": "cs_6_6", "entrypoint": "atrous", "name": "PBR_DenoiseAtrous" }
+    ]
+  },
+  {
+    "platforms": [ "PC_DXC" ],
+    "input_file": "PBRViewer/pbrComposite.hlsl",
+    "shaders": [
+      { "profile": "cs_6_6", "entrypoint": "composite", "name": "PBR_Composite" }
+    ]
+  },
+  {
+    "platforms": [ "PC_DXC" ],
+    "input_file": "PBRViewer/pbrPost.hlsl",
+    "shaders": [
+      { "profile": "cs_6_6", "entrypoint": "taa", "name": "PBR_TAA" },
+      { "profile": "cs_6_6", "entrypoint": "histogram", "name": "PBR_Histogram" },
+      { "profile": "cs_6_6", "entrypoint": "tonemap", "name": "PBR_Tonemap" }
+    ]
+  },
+  {
+    "platforms": [ "PC_DXC" ],
+    "input_file": "PBRViewer/pbrPathTrace.hlsl",
+    "shaders": [
+      { "profile": "cs_6_6", "entrypoint": "path_trace", "name": "PBR_PathTrace" }
+    ]
+  }
+]

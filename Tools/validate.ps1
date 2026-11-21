@@ -77,7 +77,7 @@ $IssuePattern = '^\[(Vulkan|D3D12) (ERROR|WARNING|CORRUPTION)\]|^Assert:'
 
 # Statistics compared between the backends: exact, or within a relative tolerance (plus a small absolute slack for
 # counts that rasterisation or floating point differences between the shader compilers can nudge)
-$ExactStats = @("gdr_instances", "gdr_mesh_parts", "gdr_meshlets", "gdr_lights", "gdr_texture_slices", "gdr_terrain_tiles", "ia_vertices", "ia_primitives")
+$ExactStats = @("gdr_instances", "gdr_mesh_parts", "gdr_meshlets", "gdr_lights", "gdr_texture_slices", "gdr_terrain_tiles", "gdr_opaque_meshlets", "gdr_foliage_meshlets", "gdr_terrain_meshlets", "ia_vertices", "ia_primitives")
 $TolerantStats = @("gdr_culled_total", "gdr_culled_frustum", "gdr_culled_cone", "cs_invocations", "as_invocations", "ms_invocations",
     "ps_invocations", "gs_invocations", "gs_primitives", "mv_pixels", "mv_ms", "mv_as", "mv_ms_prims", "mv_cull_cone", "mv_cull_sphere", "mv_gs_in", "mv_gs_out")
 $StatTolerance = 0.02
@@ -214,6 +214,8 @@ function Get-PlanCases([string]$PlanPath)
     $plan = Get-Content -LiteralPath $PlanPath -Raw | ConvertFrom-Json
     $defaultNondeterministic = $false
     if ($plan.defaults -and $plan.defaults.nondeterministic) { $defaultNondeterministic = [bool]$plan.defaults.nondeterministic }
+    $defaultBackends = @("D3D12", "Vulkan")
+    if ($plan.defaults -and $null -ne $plan.defaults.backends) { $defaultBackends = @($plan.defaults.backends) }
     $list = @()
     foreach ($case in $plan.cases)
     {
@@ -223,7 +225,10 @@ function Get-PlanCases([string]$PlanPath)
         # discard, which stops early depth rejection) are not compared; its images and other statistics still are
         $timingDependent = @()
         if ($null -ne $case.timing_dependent_stats) { $timingDependent = @($case.timing_dependent_stats) }
-        $list += [pscustomobject]@{ Name = $case.name; Nondeterministic = $nondeterministic; TimingDependentStats = $timingDependent }
+        # Backends the case runs on (features one backend does not implement yet); the others log it as skipped
+        $caseBackends = $defaultBackends
+        if ($null -ne $case.backends) { $caseBackends = @($case.backends) }
+        $list += [pscustomobject]@{ Name = $case.name; Nondeterministic = $nondeterministic; TimingDependentStats = $timingDependent; Backends = $caseBackends }
     }
     return $list
 }
@@ -292,9 +297,11 @@ function Invoke-TestSession([string]$Backend, [string]$Exe, $Pass, [string]$Plan
     $caseIssues = @{}
     $stats = @{}
     $completed = @{}
+    $skipped = @{}
     $current = "(startup)"
     foreach ($line in $lines)
     {
+        if ($line -match '^\[TEST\] SKIP (\S+)') { $skipped[$Matches[1]] = $true; continue }
         if ($line -match '^\[TEST\] BEGIN (\S+)') { $current = $Matches[1]; continue }
         if ($line -match '^\[TEST\] END (\S+)') { $completed[$Matches[1]] = $true; $current = "(between cases)"; continue }
         if ($line -match '^\[TEST\] STAT (\S+) (.*)$')
@@ -317,8 +324,16 @@ function Invoke-TestSession([string]$Backend, [string]$Exe, $Pass, [string]$Plan
     }
 
     $failedCases = 0
+    $ranCases = 0
     foreach ($case in $PlanCases)
     {
+        if ($case.Backends -notcontains $Backend)
+        {
+            if (-not $skipped.ContainsKey($case.Name)) { Add-Failure "$label/$($case.Name): should have been skipped (it does not run on $Backend)" }
+            $Results.Add([pscustomobject]@{ Backend = $Backend; Pass = $Pass.Name; Case = $case.Name; Status = "SKIP"; Issues = 0 })
+            continue
+        }
+        $ranCases++
         $problems = @()
         if (-not $completed.ContainsKey($case.Name)) { $problems += "did not run to completion" }
         foreach ($suffix in "_final.png", "_output.png", "_backbuffer.png")
@@ -344,7 +359,7 @@ function Invoke-TestSession([string]$Backend, [string]$Exe, $Pass, [string]$Plan
     foreach ($problem in $sessionProblems) { Add-Failure "$label session: $problem (log: $log)" }
 
     $color = if ($failedCases -eq 0 -and $sessionProblems.Count -eq 0) { "Green" } else { "Red" }
-    Write-Host ("  {0}: {1} cases, {2} failed, {3}s" -f $label, $PlanCases.Count, $failedCases, $seconds) -ForegroundColor $color
+    Write-Host ("  {0}: {1} cases, {2} failed, {3}s" -f $label, $ranCases, $failedCases, $seconds) -ForegroundColor $color
     return $stats
 }
 
@@ -513,8 +528,10 @@ Write-Step "Summary"
 if ($Results.Count -gt 0)
 {
     $Results | Group-Object Backend, Pass | ForEach-Object {
-        $failed = @($_.Group | Where-Object { $_.Status -ne "PASS" }).Count
-        Write-Host ("  {0,-24} {1,3} cases, {2,3} failed" -f $_.Name, $_.Count, $failed) -ForegroundColor $(if ($failed -eq 0) { "Green" } else { "Red" })
+        $failed = @($_.Group | Where-Object { $_.Status -eq "FAIL" }).Count
+        $skippedCount = @($_.Group | Where-Object { $_.Status -eq "SKIP" }).Count
+        $ran = $_.Count - $skippedCount
+        Write-Host ("  {0,-24} {1,3} cases, {2,3} failed{3}" -f $_.Name, $ran, $failed, $(if ($skippedCount -gt 0) { ", $skippedCount skipped (other backend only)" } else { "" })) -ForegroundColor $(if ($failed -eq 0) { "Green" } else { "Red" })
     }
 }
 if (-not $SkipBuild -and $Backends.Count -gt 0)

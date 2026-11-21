@@ -57,7 +57,7 @@ void CameraTrackPlayer::imgui()
 	ImGui::PushID("CameraTrack");
 	if (!has_track())
 	{
-		ImGui::TextUnformatted("The loaded GDR scene has no camera track");
+		ImGui::TextUnformatted("The scene has no camera track (GDR scenes: \"camera_track\" in the scene file; PBR viewer: its Camera Track header)");
 	}
 	else
 	{

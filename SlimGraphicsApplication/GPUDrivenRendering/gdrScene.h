@@ -143,12 +143,11 @@ namespace gdr
 		GPUBuffer<ShaderStructs::TerrainData> terrain_data;
 		GPUBuffer<float> terrain_heights;			// Height grids of every terrain (TerrainData::height_offset)
 		MaterialTextures material_textures;			// Texture array slices referenced by material_data
-		bool has_alpha_test = false;				// Any material is alpha tested (selects the pixel shader with discard)
 
 		// GPU Write Only Buffers
 		GPUBuffer<ShaderStructs::PerInstanceProcessingData_Output> gpu_pre_process_instances_output;
-		GPUBuffer<std::array<sg::u32, 4>> atomic_counter;
-		GPUBuffer<std::array<sg::u32, 4>> indirect_arguments;
+		GPUBuffer<std::array<sg::u32, 4>> atomic_counter;		// x = visible meshlets of each render bucket
+		GPUBuffer<std::array<sg::u32, 4>> indirect_arguments;	// DispatchMesh arguments of each render bucket
 
 		// Record of all loaded models
 		struct ModelData
@@ -159,6 +158,7 @@ namespace gdr
 			struct MeshPart
 			{
 				sg::u32 material_index = 0;
+				sg::u32 bucket = GDR_BUCKET_OPAQUE;		// Render bucket of the part's material (bucket_of_material)
 				sg::u32 vertex_data_offset = 0;
 				sg::u32 meshlet_data_offset = 0;
 				sg::u32 meshlet_vertex_index_offset = 0;
@@ -253,6 +253,7 @@ namespace gdr
 			sg::u32 total_lights;
 			sg::u32 texture_slices;
 			sg::u32 terrain_tiles;		// Terrain meshlets per frame (over all terrain instances)
+			sg::u32 bucket_meshlets[GDR_BUCKET_COUNT]; // Meshlets submitted to culling per render bucket
 
 			ShaderStructs::DebugFeedbackData raw_feedback_data = {};
 		};
@@ -290,8 +291,18 @@ namespace gdr
 			sg::u32 count;
 			sg::u32 meshlet_offset;
 			sg::u32 meshlets_per_instance;
+			sg::u32 bucket;
 		};
 		std::vector<PerInstanceRenderInfo> per_instance_render_list;
+
+		// Each render bucket owns a region of the visible meshlet list (gpu_pre_process_instances_output) sized for every
+		// meshlet that could be visible, rounded up to a power of two so the region can be sorted on its own
+		struct BucketRegion
+		{
+			sg::u32 offset = 0;
+			sg::u32 size = 0;			// 0 when the bucket has no meshlets this frame
+		};
+		BucketRegion bucket_regions[GDR_BUCKET_COUNT];
 
 		sg::SharedPtr<sg::IndirectArguments> mesh_shader_indirect_arguments;
 
@@ -304,8 +315,7 @@ namespace gdr
 			enum Type { Default, Debug, Count };
 			sg::SharedPtr<sg::Pipeline> per_instance_compute_pipeline;
 			sg::SharedPtr<sg::Pipeline> build_indirect_arguments_pipeline;
-			sg::SharedPtr<sg::Pipeline> mesh_render_pipeline;
-			sg::SharedPtr<sg::Pipeline> mesh_render_pipeline_alpha_test; // Pixel shader variant with discard
+			sg::SharedPtr<sg::Pipeline> mesh_render_pipelines[GDR_BUCKET_COUNT]; // Pipeline state and shaders of each render bucket
 		};
 		Pipelines pipelines[Pipelines::Type::Count];
 
@@ -324,6 +334,7 @@ namespace gdr
 			bool depth_write = true;
 			int cull_mode = (int) sg::Rasterizer::CullMode::Back;
 			int depth_comparison = (int) sg::ComparisonFunction::LessEqual;
+			bool render_bucket[GDR_BUCKET_COUNT] = { true, true, true }; // Debug: skip a bucket's indirect call
 		} render_options = {};
 
 		Statistics statistics = {};

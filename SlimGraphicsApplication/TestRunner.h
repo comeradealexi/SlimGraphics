@@ -11,6 +11,7 @@ class PostProcess;
 class MagnifyingGlass;
 class DebugDraw;
 namespace gdr { class Scene; }
+namespace pbr { class Renderer; }
 
 // Runs a test plan inside one application session (-test_plan=PATH -test_output=DIR). A plan is a JSON object with
 // "defaults" and a list of "cases"; each case is merged over the defaults (so every case fully describes its state and
@@ -35,6 +36,8 @@ public:
 		bool& enable_model_viewer;
 		bool& enable_gdr;
 		float& depth_clear_value;
+		pbr::Renderer& pbr_viewer;
+		bool& enable_pbr;
 	};
 
 	bool load(const std::string& plan_path, const std::string& output_dir);
@@ -57,6 +60,8 @@ private:
 	void start_case(Systems& systems);
 	void apply_camera(Systems& systems) const;
 	void error(const std::string& message);
+	// Whether the current case runs on this backend ("backends": features one backend does not implement yet)
+	bool case_runs_here() const;
 
 	bool active = false;
 	std::string output_dir;
@@ -64,6 +69,7 @@ private:
 	size_t case_index = 0;
 	int case_frame = -1; // Frame within the current case (-1 = not started)
 	int case_frames = 0;
+	double case_wait_start = 0.0;	// When the case started waiting for its PBR scene to load (seconds)
 	std::string current_gdr_scene;
 	std::string pending_capture;
 };

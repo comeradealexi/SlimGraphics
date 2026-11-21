@@ -30,8 +30,8 @@ cbuffer GlobalMergeParams : register(b0)
 {
     uint Iter_K; // subsequence size for this pass (2, 4, 8, ... up to N)
     uint Iter_J; // half-subsequence (k >> 1)
-    uint pad3;
-    uint pad4;
+    uint ElementOffset; // First element of the sorted region (each render bucket's region is sorted separately)
+    uint CounterIndex;  // AtomicCounter element holding the region's element count
 }
 
 // ---------- groupshared memory ----------
@@ -67,9 +67,9 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
 
     // Load into shared memory (guard out-of-range)
     PerInstanceProcessingData_Output key_value;
-    if (idx < AtomicCounter[0].x)
+    if (idx < AtomicCounter[CounterIndex].x)
     {
-        key_value = InputBuffer[idx];
+        key_value = InputBuffer[ElementOffset + idx];
     }
     else
     {
@@ -137,7 +137,7 @@ void LocalTileSortCS(uint3 DTid : SV_DispatchThreadID,
     // Write back
     //if (idx < AtomicCounter[0])
     {
-        InputBuffer[idx] = s_data[group_index];
+        InputBuffer[ElementOffset + idx] = s_data[group_index];
     }
 }
 
@@ -156,8 +156,8 @@ void GlobalMergeCS(uint3 DTid : SV_DispatchThreadID, uint3 GTid : SV_GroupThread
         uint index_a = local_index;
         uint index_b = index_a ^ Iter_J;
         
-        index_a += inner_offset + outer_offset;
-        index_b += inner_offset + outer_offset;     
+        index_a += inner_offset + outer_offset + ElementOffset;
+        index_b += inner_offset + outer_offset + ElementOffset;
         
         PerInstanceProcessingData_Output A = InputBuffer[index_a];
         PerInstanceProcessingData_Output B = InputBuffer[index_b];

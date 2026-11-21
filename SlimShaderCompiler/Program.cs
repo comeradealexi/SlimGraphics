@@ -54,6 +54,10 @@ namespace SlimShaderCompiler
 
         public string working_directory { get; set; }
 
+        // Platforms (Platform names) the shader is compiled for; null (the default, inherited from the parent) means all.
+        // Used for shaders whose features only one backend implements yet (e.g. D3D12 ray queries and bindless heaps).
+        public List<string> platforms { get; set; }
+
         // We compile each without any extra variant defines, then one version with each variant define
         [Attribute_Append]
         public List<VariantDefine> variant_defines { get; set; } = new List<VariantDefine>();
@@ -222,6 +226,12 @@ namespace SlimShaderCompiler
             if (SanityCheckShaders(ref shaders) == false)
             {
                 return -1;
+            }
+
+            int skipped = shaders.RemoveAll(s => s.platforms != null && !s.platforms.Contains(platform.ToString()));
+            if (skipped > 0)
+            {
+                Console.WriteLine("Skipped {0} shaders not built for {1}", skipped, platform);
             }
 
             CompileArguments compile_args;

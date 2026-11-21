@@ -1352,7 +1352,13 @@ namespace sg
 			}
 
 			CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-			rootSignatureDesc.Init_1_1(parameter_index, rootParameters, 0, nullptr, compute ? D3D12_ROOT_SIGNATURE_FLAG_NONE : D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+			D3D12_ROOT_SIGNATURE_FLAGS root_flags = compute ? D3D12_ROOT_SIGNATURE_FLAG_NONE : D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+			if (binding_desc.bindless)
+			{
+				// Shader model 6.6 ResourceDescriptorHeap indexing of the bindless descriptors at the start of the command list heap
+				root_flags |= D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
+			}
+			rootSignatureDesc.Init_1_1(parameter_index, rootParameters, 0, nullptr, root_flags);
 
 			ComPtr<ID3DBlob> signature;
 			ComPtr<ID3DBlob> error;

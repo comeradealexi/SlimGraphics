@@ -51,7 +51,19 @@ namespace sg
 
 			void dispatch(u32 x = 1, u32 y = 1, u32 z = 1);
 			void dispatch_mesh(u32 x = 1, u32 y = 1, u32 z = 1);
-			void execute_indirect(IndirectArguments& indirect_argument);
+			// argument_offset: byte offset of the arguments in the indirect buffer (a multiple of 4)
+			void execute_indirect(IndirectArguments& indirect_argument, u64 argument_offset = 0);
+
+			// Ray tracing acceleration structure builds. 'dest' is a BufferType::AccelerationStructure buffer of at least the
+			// prebuild result size (from dest_offset, a multiple of 256, so many structures can share a buffer), 'scratch' a
+			// GeneralDataBuffer with UAV access of at least the scratch size. The build is followed by a UAV barrier, so later
+			// builds and ray queries see it.
+			void build_bottom_level_acceleration_structure(const Raytracing::GeometryDesc* geometries, u32 geometry_count, Buffer* dest, Buffer* scratch, u64 dest_offset = 0);
+			// 'instances' holds instance_count Raytracing::InstanceDesc and rests in its read state
+			void build_top_level_acceleration_structure(Buffer* instances, u32 instance_count, Buffer* dest, Buffer* scratch);
+
+			// Clears a texture UAV (all of the view's mip) to a value, e.g. history and accumulation targets
+			void clear_texture_float(UnorderedAccessView& uav, float4 value);
 
 			void clear_buffer_float(UnorderedAccessView& uav, ShaderResourceView& srv, float value);
 			void clear_buffer_uint(UnorderedAccessView& uav, ShaderResourceView& srv, sg::u32 value);
@@ -70,6 +82,9 @@ namespace sg
 
 		private:
 			void flush_bound_uavs();
+			// Copies the device's bindless descriptors to the start of the heap when they changed since the last copy
+			// (descriptors allocated while recording must be visible to the work recorded after them)
+			void refresh_bindless_descriptors();
 			void ensure_bindings_valid();
 			D3D12_RESOURCE_STATES get_current_state(Buffer* buffer);
 			void transition(Buffer* buffer, D3D12_RESOURCE_STATES before, D3D12_RESOURCE_STATES after);
@@ -81,6 +96,7 @@ namespace sg
 			u32 descriptor_heap_index = 0;
 			u32 descriptor_heap_increment = 0;
 			u32 descriptor_heap_maximum = 0;
+			u32 bindless_copied_version = ~0u;
 
 			ComPtr<ID3D12DescriptorHeap> non_shader_descriptor_heap;
 

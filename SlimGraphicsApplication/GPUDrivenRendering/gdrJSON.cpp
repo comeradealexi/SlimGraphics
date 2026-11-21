@@ -127,6 +127,30 @@ namespace gdr
 		return true;
 	}
 
+	bool load_camera_track(const char* file_path, CameraTrack& track)
+	{
+		std::vector<uint8_t> file_data = se::BasicFileIO::load_file(file_path);
+		if (file_data.size() == 0)
+			return false;
+		const nlohmann::json j = nlohmann::json::parse(file_data, nullptr, /*allow_exceptions*/ false);
+		if (j.is_discarded() || !is_valid_camera_track_json(j))
+		{
+			seWriteLine("Failed to parse camera track %s", file_path);
+			return false;
+		}
+		track = j.get<CameraTrack>();
+		return true;
+	}
+
+	bool save_camera_track(const CameraTrack& track, const char* file_path)
+	{
+		std::ofstream os(file_path, std::ios::out | std::ios::trunc);
+		if (!os.good())
+			return false;
+		os << nlohmann::json(track).dump(1, '\t') << "\n";
+		return os.good();
+	}
+
 	bool deserialise(SceneNode& node, SceneProperties& properties, const char* file_path)
 	{
 		std::vector<uint8_t> file_data = se::BasicFileIO::load_file(file_path);

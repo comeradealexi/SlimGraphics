@@ -29,7 +29,10 @@ namespace gdr
 		};
 
 		GPUSort(sg::SharedPtr<sg::Device>& device);
-		void sort(sg::CommandList& command_list, SimpleLinearConstantBuffer& cbuffer, sg::UnorderedAccessView& array_to_sort, sg::UnorderedAccessView& array_size, sg::u32 maximum_elements, SortDirection sort_direction);
+		// Sorts maximum_elements (a power of two) elements of array_to_sort starting at element_offset. Elements at or beyond
+		// the count in array_size[counter_index].x are treated as empty and sort to the end.
+		void sort(sg::CommandList& command_list, SimpleLinearConstantBuffer& cbuffer, sg::UnorderedAccessView& array_to_sort, sg::UnorderedAccessView& array_size, sg::u32 maximum_elements, SortDirection sort_direction,
+			sg::u32 element_offset = 0, sg::u32 counter_index = 0);
 
 	private:
 

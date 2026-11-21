@@ -291,7 +291,7 @@ namespace sg
 			mark_uavs_written();
 		}
 
-		void CommandList::execute_indirect(IndirectArguments& indirect_argument)
+		void CommandList::execute_indirect(IndirectArguments& indirect_argument, u64 argument_offset)
 		{
 			// Only used for indirect DispatchMesh (see Device::create_indirect_arguments). The arguments are usually written by
 			// a compute shader, so pending UAV writes are always made visible (unlike other draws inside a pass).
@@ -301,7 +301,7 @@ namespace sg
 			transition(buffer, state, ResourceState::IndirectArgument);
 			flush_barriers(true);
 			prepare_draw(true);
-			command_buffer.drawMeshTasksIndirectEXT(buffer->get(), 0, 1, sizeof(VkDrawMeshTasksIndirectCommandEXT));
+			command_buffer.drawMeshTasksIndirectEXT(buffer->get(), argument_offset, 1, sizeof(VkDrawMeshTasksIndirectCommandEXT));
 			transition(buffer, ResourceState::IndirectArgument, state);
 			mark_uavs_written();
 		}
@@ -332,6 +332,23 @@ namespace sg
 			command_buffer.fillBuffer(buffer->get(), 0, size, value);
 
 			transition(buffer, ResourceState::CopyDest, state);
+		}
+
+		void CommandList::clear_texture_float(UnorderedAccessView& uav, float4 value)
+		{
+			seAssert(uav.texture_resource, "clear_texture_float requires a texture UAV");
+			Texture* texture = uav.texture_resource.get();
+			retain(uav.texture_resource);
+
+			const ResourceState state = get_current_state(texture);
+			transition(texture, state, ResourceState::CopyDest);
+			prepare_transfer();
+
+			const vk::ClearColorValue colour(std::array<float, 4>{ value[0], value[1], value[2], value[3] });
+			const vk::ImageSubresourceRange range(texture->get_aspect(), uav.mip_level, 1, 0, texture->get_layer_count());
+			command_buffer.clearColorImage(texture->get(), vk::ImageLayout::eTransferDstOptimal, colour, range);
+
+			transition(texture, ResourceState::CopyDest, state);
 		}
 
 		void CommandList::copy_buffer_to_buffer(Buffer* dest, Buffer* source)

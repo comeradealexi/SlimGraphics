@@ -101,6 +101,10 @@ namespace sg
 			case BufferType::Texture:
 				state = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 				break;
+			case BufferType::AccelerationStructure:
+				// Acceleration structures never leave this state; builds are ordered with UAV barriers
+				state = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
+				break;
 			default:
 				seAssert(false, "Missing case statement");
 				break;

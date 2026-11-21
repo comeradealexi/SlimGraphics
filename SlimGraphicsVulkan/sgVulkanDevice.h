@@ -94,6 +94,18 @@ namespace sg
 			VertexBufferView create_vertex_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, u64 stride);
 			IndexBufferView create_index_buffer_view(SharedPtr<Buffer> buffer, u64 offset, u64 size, DXGI_FORMAT format);
 
+			// Ray tracing and bindless descriptors: not implemented by the Vulkan backend yet (see sgTypes.h Raytracing). Callers
+			// check supports_raytracing() first; the rest only exist so application code builds for both backends.
+			bool supports_raytracing() const { return false; }
+			Raytracing::PrebuildInfo get_bottom_level_prebuild_info(const Raytracing::GeometryDesc*, u32) { seAssert(false, "Vulkan ray tracing is not implemented"); return {}; }
+			Raytracing::PrebuildInfo get_top_level_prebuild_info(u32) { seAssert(false, "Vulkan ray tracing is not implemented"); return {}; }
+			u64 get_gpu_address(Buffer*) { seAssert(false, "Vulkan ray tracing is not implemented"); return 0; }
+			ShaderResourceView create_acceleration_structure_view(SharedPtr<Buffer> buffer);
+			static constexpr u32 BINDLESS_DESCRIPTOR_COUNT = 0;
+			static constexpr u32 INVALID_BINDLESS_DESCRIPTOR = ~0u;
+			u32 allocate_bindless_descriptor(ShaderResourceView&) { seAssert(false, "Vulkan bindless descriptors are not implemented"); return INVALID_BINDLESS_DESCRIPTOR; }
+			void free_bindless_descriptor(u32) {}
+
 			//Support checks
 			bool SupportsMeshShaders() const { return mesh_shaders_supported; }
 			size_t GetMeshShaderMaxNumThreads() { return 128; };

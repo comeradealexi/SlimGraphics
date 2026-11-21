@@ -259,7 +259,13 @@ namespace gdr
 		d.texture_opacity_index = slice_of(aiTextureType_OPACITY);
 		if (d.texture_opacity_index != GDR_NO_TEXTURE || textures.has_cutout_alpha(d.texture_diffuse_index))
 		{
-			d.flags |= GDR_MATERIAL_ALPHA_TEST;
+			// Cut outs are foliage and cards, seen from both sides
+			d.flags |= GDR_MATERIAL_ALPHA_TEST | GDR_MATERIAL_DOUBLE_SIDED;
+		}
+		int two_sided = 0;
+		if (material.Get(AI_MATKEY_TWOSIDED, two_sided) == aiReturn_SUCCESS && two_sided != 0)
+		{
+			d.flags |= GDR_MATERIAL_DOUBLE_SIDED;
 		}
 		return d;
 	}
